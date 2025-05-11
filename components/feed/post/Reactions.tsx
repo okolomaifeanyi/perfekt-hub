@@ -3,36 +3,36 @@ import { Button } from "@/components/ui/button";
 import { ReactionProps } from "@/lib/types";
 import {
   Heart,
-  // MessageCircleMore,
+  MessageCircleMore,
   // Repeat2,
-  Share,
+  // Share,
   ThumbsDown,
-  // View,
+  View,
 } from "lucide-react";
 
-const Reactions = ({ reactions }: { reactions: ReactionProps }) => {
+const Reactions = ({ reactions, views }: { reactions: ReactionProps, views: number }) => {
   return (
     <div className="flex justify-between items-center mt-2">
-      <div className="flex space-x-2 items-center">
-        <Button variant="outline" title="Like">
+      <div className="flex space-x-2 items-center mx-auto">
+        <Button size="sm" variant="outline" title="Like">
           <Heart /> <span>{reactions?.likes}</span>
         </Button>
-        <Button variant="outline" title="dislike">
+        <Button size="sm" variant="outline" title="dislike">
           <ThumbsDown /> <span>{reactions?.dislikes}</span>
         </Button>
-        {/* <Button variant="outline" title="views">
-          <View /> <span>{reactions?.views}</span>
-        </Button> */}
-        {/* <Button variant="outline" title="Comment" size="icon">
-          <MessageCircleMore /> <span>{post.likes}</span>
-        </Button> */}
+        <Button size="sm" variant="outline" title="views">
+          <View /> <span>{views}</span>
+        </Button>
+        <Button size="sm" variant="outline" title="Comment">
+          <MessageCircleMore />
+        </Button>
         {/* <Button variant="outline" title="Repost" size="icon">
           <Repeat2 /> <span>{post.likes}</span>
           </Button> */}
       </div>
-      <Button variant="outline" title="Share">
+      {/* <Button size="sm" variant="outline" title="Share">
         <Share />
-      </Button>
+      </Button> */}
       {/* <Muted className="text-xs">2 hours ago</Muted> */}
     </div>
   );

@@ -22,6 +22,7 @@ export interface PostProps {
   tags: string[];
   user?: UserProps;
   reactions?: ReactionProps;
+  views: number;
 }
 
 export interface EmojiProps {

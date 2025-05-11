@@ -8,11 +8,11 @@ import { PostProps } from "@/lib/types";
 import Name from "./Name";
 
 const Post: React.FC<PostProps> = props => {
-  const { id, body, userId, user, reactions } = props;
+  const { id, body, userId, user, reactions, views } = props;
 
   return (
     <li key={id}>
-      <Card className="p-4">
+      <Card className="p-2">
         <div className="flex justify-between items-center">
           <div className="flex space-x-2 items-center">
             <MyAvatar
@@ -38,7 +38,7 @@ const Post: React.FC<PostProps> = props => {
           className="w-full h-[250px] object-cover"
         />
 
-        {reactions && <Reactions reactions={reactions} />}
+        {reactions && <Reactions reactions={reactions} views={views} />}
       </Card>
     </li>
   );
