@@ -1,20 +1,22 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
-export const brandName = "Perfekt Mart"
+interface EmojiData {
+  // Define the structure of the emoji data here
+  [key: string]: string | number | boolean | null | undefined; // Replace with specific types as needed
+}
 
-export const authorUrl = "ifeanyiokoloma.com.ng";
+let emojiDataPromise: Promise<EmojiData> | null = null;
 
-export const appWebsite = "perfektmart.com.ng";
-
-export const siteName = "Perfekt Mart";
-
-export const siteUserName = "perfektmart";
-
-export const phone = "+2349014967299";
-
-export const email = "ifeanyiokoloma@gmail.com";
+export function loadEmojiData() {
+  if (!emojiDataPromise) {
+    emojiDataPromise = fetch(
+      "https://cdn.jsdelivr.net/npm/@emoji-mart/data"
+    ).then(res => res.json());
+  }
+  return emojiDataPromise;
+}
