@@ -40,7 +40,9 @@ export default function GifPicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" title="Add GIF">GIF</Button>
+        <Button size="sm" variant="outline" title="Add GIF">
+          GIF
+        </Button>
       </DialogTrigger>
       <DialogContent className="w-auto h-[80vh] overflow-y-auto">
         <DialogTitle>Pick GIF</DialogTitle>

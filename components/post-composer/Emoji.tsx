@@ -18,7 +18,7 @@ const Emoji = ({ onSelect }: { onSelect: (emoji: EmojiProps) => void }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" title="Add Emoji">
+        <Button size="sm" variant="outline" title="Add Emoji">
           <Smile />
         </Button>
       </DropdownMenuTrigger>

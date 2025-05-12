@@ -23,7 +23,7 @@ const Post: React.FC<PostProps> = props => {
             {user && <Name user={user} />}
           </div>
 
-          <Button>Follow</Button>
+          <Button size="sm">Follow</Button>
         </div>
 
         <Text text={body} />

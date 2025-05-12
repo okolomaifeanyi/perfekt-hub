@@ -38,7 +38,7 @@ const PostComposer = () => {
               gifDialogOpen={gifDialogOpen}
             />
 
-            <Button>Post</Button>
+            <Button size="sm">Post</Button>
           </div>
         </div>
       </div>
