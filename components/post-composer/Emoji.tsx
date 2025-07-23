@@ -1,30 +1,39 @@
 "use client";
 
-import { loadEmojiData } from "@/lib/utils";
-import Picker from "@emoji-mart/react";
 import { Smile } from "lucide-react";
-import { Button } from "../ui/button";
-import { Suspense, use } from "react";
+
+import { Suspense, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { EmojiProps } from "@/lib/types";
+import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
+import { Button } from "../ui/button";
 
-const Emoji = ({ onSelect }: { onSelect: (emoji: EmojiProps) => void }) => {
-  const data = use(loadEmojiData());
+const Emoji = ({ onSelect }: { onSelect: (emoji: { native: string }) => void }) => {
+  const [open, setOpen] = useState(false);
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    onSelect({ native: emojiData.emoji });
+    setOpen(false);
+  };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button size="sm" variant="outline" title="Add Emoji">
           <Smile />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-auto">
+      <DropdownMenuContent className="w-auto p-0 bg-transparent shadow-none border-none">
         <Suspense fallback={<p>Loading emojis...</p>}>
-          <Picker data={data} theme="auto" onEmojiSelect={onSelect} autoFocus />
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            autoFocusSearch
+            lazyLoadEmojis
+            theme={Theme.AUTO}
+          />
         </Suspense>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -42,6 +42,7 @@ const MediaGallery = ({
                   width={100}
                   height={100}
                   className="w-full h-full object-cover rounded-lg"
+                  unoptimized={item.src.includes("giphy")}
                 />
               ) : (
                 <video

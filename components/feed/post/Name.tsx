@@ -1,17 +1,22 @@
-import { Muted } from '@/components/Typography';
-import { UserProps } from '@/lib/types';
-import React from 'react'
+import { Muted } from "@/components/Typography";
 
-const Name = ({user}: {user: UserProps}) => {
+const Name = ({
+  fullName,
+  username,
+}: {
+  fullName?: string;
+  username: string;
+}) => {
+  
   return (
     <div className="flex flex-col space-y-1 !text-xs">
       <strong className="!mt-0 truncate">
-        {user?.firstName} {user?.lastName}
+        {fullName || username}
       </strong>
 
-      <Muted className="text-xs truncate">@{user?.username}</Muted>
+      <Muted className="text-xs truncate">@{username}</Muted>
     </div>
   );
-}
+};
 
-export default Name
+export default Name;

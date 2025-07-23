@@ -12,7 +12,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Loader2 } from "lucide-react"; // optional: loading spinner icon
+import { Loader2 } from "lucide-react"; 
 
 const gf = new GiphyFetch("qBniB8kfrEg5eiT9jI1Fptu2fLAzz24q");
 
@@ -73,7 +73,7 @@ export default function GifPicker({
                 offset,
                 limit: 10,
               });
-              setLoading(false); // done loading after fetch
+              setLoading(false);
               return res;
             }}
             onGifClick={onSelect}

@@ -120,3 +120,22 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+/* HTML: <div class="loader"></div> */
+.loader {
+  --s: 40px;
+  --g: 5px;  
+  
+  height: calc(var(--s) + var(--g));
+  aspect-ratio: 3;
+  background:
+    radial-gradient(calc(var(--s)/sqrt(2)) at calc(50% - .1*var(--s)) calc(50% - .2*var(--s)),#0000 5%,60%,#111 98%), 
+    linear-gradient(#FE4365 0 0) no-repeat #fff; 
+  background-size: calc(100%/3) 100%;
+  mask: radial-gradient(calc(var(--s)/2),#000 calc(100% - 1px),#0000) 0/calc(100%/3) 100%;
+  animation: l11 steps(3) 1.5s infinite;
+}
+@keyframes l11 {
+  to {background-position:0 ,150%}
+}

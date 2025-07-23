@@ -10,13 +10,12 @@ const Stories = ({ user }: { user: UserProps }) => {
           <Avatar key={index} className="w-16 h-16 m-2">
             <Image
               src={`https://i.pravatar.cc/500?u=${user?.username}`}
-              alt={`${user?.firstName} ${user?.lastName}`}
+              alt={`${user?.username}'s avatar`}
               width={500}
               height={500}
             />
             <AvatarFallback>
-              {user?.firstName[0]}
-              {user?.lastName[0]}
+              {user?.username?.charAt(0).toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
         );

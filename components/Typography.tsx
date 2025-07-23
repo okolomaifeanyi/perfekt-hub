@@ -1,5 +1,11 @@
 import { forwardRef } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+
+interface ListProps extends HTMLAttributes<HTMLUListElement> {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+}
 
 export function H1({ children }: { children: ReactNode }) {
   return (
@@ -39,22 +45,26 @@ interface PProps extends React.HTMLAttributes<HTMLParagraphElement> {
   className?: string;
 }
 
-export const P = forwardRef<HTMLParagraphElement, PProps>(
-  ({ children, className = "", style, ...props }, ref) => {
-    return (
-      <p
-        ref={ref}
-        style={style}
-        className={`leading-7 [&:not(:first-child)]:mt-6 ${className}`}
-        {...props}
-      >
-        {children}
-      </p>
-    );
-  }
-);
+export const P = forwardRef<
+  HTMLParagraphElement,
+  PProps & { compact?: boolean }
+>(({ children, className = "", compact = false, style, ...props }, ref) => {
+  return (
+    <p
+      ref={ref}
+      style={style}
+      className={`leading-7 ${
+        compact ? "mt-0" : "[&:not(:first-child)]:mt-6"
+      } ${className}`}
+      {...props}
+    >
+      {children}
+    </p>
+  );
+});
 
 P.displayName = "P";
+
 
 export function Blockquote({ children }: { children: ReactNode }) {
   return (
@@ -62,19 +72,22 @@ export function Blockquote({ children }: { children: ReactNode }) {
   );
 }
 
-export function List({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <ul className={`${className} my-6 ml-6 list-disc [&>li]:mt-2`}>
-      {children}
-    </ul>
-  );
-}
+export const List = forwardRef<HTMLUListElement, ListProps>(
+  ({ children, className = "", style, ...props }, ref) => {
+    return (
+      <ul
+        ref={ref}
+        style={style}
+        className={`${className} my-6 ml-6 list-disc [&>li]:mt-2`}
+        {...props}
+      >
+        {children}
+      </ul>
+    );
+  }
+);
+
+List.displayName = "List";
 
 export function Lead({ children }: { children: ReactNode }) {
   return <p className="text-xl text-muted-foreground">{children}</p>;

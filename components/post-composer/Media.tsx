@@ -3,15 +3,25 @@ import { Label } from "../ui/label";
 import { ImageIcon } from "lucide-react";
 import { buttonVariants } from "../ui/button";
 import { Input } from "../ui/input";
+import { toast } from "sonner";
 
 export default function Media({
   setMedia,
+  media,
 }: {
   setMedia: React.Dispatch<React.SetStateAction<MediaProps[]>>;
+  media: MediaProps[];
 }) {
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
+    if (media.length > 4) {
+      return toast("Upload failed", {
+        description:
+          "You can upload up to 4 media files in total — videos, images, or GIFs combined.",
+      });
+    }
 
     const previewList: MediaProps[] = [];
 
@@ -22,7 +32,15 @@ export default function Media({
       previewList.push({ file, src, type });
     });
 
-    setMedia((prev) => [...prev, ...previewList]);
+    if (media.length + previewList.length > 4) {
+      toast("Upload failed", {
+        description:
+          "You can upload up to 4 media files in total — videos, images, or GIFs combined.",
+      });
+      return;
+    }
+
+    setMedia(prev => [...prev, ...previewList]);
   };
 
   //   const handleUpload = async () => {

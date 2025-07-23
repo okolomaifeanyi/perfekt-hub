@@ -1,11 +1,19 @@
 import { Dispatch, SetStateAction } from "react";
 
 export interface UserProps {
-  id: number;
-  firstName: string;
-  lastName: string;
-  image: string;
+  uid: string;
+  photoURL?: string;
   username: string;
+  fullName?: string;
+}
+
+export interface CommentProps {
+  id: number;
+  body: string;
+  postId: number;
+  likes: number;
+  photoURL?: string;
+  userId: string;
 }
 
 export interface ReactionProps {
@@ -15,14 +23,19 @@ export interface ReactionProps {
 }
 
 export interface PostProps {
-  id: number;
-  userId: number;
-  title: string;
-  body: string;
-  tags: string[];
-  user?: UserProps;
+  id: string;
+  userId: string;
+  username: string;
+  content: string;
   reactions?: ReactionProps;
-  views: number;
+  views?: number;
+  likes?: number;
+  comments?: CommentProps[];
+  userPhotoURL?: string;
+  userFullName?: string;
+  media?: MediaProps[];
+  parentPostId?: string;
+  createdAt: string;
 }
 
 export interface EmojiProps {
@@ -40,4 +53,5 @@ export interface ButtonsProps {
   setMedia: Dispatch<SetStateAction<MediaProps[]>>;
   setGifDialogOpen: Dispatch<SetStateAction<boolean>>;
   gifDialogOpen: boolean;
+  media: MediaProps[];
 }
