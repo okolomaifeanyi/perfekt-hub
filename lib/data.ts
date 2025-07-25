@@ -10,23 +10,21 @@ import {
   limit as limitFn,
   startAfter,
 } from "firebase/firestore";
-import {
-  PostProps,
-  // UserProps,
-} from "./types";
+import { PostProps, UserProps } from "./types";
 
 // Get a single user
-// async function getUser(userId: string): Promise<UserProps | null> {
-//   const userDoc = await getDoc(doc(db, "users", userId));
-//   return userDoc.exists() ? (userDoc.data() as UserProps) : null;
-// }
+export async function getUser(userId: string): Promise<UserProps | null> {
+  const userDoc = await getDoc(doc(db, "users", userId));
 
-// Get comments for a post
-// async function getComments(postId: string): Promise<CommentProps[]> {
-//   const q = query(collection(db, "comments"), where("postId", "==", postId));
-//   const snapshot = await getDocs(q);
-//   return snapshot.docs.map(doc => doc.data() as CommentProps);
-// }
+  if (!userDoc.exists()) return null
+
+  return {
+    uid: userDoc.id,
+    username: userDoc.data().username,
+    photoURL: userDoc.data().photoURL,
+    fullName: userDoc.data().fullName,
+  };
+}
 
 // Fetch all posts
 export async function getInitialPosts(limit = 10) {
@@ -40,17 +38,17 @@ export async function getInitialPosts(limit = 10) {
   const posts = snapshot.docs.map(doc => {
     const data = doc.data();
     return {
-    id: doc.id,
-    userId: data.userId,
-    content: data.content,
-    media: data.media || [],
-    createdAt: data.createdAt?.toDate().toISOString() ?? null,
-    username: data.username,
-    userFullName: data.userFullName || "",
-    userPhotoURL: data.userPhotoURL,
-    }
+      id: doc.id,
+      userId: data.userId,
+      content: data.content,
+      media: data.media || [],
+      createdAt: data.createdAt?.toDate().toISOString() ?? null,
+      username: data.username,
+      userFullName: data.userFullName || "",
+      userPhotoURL: data.userPhotoURL,
+    };
   }) as PostProps[];
-  
+
   return posts;
 }
 
@@ -81,16 +79,14 @@ export async function getMorePosts(lastDoc: number, limit = 10) {
 }
 
 // Get posts by user
-export async function getInitialUserPosts(
-  userId: string,
-  limit = 10,
-) {
+export async function getInitialUserPosts(userId: string, limit = 10) {
   const q = query(
     collection(db, "posts"),
     where("userId", "==", userId),
     orderBy("createdAt", "desc"),
-    limitFn(limit));
-  
+    limitFn(limit)
+  );
+
   const snapshot = await getDocs(q);
   const posts = snapshot.docs.map(doc => {
     const data = doc.data();
@@ -123,7 +119,7 @@ export async function getPost(postId: string): Promise<PostProps | null> {
     userPhotoURL: data.userPhotoURL,
     parentPostId: data.parentPostId || null,
   } as PostProps;
-  
+
   return post;
 }
 
@@ -138,19 +134,23 @@ export async function getComments(postId: string, limit = 10) {
   return snapshot.docs.map(doc => {
     const data = doc.data();
     return {
-    id: doc.id,
-    userId: data.userId,
-    content: data.content,
-    media: data.media || [],
-    createdAt: data.createdAt?.toDate().toISOString() ?? null,
-    username: data.username,
-    userFullName: data.userFullName || "",
-    userPhotoURL: data.userPhotoURL,
-    }
+      id: doc.id,
+      userId: data.userId,
+      content: data.content,
+      media: data.media || [],
+      createdAt: data.createdAt?.toDate().toISOString() ?? null,
+      username: data.username,
+      userFullName: data.userFullName || "",
+      userPhotoURL: data.userPhotoURL,
+    };
   }) as PostProps[];
 }
 
-export async function getMoreComments(postId: string, limit = 10, lastDoc: number) {
+export async function getMoreComments(
+  postId: string,
+  limit = 10,
+  lastDoc: number
+) {
   const q = query(
     collection(db, "posts"),
     where("parentPostId", "==", postId),
@@ -170,15 +170,15 @@ export async function getMoreComments(postId: string, limit = 10, lastDoc: numbe
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
-      parentId: data.parentId,
-    }
+      parentPostId: data.parentPostId || "",
+    };
   }) as PostProps[];
 }
 
 export async function getMoreUserPosts(
   userId: string,
   lastDoc: number,
-  limit = 10,
+  limit = 10
 ) {
   const q = query(
     collection(db, "posts"),
@@ -206,4 +206,3 @@ export async function getMoreUserPosts(
 
   return posts;
 }
-

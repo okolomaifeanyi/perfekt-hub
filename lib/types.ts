@@ -5,6 +5,8 @@ export interface UserProps {
   photoURL?: string;
   username: string;
   fullName?: string;
+  email?: string;
+  bio?: string;
 }
 
 export interface CommentProps {
@@ -25,7 +27,7 @@ export interface ReactionProps {
 export interface PostProps {
   id: string;
   userId: string;
-  username: string;
+  username?: string;
   content: string;
   reactions?: ReactionProps;
   views?: number;
@@ -36,6 +38,7 @@ export interface PostProps {
   media?: MediaProps[];
   parentPostId?: string;
   createdAt: string;
+  isPinned?: boolean;
 }
 
 export interface EmojiProps {

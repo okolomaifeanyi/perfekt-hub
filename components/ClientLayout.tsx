@@ -1,14 +1,17 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import CompleteProfileModal from "./CompleteProfileModal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { logoutClient } from "@/app/(auth)/lib/utils";
-import { usePathname } from "next/navigation";
 import Loader from "./Loader";
-import { useRouter } from "next/navigation";
+
+import { auth } from "@/lib/firebase"; // client-side Firebase
+import { signInWithCustomToken } from "firebase/auth";
+
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const [showCompleteProfileModal, setShowCompleteProfileModal] =
     useState(false);
@@ -26,7 +29,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    let isMounted = true;
+    const controller = new AbortController();
 
     const checkSession = async () => {
       if (isAuthPage) {
@@ -37,66 +40,77 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       setGlobalLoading(true);
 
       try {
-        const res = await fetch("/api/user-profile");
+        const res = await fetch("/api/user-profile", {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("Not logged in");
 
         const data = await res.json();
-        if (!isMounted) return;
-
         setUser(data);
+
+        // 🔄 Sync Firebase Client Auth
+        if (!auth.currentUser) {
+          try {
+            const tokenRes = await fetch("/api/firebase-token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ uid: data.uid }),
+              signal: controller.signal,
+            });
+
+            if (tokenRes.ok) {
+              const { token } = await tokenRes.json();
+              await signInWithCustomToken(auth, token);
+            } else {
+              console.warn("Failed to get Firebase client token");
+            }
+          } catch (firebaseSyncErr) {
+            console.error("Firebase auth client sync failed", firebaseSyncErr);
+          }
+        }
 
         if (!data.completedProfile) {
           setShowCompleteProfileModal(true);
         }
 
-        // ✅ Fetch suggestions after setting user
+        // 🔁 Fetch suggestions
         try {
-          // console.log("Fetching suggestions for UID:", data.uid);
-          
           const suggestionsRes = await fetch("/api/suggestions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ uid: data.uid }),
+            signal: controller.signal,
           });
-          
 
-          if (!suggestionsRes.ok) {
+          if (suggestionsRes.ok) {
+            const suggestions = await suggestionsRes.json();
+            setSuggestions(suggestions);
+          } else {
             console.warn(
               "Suggestions fetch failed",
               await suggestionsRes.text()
             );
-          } else {
-            const suggestions = await suggestionsRes.json();
-            console.log("Suggestions fetched:", suggestions);
-            setSuggestions(suggestions);
           }
         } catch (e) {
-          console.error("Suggestions fetch crashed:", e);
+          if (e instanceof Error && e.name !== "AbortError") {
+            console.error("Suggestions fetch crashed:", e);
+          }
         }
       } catch (err) {
-        console.error("Session invalid or profile fetch failed:", err);
-        await logoutClient(router);
-        clearUser();
+        if ((err as Error).name !== "AbortError") {
+          console.error("Session invalid or profile fetch failed:", err);
+          await logoutClient(router);
+          clearUser();
+        }
       } finally {
-        if (isMounted) setGlobalLoading(false);
+        setGlobalLoading(false);
       }
     };
 
-
     checkSession();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isAuthPage,
-    pathname,
-    setUser,
-    clearUser,
-    setGlobalLoading,
-    // router,
-  ]);
+  }, [pathname]);
 
   return (
     <ThemeProvider
@@ -113,7 +127,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         />
       )}
 
-      {isAuthPage || !globalLoading ? children : null}
+      {(isAuthPage || !globalLoading) && children}
 
       <Toaster />
     </ThemeProvider>

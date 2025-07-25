@@ -1,119 +1,67 @@
 "use client";
 
+import { Dot } from "lucide-react";
 import MyAvatar from "@/components/feed/post/MyAvatar";
 import Name from "@/components/feed/post/Name";
 import Reactions from "@/components/feed/post/Reactions";
 import Text from "@/components/feed/post/Text";
-// import { Button } from "@/components/ui/button";
+import PostMedia from "./PostMedia";
+import PostMenu from "./PostMenu";
 import { Card } from "@/components/ui/card";
-import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { getCompactTimeAgo } from "@/components/utils";
-import { PostProps } from "@/lib/types";
-import { Dot } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { PostProps, UserProps } from "@/lib/types";
+import { useUserStore } from "@/lib/store/useUserStore";
+import {
+  blockUser,
+  deletePost,
+  pinPost,
+  unfollowUser,
+  unfriendUser,
+} from "./utils";
+import { useUserConnections } from "@/hooks/UserConnections";
 
-const PostCard = ({ post }: { post: PostProps }) => {
-  const router = useRouter();
-  const altImage = userAltImageUrl({ name: post.username });
-  const mediaCount = post?.media?.length || 0;
+const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
+  const { user: currentUser } = useUserStore(state => state);
+  const { friends, following } = useUserConnections();  
 
-  const getRoundedClass = (index: number) => {
-    if (mediaCount === 1) return "rounded-md";
-    if (mediaCount === 2) {
-      if (index === 0) return "rounded-l-md";
-      if (index === 1) return "rounded-r-md";
-    }
-    if (mediaCount === 3) {
-      if (index === 0) return "rounded-l-md";
-      if (index === 1) return "rounded-tr-md";
-      if (index === 2) return "rounded-br-md";
-    }
-    if (mediaCount === 4) {
-      if (index === 0) return "rounded-tl-md";
-      if (index === 1) return "rounded-tr-md";
-      if (index === 2) return "rounded-bl-md";
-      if (index === 3) return "rounded-br-md";
-    }
-    return "";
-  };
+  if (!currentUser) return null;
 
-
+  const isPinned = post?.isPinned;
+  const isOwner = currentUser.uid === user.uid;
+  const isFollowing = following?.includes(user.uid);
+  const isFriend = friends?.includes(user.uid);
 
   return (
-    <Card
-      className="p-2 rounded cursor-pointer"
-      onClick={() => {
-        router.push(`/${post.username}/${post.id}`);
-      }}
-    >
+    <Card className="p-2 rounded cursor-pointer">
       <div className="flex justify-between items-center">
         <div className="flex space-x-2 items-center">
           <MyAvatar
-            src={post.userPhotoURL || altImage}
-            alt={`${post.username}'s avatar`}
-            link={post.username}
+            photoURL={user.photoURL}
+            username={user.username}
+            fullName={user.fullName}
           />
-          <Name fullName={post.userFullName} username={post.username} />
-
+          <Name fullName={user.fullName} username={user.username} />
           <span className="text-xs text-muted-foreground flex items-center">
-            <Dot />{getCompactTimeAgo(new Date(post.createdAt))}
+            <Dot />
+            {getCompactTimeAgo(new Date(post.createdAt))}
           </span>
         </div>
-        {/* <Button size="sm">Follow</Button> */}
+
+        <PostMenu
+          isOwner={isOwner}
+          isFriend={isFriend}
+          isFollowing={isFollowing}
+          isPinned={isPinned}
+          onDelete={async () => await deletePost(post.id)}
+          onBlock={async () => await blockUser(currentUser?.uid, user.uid)}
+          onUnfriend={async () => await unfriendUser(currentUser?.uid, user.uid)}
+          onUnfollow={async () => await unfollowUser(currentUser?.uid, user.uid)}
+          onPin={async () => await pinPost(post.id, currentUser.uid)}
+        />
       </div>
 
       <Text text={post.content} />
-
-      <div
-        className={`grid gap-1 max-h-[250px] overflow-hidden ${
-          mediaCount === 2
-            ? "grid-cols-2"
-            : mediaCount === 3
-            ? "grid-cols-2 grid-rows-2 h-[300px]"
-            : mediaCount === 4
-            ? "grid-cols-2 grid-rows-2"
-            : ""
-        }`}
-      >
-        {post?.media?.map((media, index) => {
-          const isThree = mediaCount === 3;
-          const isFirst = index === 0;
-
-          let containerClass = `relative w-full overflow-hidden ${getRoundedClass(
-            index
-          )}`;
-
-          if (mediaCount === 1) {
-            containerClass += " aspect-video";
-          } else if (isThree && isFirst) {
-            containerClass += " row-span-2 h-full";
-          } else {
-            containerClass += " aspect-square h-full";
-          }
-
-          return (
-            <div key={index} className={containerClass}>
-              {media.type === "video" ? (
-                <video
-                  src={media.src}
-                  controls
-                  className="absolute top-0 left-0 w-full h-full object-cover"
-                />
-              ) : (
-                <Image
-                  src={media.src}
-                  alt={`Post media ${index + 1}`}
-                  fill
-                  unoptimized={media.src.includes("giphy")}
-                  className="object-cover"
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
+      <PostMedia post={post} />
       <Reactions reactions={post.reactions} />
     </Card>
   );

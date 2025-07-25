@@ -7,7 +7,7 @@ export async function getRandomUsers(currentUid: string) {
   const snapshot = await firestoreAdmin
   .collection("users")
   .orderBy("createdAt", "desc")
-    .limit(20) // Fetch 20 to increase chance of excluding current user
+    .limit(20)
     .get();
 
   const users: UserProps[] = [];

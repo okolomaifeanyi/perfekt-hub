@@ -48,11 +48,10 @@ interface PProps extends React.HTMLAttributes<HTMLParagraphElement> {
 export const P = forwardRef<
   HTMLParagraphElement,
   PProps & { compact?: boolean }
->(({ children, className = "", compact = false, style, ...props }, ref) => {
+>(({ children, className = "", compact = false, ...props }, ref) => {
   return (
     <p
       ref={ref}
-      style={style}
       className={`leading-7 ${
         compact ? "mt-0" : "[&:not(:first-child)]:mt-6"
       } ${className}`}
@@ -73,11 +72,10 @@ export function Blockquote({ children }: { children: ReactNode }) {
 }
 
 export const List = forwardRef<HTMLUListElement, ListProps>(
-  ({ children, className = "", style, ...props }, ref) => {
+  ({ children, className = "", ...props }, ref) => {
     return (
       <ul
         ref={ref}
-        style={style}
         className={`${className} my-6 ml-6 list-disc [&>li]:mt-2`}
         {...props}
       >

@@ -1,25 +1,13 @@
-import { H2 } from "@/components/Typography";
-// import { UserProps } from "@/lib/types";
-import UserClient from "./UserClient";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { PostProps, UserProps } from "@/lib/types";
+import { H2, Large, Muted } from "@/components/Typography";
+import { UserProps } from "@/lib/types";
 import UserFeed from "./[postId]/components/UserFeed";
-// import { getInitialUserPosts } from "@/lib/data";
-// import UserFeed from "./[postId]/components/UserFeed";
+import NavBar from "./components/NavBar";
+import Image from "next/image";
+import MyAvatar from "@/components/feed/post/MyAvatar";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
-// export async function generateStaticParams() {
-//   const { users } = await fetch(`https://dummyjson.com/users`).then(res =>
-//     res.json()
-//   );
-
-//   return users.map((user: UserProps) => ({
-//     username: user.username,
-//   }));
-// }
-
-export default async function Page({
+export default async function page({
   params,
 }: {
   params: Promise<{ username: string }>;
@@ -27,46 +15,75 @@ export default async function Page({
   const { username } = await params;
 
   const usersRef = collection(db, "users");
-  const userQuery = query(usersRef, where("username", "==", username));
-  const userSnap = await getDocs(userQuery);
+  const q = query(usersRef, where("username", "==", username));
+  const snapshot = await getDocs(q);
 
-  if (userSnap.empty) return notFound();
+  if (snapshot.empty) {
+    throw new Error("User not found");
+  }
 
-  const userDoc = userSnap.docs[0];
-  const user = { id: userDoc.id, ...(userDoc.data() as UserProps) };
+  const userDoc = snapshot.docs[0];
+  const userData = userDoc.data() as UserProps;
 
-  // Fetch posts by userId
-  const postsRef = collection(db, "posts");
-  const postsQuery = query(
-    postsRef,
-    where("userId", "==", user.id),
-    orderBy("createdAt", "desc")
-  );
-  const postsSnap = await getDocs(postsQuery);
-  const posts: PostProps[] = postsSnap.docs.map(doc => {
+  const user = {
+    uid: userDoc.id,
+    username: userData.username,
+    fullName: userData.fullName,
+    photoURL: userData.photoURL,
+  };
+
+  const postRef = collection(db, "posts");
+  const q2 = query(postRef, where("userId", "==", user.uid));
+  const postSnapshot = await getDocs(q2);
+
+  const posts = postSnapshot.docs.map(doc => {
     const data = doc.data();
     return {
       id: doc.id,
-      userId: data.userId,
       content: data.content,
       media: data.media || [],
-      createdAt: data.createdAt?.toDate().toISOString() ?? null,
-      username: data.username,
-      userFullName: data.userFullName || "",
-      userPhotoURL: data.userPhotoURL,
-    } as PostProps;
+      parentPostId: data.parentPostId,
+      createdAt: data.createdAt.toDate().toISOString(),
+      userId: data.userId,
+    };
   });
 
   return (
     <div className="w-full">
-      <UserClient />
+      <div>
+        <NavBar title={user.fullName || user.username} />
+
+        <div className="h-[200px] relative">
+          <Image
+            src={`https://picsum.photos/seed/${user.username}/600/300`}
+            alt="Wall"
+            width={600}
+            height={300}
+            className="w-full h-full object-cover"
+          />
+        </div>
+
+        <div className="-mt-20 flex justify-center">
+          <div className="!text-center">
+            <MyAvatar size={200} username={user.username} photoURL={user.photoURL} fullName={user.fullName} />
+
+            {user.fullName && (
+              <Large>
+                <strong>{user.fullName}</strong>
+              </Large>
+            )}
+
+            <Muted>@{user.username}</Muted>
+          </div>
+        </div>
+      </div>
 
       <div className="px-4 py-4">
         <div className="my-4">
           <H2>Posts</H2>
         </div>
 
-        <UserFeed initialUserPosts={posts} userId={user.id} />
+        <UserFeed initialUserPosts={posts} userId={user.uid} />
       </div>
     </div>
   );

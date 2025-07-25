@@ -1,25 +1,27 @@
-"use client"
+"use client";
 
 import { Avatar } from "@/components/ui/avatar";
+import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import Image from "next/image";
 import Link from "next/link";
 
 const MyAvatar = ({
-  src,
-  alt,
-  link,
+  photoURL,
   className,
   size = 45,
+  username,
+  fullName,
 }: {
-  src: string;
-  alt: string;
-  link?: string;
+  photoURL?: string;
+  fullName?: string;
+  username: string;
   className?: string;
   size?: number;
 }) => {
+  const altImage = userAltImageUrl({ name: fullName || username });
   return (
     <Link
-      href={`/${link}`}
+      href={`/${username}`}
       className={`${className} z-10`}
       onClick={e => e.stopPropagation()}
     >
@@ -32,7 +34,12 @@ const MyAvatar = ({
         }}
         className="!m-0"
       >
-        <Image src={src} alt={alt} width={500} height={500} />
+        <Image
+          src={photoURL || altImage}
+          alt={`${fullName || username}'s avatar`}
+          width={500}
+          height={500}
+        />
       </Avatar>
     </Link>
   );

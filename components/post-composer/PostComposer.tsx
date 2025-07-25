@@ -8,7 +8,6 @@ import MediaGallery from "./MediaGallery";
 import Buttons from "./Buttons";
 import MyAvatar from "../feed/post/MyAvatar";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { userAltImageUrl } from "../UserAltImageUrl";
 import { handlePost } from "./utils";
 import { Loader2 } from "lucide-react";
 
@@ -54,8 +53,6 @@ const PostComposer = ({
 
   if (!user) return null;
 
-  const altImage = userAltImageUrl({ name: user?.username || "User" });
-
   const handleSend = async () => {
     if (loading || !canSend || text.length > 280) return;
 
@@ -82,9 +79,9 @@ const PostComposer = ({
     <div className="space-y-2">
       <div className="flex space-x-2">
         <MyAvatar
-          src={user.photoURL || altImage}
-          alt={`${user.username}'s avatar`}
-          link={user.username}
+          username={user.username}
+          photoURL={user.photoURL}
+          fullName={user.fullName}
         />
 
         <div className="space-y-2 w-full">
