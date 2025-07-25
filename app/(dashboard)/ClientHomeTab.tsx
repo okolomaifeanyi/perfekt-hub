@@ -15,7 +15,7 @@ const ClientHomeTab = () => {
   const count = newPosts.length;
 
   const handleShowNewPosts = () => {
-    clearAlert(); // will merge newPosts into posts inside the hook
+    clearAlert(); 
     getNewPosts();
   };
 

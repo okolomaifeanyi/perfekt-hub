@@ -19,10 +19,11 @@ import {
   unfriendUser,
 } from "./utils";
 import { useUserConnections } from "@/hooks/UserConnections";
+import { ConnectDropdown } from "@/components/Connect";
 
 const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
   const { user: currentUser } = useUserStore(state => state);
-  const { friends, following } = useUserConnections();  
+  const { friends, following } = useUserConnections();
 
   if (!currentUser) return null;
 
@@ -46,18 +47,25 @@ const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
             {getCompactTimeAgo(new Date(post.createdAt))}
           </span>
         </div>
+        <div className="flex gap-x-2 items-center">
+          <ConnectDropdown currentUid={currentUser.uid} targetUid={user.uid} />
 
-        <PostMenu
-          isOwner={isOwner}
-          isFriend={isFriend}
-          isFollowing={isFollowing}
-          isPinned={isPinned}
-          onDelete={async () => await deletePost(post.id)}
-          onBlock={async () => await blockUser(currentUser?.uid, user.uid)}
-          onUnfriend={async () => await unfriendUser(currentUser?.uid, user.uid)}
-          onUnfollow={async () => await unfollowUser(currentUser?.uid, user.uid)}
-          onPin={async () => await pinPost(post.id, currentUser.uid)}
-        />
+          <PostMenu
+            isOwner={isOwner}
+            isFriend={isFriend}
+            isFollowing={isFollowing}
+            isPinned={isPinned}
+            onDelete={async () => await deletePost(post.id)}
+            onBlock={async () => await blockUser(currentUser?.uid, user.uid)}
+            onUnfriend={async () =>
+              await unfriendUser(currentUser?.uid, user.uid)
+            }
+            onUnfollow={async () =>
+              await unfollowUser(currentUser?.uid, user.uid)
+            }
+            onPin={async () => await pinPost(post.id, currentUser.uid)}
+          />
+        </div>
       </div>
 
       <Text text={post.content} />

@@ -27,7 +27,7 @@ const Feed = ({ initialPosts }: FeedProps) => {
 
   const { ref: loadMoreRef, inView } = useInView({
     triggerOnce: false,
-    rootMargin: "0px 0px 500px 0px",
+    rootMargin: "0px 0px 50px 0px",
   });
 
   useEffect(() => {

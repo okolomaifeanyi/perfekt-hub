@@ -40,7 +40,7 @@ export function usePostsLiveFeed({
     try {
       if (val instanceof Date) return val.toISOString();
       if (val?.toDate instanceof Function) return val.toDate().toISOString();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (_) {}
     return new Date(0).toISOString();
   };
@@ -101,7 +101,7 @@ export function usePostsLiveFeed({
 
     const lastDoc = snapshot.docs[snapshot.docs.length - 1];
     if (lastDoc) setLastVisible(lastDoc);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [friendsKey, watchedKey]);
 
   const getNewPosts = () => {
@@ -173,37 +173,64 @@ export function usePostsLiveFeed({
       const newPhotoURLs = new Set(userPhotoURLs);
 
       snapshot.docChanges().forEach(change => {
-        if (change.type !== "added") return;
-
         const doc = change.doc;
         const data = doc.data();
         const id = doc.id;
 
-        if (seenPostIds.current.has(id)) return;
-
-        seenPostIds.current.add(id);
-
-        const createdAt = toSafeISOString(data.createdAt);
-
-        const post: PostProps = {
-          id,
-          createdAt,
-          userId: data.userId,
-          content: data.content,
-          media: data.media || [],
-          username: data.username,
-          userFullName: data.userFullName || "",
-          userPhotoURL: data.userPhotoURL,
-        };
-
-        if (
-          (friends.includes(data.uid) || watched.includes(data.uid)) &&
-          data.userPhotoURL
-        ) {
-          newPhotoURLs.add(data.userPhotoURL);
+        if (change.type === "removed") {
+          seenPostIds.current.delete(id);
+          setPosts(prev => prev.filter(p => p.id !== id));
+          return;
         }
 
-        freshPosts.push(post);
+        if (change.type === "modified") {
+          const createdAt = toSafeISOString(data.createdAt);
+
+          setPosts(prev =>
+            prev.map(p =>
+              p.id === id
+                ? {
+                    ...p,
+                    createdAt,
+                    userId: data.userId,
+                    content: data.content,
+                    media: data.media || [],
+                    username: data.username,
+                    userFullName: data.userFullName || "",
+                    userPhotoURL: data.userPhotoURL,
+                  }
+                : p
+            )
+          );
+          return;
+        }
+
+        if (change.type === "added") {
+          if (seenPostIds.current.has(id)) return;
+
+          seenPostIds.current.add(id);
+          const createdAt = toSafeISOString(data.createdAt);
+
+          const post: PostProps = {
+            id,
+            createdAt,
+            userId: data.userId,
+            content: data.content,
+            media: data.media || [],
+            username: data.username,
+            userFullName: data.userFullName || "",
+            userPhotoURL: data.userPhotoURL,
+          };
+
+          if (
+            (friends.includes(data.uid) || watched.includes(data.uid)) &&
+            data.userPhotoURL
+          ) {
+            newPhotoURLs.add(data.userPhotoURL);
+          }
+
+          freshPosts.push(post);
+        }
       });
 
       if (!didInitialLoad.current) return;
@@ -224,7 +251,7 @@ export function usePostsLiveFeed({
 
     fetchInitial();
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchInitial, friendsKey, watchedKey]);
 
   return {
