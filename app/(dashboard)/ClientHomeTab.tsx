@@ -4,27 +4,26 @@ import Feed from "@/components/feed/Feed";
 import { P } from "@/components/Typography";
 import { usePostsLiveFeed } from "@/hooks/PostsLiveFeed";
 import { useUserConnections } from "@/hooks/UserConnections";
-import { getInitialPosts } from "@/lib/data";
 
 const ClientHomeTab = () => {
   const { friends, watched } = useUserConnections();
-
-  const { count, clear, posts } = usePostsLiveFeed({
+  const { newPosts, clearAlert, posts, getNewPosts } = usePostsLiveFeed({
     friends: friends || [],
     watched: watched || [],
-  });  
+  });
+
+  const count = newPosts.length;
+
+  const handleShowNewPosts = () => {
+    clearAlert(); // will merge newPosts into posts inside the hook
+    getNewPosts();
+  };
 
   return (
     <>
       {count > 0 && (
-        <div
-          onClick={async () => {
-            await getInitialPosts();
-            clear();
-          }}
-          className="py-4 mx-auto"
-        >
-          <P>
+        <div onClick={handleShowNewPosts} className="flex justify-center">
+          <P className="!m-0 cursor-pointer">
             Show {count} new post{count > 1 ? "s" : ""}
           </P>
         </div>

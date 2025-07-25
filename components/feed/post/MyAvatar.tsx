@@ -39,6 +39,7 @@ const MyAvatar = ({
           alt={`${fullName || username}'s avatar`}
           width={500}
           height={500}
+          className="object-cover"
         />
       </Avatar>
     </Link>

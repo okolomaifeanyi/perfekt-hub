@@ -16,16 +16,7 @@ const Feed = ({ initialPosts }: FeedProps) => {
   const [posts, setPosts] = useState<PostProps[]>(initialPosts);
 
   useEffect(() => {
-    setPosts(prev => {
-      const existingIds = new Set(prev.map(p => p.id));
-      const merged = [...prev];
-
-      initialPosts.forEach(p => {
-        if (!existingIds.has(p.id)) merged.push(p);
-      });
-
-      return merged;
-    });
+    setPosts(initialPosts);
   }, [initialPosts]);
 
   const [page, setPage] = useState(2);
