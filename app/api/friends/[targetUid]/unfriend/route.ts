@@ -6,14 +6,14 @@ import { NextResponse } from "next/server";
 
 export async function POST(
   req: Request,
-  { params }: { params: { uid: string } }
+  { params }: { params: Promise<{ uid: string }> }
 ) {
   const uidOrResponse = await getCurrentUid(req);
   if ("status" in uidOrResponse) return uidOrResponse;
 
   const currentUid = uidOrResponse.uid;
 
-  const otherUid = params.uid;
+  const {uid: otherUid } = await params;
 
   try {
     await unfriendUser(currentUid, otherUid);
