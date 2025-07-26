@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 import { H2 } from "@/components/Typography";
 import { useEffect } from "react";
 import Name from "@/components/feed/post/Name";
+import ConnectDropdown from "@/components/Connect";
 // import { FollowButton } from "@/components/FollowButton";
 // import { isFollowing } from "@/components/utils";
-import { ConnectDropdown } from "@/components/Connect";
+// import { ConnectDropdown } from "@/components/Connect";
 
 export default function WhoToFollow() {
   const { visibleSuggestions, rotateVisibleSuggestions } = useUserStore();
@@ -24,7 +25,7 @@ export default function WhoToFollow() {
 
   return (
     <Card className="p-2 w-full">
-      <H2 className="text-2xl">New Connections</H2>
+      <H2 className="text-xl">New Connections</H2>
       <ul className="space-y-3">
         {visibleSuggestions.map(u => (
           <li key={u.uid} className="flex items-center justify-between">
@@ -42,7 +43,7 @@ export default function WhoToFollow() {
                 targetUid={u.uid}
                 initialFollowing={followingMap[u.uid] ?? false}
               /> */}
-              <ConnectDropdown currentUid={currentUser.uid} targetUid={u.uid} />
+              <ConnectDropdown targetUid={u.uid} />
             </div>
           </li>
         ))}

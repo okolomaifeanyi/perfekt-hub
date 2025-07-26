@@ -47,6 +47,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
         const data = await res.json();
         setUser(data);
+        
 
         // 🔄 Sync Firebase Client Auth
         if (!auth.currentUser) {

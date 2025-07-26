@@ -29,7 +29,7 @@ export const useUserStore = create<UserState>()(
       clearSuggestions: () => set({ suggestions: [] }),
       rotateVisibleSuggestions: () => {
         const shuffled = [...get().suggestions].sort(() => 0.5 - Math.random());
-        set({ visibleSuggestions: shuffled.slice(0, 3) });
+        set({ visibleSuggestions: shuffled.slice(0, 6) });
       },
     }),
     {

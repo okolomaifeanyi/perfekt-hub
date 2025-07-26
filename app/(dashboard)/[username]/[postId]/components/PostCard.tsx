@@ -19,7 +19,7 @@ import {
   unfriendUser,
 } from "./utils";
 import { useUserConnections } from "@/hooks/UserConnections";
-import { ConnectDropdown } from "@/components/Connect";
+import ConnectDropdown from "@/components/Connect";
 
 const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
   const { user: currentUser } = useUserStore(state => state);
@@ -48,7 +48,7 @@ const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
           </span>
         </div>
         <div className="flex gap-x-2 items-center">
-          <ConnectDropdown currentUid={currentUser.uid} targetUid={user.uid} />
+          {currentUser.uid !== user.uid && <ConnectDropdown targetUid={user.uid} />}
 
           <PostMenu
             isOwner={isOwner}

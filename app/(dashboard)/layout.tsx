@@ -14,9 +14,9 @@ const layout = ({
           <NavBar />
         </nav>
 
-        <main className="overflow-auto h-screen">{children}</main>
+        <main className="overflow-auto h-screen w-full">{children}</main>
 
-        <aside className="hidden md:block sticky top-0 h-screen overflow-auto">
+        <aside className="hidden md:block sticky top-0 h-screen overflow-auto w-full">
           <Aside />
         </aside>
       </div>

@@ -1,137 +1,165 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import {
-  sendFriendRequest,
-  checkFriendStatus,
-  followUser,
-  unfollowUser,
-  isFollowing,
-} from "@/components/utils";
+import { useEffect, useState } from "react";
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { unfriendUser } from "@/app/(dashboard)/[username]/[postId]/components/utils";
-import { Handshake, UserPlus } from "lucide-react";
+import {
+  Handshake,
+  UserPlus,
+  UserMinus,
+  // UserCheck,
+  // Loader2,
+} from "lucide-react";
 
-interface ConnectDropdownProps {
-  currentUid: string;
-  targetUid: string;
-}
-
-export function ConnectDropdown({
-  currentUid,
-  targetUid,
-}: ConnectDropdownProps) {
-  const [status, setStatus] = useState<"none" | "following" | "friends">(
-    "none"
-  );
-  const [pending, startTransition] = useTransition();
-
-  useState(() => {
-    const fetchStatus = async () => {
-      const [isFriend, isFollow] = await Promise.all([
-        checkFriendStatus(currentUid, targetUid),
-        isFollowing(currentUid, targetUid),
-      ]);
-      if (isFriend) setStatus("friends");
-      else if (isFollow) setStatus("following");
-      else setStatus("none");
-    };
-    fetchStatus();
-  });
-
-  //   const updateStatus = (newStatus: typeof status) => {
-  //     startTransition(() => setStatus(newStatus));
-  //   };
-
-  const handleAction = async (
-    action: "befriend" | "follow" | "unfollow" | "disconnect"
-  ) => {
-    if (pending) return;
-
-    startTransition(async () => {
-      if (action === "befriend") {
-        await sendFriendRequest(currentUid, targetUid);
-        await followUser(currentUid, targetUid);
-        setStatus("friends");
-      } else if (action === "follow") {
-        await followUser(currentUid, targetUid);
-        setStatus("following");
-      } else if (action === "unfollow") {
-        await unfollowUser(currentUid, targetUid);
-        setStatus("none");
-      } else if (action === "disconnect") {
-        await unfriendUser(currentUid, targetUid);
-        await unfollowUser(currentUid, targetUid);
-        setStatus("none");
-      }
-    });
-  };
+export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
+  const [status, setStatus] = useState<
+    "none" | "following" | "friends" | "requested" | "pending"
+  >("none");
+  const [loading, setLoading] = useState(false);
 
   const label = {
     none: "Connect",
     following: "Following",
     friends: "Connected",
+    requested: "Requested",
+    pending: "Pending",
   }[status];
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`/api/friends/${targetUid}/status`, {
+          headers: {
+            Authorization: `Bearer ${await getFirebaseToken()}`,
+          },
+        });
+        const data = await res.json();
+        if (res.ok) setStatus(data.status);
+      } catch (error) {
+        console.error("Error fetching friend status:", error);
+      }
+    };
+
+    fetchStatus();
+  }, [targetUid]);
+
+  const handleAction = async (
+    action: "follow" | "unfollow" | "befriend" | "unfriend" | "disconnect"
+  ) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/friends/${targetUid}/${action}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await getFirebaseToken()}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Action failed");
+
+      // Update local status
+      if (action === "befriend") {
+        setStatus(prev => (prev === "pending" ? "friends" : "requested"));
+      } else if (action === "follow") {
+        setStatus("following");
+      } else if (action === "unfollow") {
+        setStatus("none");
+      } else if (action === "unfriend" || action === "disconnect") {
+        setStatus("none");
+      }
+    } catch (error) {
+      console.error("Action error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          size="sm"
-          variant={
-            label === "Connected"
-              ? "default"
-              : label === "Following"
-              ? "secondary"
-              : "outline"
-          }
-          disabled={pending}
-        >
-          {pending ? "..." : label}
+        <Button variant="secondary" size="sm" disabled={loading}>
+          {loading ? (
+            <>
+              Processing...
+            </>
+          ) : (
+            <>
+              {/* <UserCheck className="h-4 w-4" /> */}
+              {label}
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-48">
+        {/* === NONE === */}
         {status === "none" && (
           <>
             <DropdownMenuItem onClick={() => handleAction("befriend")}>
-              <Button className="w-full" size="sm">
-                <Handshake color="black" />
-                Befriend
-              </Button>
+              <Handshake className="mr-2 h-4 w-4" /> Befriend
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAction("follow")}>
-              <Button className="w-full" size="sm" variant="secondary">
-                <UserPlus /> Follow
-              </Button>
+              <UserPlus className="mr-2 h-4 w-4" /> Follow
             </DropdownMenuItem>
           </>
         )}
 
+        {/* === REQUESTED (you sent request) === */}
+        {status === "requested" && (
+          <>
+            <DropdownMenuItem disabled>
+              <UserPlus className="mr-2 h-4 w-4" /> Request Sent
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleAction("unfriend")}>
+              <UserMinus className="mr-2 h-4 w-4" /> Cancel Request
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {/* === PENDING (you received request) === */}
+        {status === "pending" && (
+          <>
+            <DropdownMenuItem onClick={() => handleAction("befriend")}>
+              <Handshake className="mr-2 h-4 w-4" /> Accept Request
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleAction("unfriend")}>
+              <UserMinus className="mr-2 h-4 w-4" /> Decline Request
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {/* === FOLLOWING === */}
         {status === "following" && (
           <>
             <DropdownMenuItem onClick={() => handleAction("unfollow")}>
-              Unfollow
+              <UserMinus className="mr-2 h-4 w-4" /> Unfollow
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAction("befriend")}>
-              Befriend
+              <Handshake className="mr-2 h-4 w-4" /> Befriend
             </DropdownMenuItem>
           </>
         )}
 
+        {/* === FRIENDS === */}
         {status === "friends" && (
-          <>
-            <DropdownMenuItem onClick={() => handleAction("disconnect")}>
-              Disconnect
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onClick={() => handleAction("disconnect")}>
+            <UserMinus className="mr-2 h-4 w-4" /> Disconnect
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+// Firebase token fetcher (if not already implemented)
+async function getFirebaseToken(): Promise<string> {
+  const user = await import("firebase/auth").then(
+    ({ getAuth }) => getAuth().currentUser
+  );
+  if (!user) throw new Error("Not authenticated");
+  return await user.getIdToken();
 }
