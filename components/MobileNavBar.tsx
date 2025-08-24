@@ -34,7 +34,7 @@ const MobileNavBar = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-sm">
+    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-sm">
       <div className="flex justify-between px-4 py-2">
         {navItems.map(item => (
           <Link

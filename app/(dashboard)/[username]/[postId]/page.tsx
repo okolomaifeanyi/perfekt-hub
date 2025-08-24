@@ -4,6 +4,7 @@ import { getPost, getUser } from "@/lib/data";
 import NavBar from "../components/NavBar";
 import { notFound } from "next/navigation";
 import ClientFeed from "@/components/feed/post/ClientFeed";
+import { PostProps, UserProps } from "@/lib/types";
 
 const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
   const { postId } = await params;
@@ -19,6 +20,14 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
     if (!parent) break;
     parentChain.unshift(parent);
     current = parent;
+  }
+
+  let quotedPost: PostProps | null = null;
+  let qpUser: UserProps | null = null;
+  if (current.quotePostId) {
+    quotedPost = await getPost(current.quotePostId);
+
+    qpUser = quotedPost ? await getUser(quotedPost.userId) : null;
   }
 
   const user = await getUser(post.userId);
@@ -42,7 +51,7 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
 
       <div className="relative">
         <div className="absolute -top-4 left-0 h-4 w-px " />
-        <PostCard post={post} user={user} />
+        <PostCard quotedPost={quotedPost} quotedUser={qpUser} post={post} user={user} />
       </div>
 
       <div className="px-2">

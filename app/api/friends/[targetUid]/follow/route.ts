@@ -1,4 +1,4 @@
-import { followUser } from "@/components/actions";
+import { followUser, sendNotification } from "@/components/actions";
 import { authAdmin } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
 
@@ -28,7 +28,13 @@ export async function POST(
     return NextResponse.json({ error: "Invalid user" }, { status: 400 });
   }
 
-  await followUser(currentUid, targetUid);
+    await followUser(currentUid, targetUid);
+    
+    await sendNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "follow",
+    });
 
   return NextResponse.json({ success: true });
 }

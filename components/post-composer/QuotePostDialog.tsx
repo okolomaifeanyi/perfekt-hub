@@ -1,0 +1,87 @@
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import PostComposer from "./PostComposer";
+import { Quote } from "lucide-react";
+import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdDate";
+import { PostProps, UserProps } from "@/lib/types";
+import Text from "../feed/post/Text";
+import { Card } from "../ui/card";
+
+export function QuotePostDialog({
+  user,
+  post,
+}: {
+  user: UserProps;
+  post: PostProps;
+}) {
+  // build media summary
+  const mediaSummary = (() => {
+    if (!post.media || post.media.length === 0) return null;
+
+    let imageCount = 0;
+    let gifCount = 0;
+    let videoCount = 0;
+
+    for (const medium of post.media) {
+      if (medium.type === "image" && medium.src.includes("giphy")) {
+        gifCount++;
+      } else if (medium.type === "image") {
+        imageCount++;
+      } else if (medium.type === "video") {
+        videoCount++;
+      }
+    }
+
+    const parts: string[] = [];
+    if (imageCount > 0)
+      parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
+    if (gifCount > 0)
+      parts.push(`${gifCount} gif image${gifCount > 1 ? "s" : ""}`);
+    if (videoCount > 0)
+      parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
+
+    return `Contains ${parts.join(", ")}`;
+  })();
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          variant="secondary"
+          title="Quote"
+          size="sm"
+          className="hover:text-green-600"
+          aria-label="Quote this post"
+        >
+          <Quote fontSize={16} />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>
+            Quote <span className="text-primary">{user.username}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <PostComposer
+          quotePostId={post.id}
+          placeholder="Write your quote"
+          sendButton="Quote"
+        />
+
+        <Card className="p-2 rounded-lg">
+          <PostIdDate user={user} post={post} />
+          <Text text={post.content} />
+          {mediaSummary && (
+            <div className="text-secondary mt-2">{mediaSummary}</div>
+          )}
+        </Card>
+      </DialogContent>
+    </Dialog>
+  );
+}

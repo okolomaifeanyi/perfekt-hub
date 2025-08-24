@@ -29,17 +29,17 @@ const NavBar = () => {
   const altImage = userAltImageUrl({ name: user.username || "User" });
 
   return (
-    <div className="flex flex-col py-10 h-screen justify-between px-4">
+    <div className="flex flex-col py-14 h-screen justify-between px-4 items-center">
       <div className="flex flex-col space-y-6">
-        <NavLink href="/" icon={<Home />} label="Home" />
+        <NavLink href="/" icon={<Home size={30} />} label="Home" />
         {/* <NavLink href="#" icon={<Search />} label="Search" /> */}
         <NavLink
           href="#"
           icon={
             <div className="relative">
-              <Bell />
+              <Bell size={30} />
               {count > 0 && (
-                <Badge className="absolute -top-1.5 -right-1.5 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums">
+                <Badge className="absolute -top-1 -right-1 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums">
                   {count}
                 </Badge>
               )}
@@ -48,11 +48,15 @@ const NavBar = () => {
           label="Notification"
         />
 
-        <NavLink href="#" icon={<Mail />} label="Message" />
+        <NavLink href="#" icon={<Mail size={30} />} label="Message" />
         {/* <NavLink href="#" icon={<Heart />} label="Favourites" /> */}
-        <NavLink href="#" icon={<Users />} label="Group" />
+        <NavLink href="#" icon={<Users size={30} />} label="Group" />
         {/* <NavLink href="#" icon={<Store />} label="Market" /> */}
-        <NavLink href={`/${user.username}`} icon={<User />} label="Account" />
+        <NavLink
+          href={`/${user.username}`}
+          icon={<User size={30} />}
+          label="Account"
+        />
       </div>
 
       <div className="space-y-6 flex flex-col">
@@ -84,9 +88,9 @@ const NavLink = ({
   icon: React.ReactNode;
   label: string;
 }) => (
-  <Link href={href} className="flex items-center lg:space-x-4">
+  <Link href={href} className="flex items-center md:space-x-4">
     {icon}
-    <span className="hidden lg:block">{label}</span>
+    <span className="hidden md:block">{label}</span>
   </Link>
 );
 

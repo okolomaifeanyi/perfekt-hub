@@ -13,7 +13,7 @@ export async function POST(
 
   const currentUid = uidOrResponse.uid;
 
-  const {uid: otherUid } = await params;
+  const { uid: otherUid } = await params;
 
   try {
     await unfriendUser(currentUid, otherUid);

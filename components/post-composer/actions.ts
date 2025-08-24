@@ -3,6 +3,7 @@
 
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { Timestamp } from "firebase-admin/firestore";
+import { sendNotification } from "../actions";
 
 export async function notifyChainUsers(
   parentPostId: string,
@@ -53,11 +54,13 @@ export async function sendPost({
   media,
   user,
   parentPostId = null,
+  quotePostId = null,
 }: {
   text: string;
   media: { src: string; type: string }[];
   user: { uid: string; username: string; photoURL?: string; fullName?: string };
   parentPostId?: string | null;
+  quotePostId?: string | null;
 }): Promise<string> {
   if (!user || !text.trim()) throw new Error("User or text is missing");
 
@@ -74,16 +77,39 @@ export async function sendPost({
     createdAt: Timestamp.now(),
     userPhotoURL: user.photoURL || "",
     userFullName: user.fullName || "",
-    parentPostId: parentPostId || "",
+    parentPostId: parentPostId || "", // for reply chains
+    quotePostId: quotePostId || "", // for quoting another post
   };
 
   const docRef = await firestoreAdmin.collection("posts").add(postData);
 
+  // 🔔 Notify participants in reply chain
   if (parentPostId) {
     await notifyChainUsers(parentPostId, {
       uid: user.uid,
       username: user.username,
     });
+  }
+
+  // 🔔 Notify quoted post’s owner
+  if (quotePostId) {
+    const quotedPostSnap = await firestoreAdmin
+      .collection("posts")
+      .doc(quotePostId)
+      .get();
+
+    if (quotedPostSnap.exists) {
+      const quotedPost = quotedPostSnap.data();
+      if (quotedPost?.userId !== user.uid) {
+        await sendNotification({
+          recipientUid: quotedPost?.userId,
+          actorUid: user.uid,
+          type: "quote",
+          postId: docRef.id,
+          extra: { quotePostId },
+        });
+      }
+    }
   }
 
   return docRef.id;

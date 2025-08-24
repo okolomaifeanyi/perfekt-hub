@@ -118,6 +118,7 @@ export async function getPost(postId: string): Promise<PostProps | null> {
     userFullName: data.userFullName || "",
     userPhotoURL: data.userPhotoURL,
     parentPostId: data.parentPostId || null,
+    quotePostId: data.quotePostId || null,
   } as PostProps;
 
   return post;
@@ -205,4 +206,10 @@ export async function getMoreUserPosts(
   }) as PostProps[];
 
   return posts;
+}
+
+export async function getReplyCount(postId: string) {
+  const q = query(collection(db, "posts"), where("parentPostId", "==", postId));
+  const snapshot = await getDocs(q);
+  return snapshot.size;
 }

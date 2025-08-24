@@ -91,6 +91,7 @@ export function usePostsLiveFeed({
         username: data.username,
         userFullName: data.userFullName || "",
         userPhotoURL: data.userPhotoURL,
+        quotePostId: data.quotePostId || null,
       };
     });
 
@@ -143,6 +144,7 @@ export function usePostsLiveFeed({
         username: data.username,
         userFullName: data.userFullName || "",
         userPhotoURL: data.userPhotoURL,
+        quotePostId: data.quotePostId || null,
       });
 
       if (
@@ -197,7 +199,8 @@ export function usePostsLiveFeed({
                     media: data.media || [],
                     username: data.username,
                     userFullName: data.userFullName || "",
-                    userPhotoURL: data.userPhotoURL,
+                  userPhotoURL: data.userPhotoURL,
+                  quotePostId: data.quotePostId || null,
                   }
                 : p
             )
@@ -220,6 +223,7 @@ export function usePostsLiveFeed({
             username: data.username,
             userFullName: data.userFullName || "",
             userPhotoURL: data.userPhotoURL,
+            quotePostId: data.quotePostId || null,
           };
 
           if (

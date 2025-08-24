@@ -1,5 +1,7 @@
 // lib/actions/friends.ts
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { dbAdmin, firestoreAdmin } from "@/lib/firebaseAdmin";
+import { NotificationInput } from "@/lib/types";
+import { Timestamp } from "firebase-admin/firestore";
 
 export async function followUser(currentUid: string, targetUid: string) {
   const followingRef = firestoreAdmin.doc(
@@ -136,4 +138,79 @@ export async function removeFollower(currentUid: string, followerUid: string) {
   );
 
   await Promise.all([followerRef.delete(), followingRef.delete()]);
+}
+
+export async function sendNotification({
+  recipientUid,
+  actorUid,
+  type,
+  postId,
+  extra = {},
+}: NotificationInput) {
+  if (recipientUid === actorUid) return;
+
+  const notificationRef = firestoreAdmin.collection("notifications").doc();
+
+  const payload = {
+    recipientUid,
+    actorUid,
+    type,
+    postId: postId || null,
+    read: false,
+    createdAt: Timestamp.now(),
+    ...extra,
+  };
+
+  await notificationRef.set(payload);
+}
+
+export async function toggleLikeDislikeAdmin({
+  postId,
+  userId,
+  type,
+}: {
+  postId: string;
+  userId: string;
+  type: "like" | "dislike";
+}) {
+  const postRef = dbAdmin.collection("posts").doc(postId);
+  const reactionRef = postRef.collection("reactions").doc(userId);
+
+  return dbAdmin.runTransaction(async transaction => {
+    const reactionDoc = await transaction.get(reactionRef);
+    const postDoc = await transaction.get(postRef);
+
+    if (!postDoc.exists) throw new Error("Post not found");
+
+    const counts = postDoc.data()?.reactionCounts || {};
+    const currentReaction = reactionDoc.exists
+      ? reactionDoc.data()?.type
+      : null;
+
+    if (currentReaction === type) {
+      // remove reaction
+      transaction.delete(reactionRef);
+      transaction.update(postRef, {
+        [`reactionCounts.${type}`]: Math.max((counts[type] || 1) - 1, 0),
+      });
+    } else {
+      // set new reaction
+      transaction.set(reactionRef, { type, createdAt: Date.now() });
+      if (currentReaction) {
+        // switch reaction
+        transaction.update(postRef, {
+          [`reactionCounts.${currentReaction}`]: Math.max(
+            (counts[currentReaction] || 1) - 1,
+            0
+          ),
+          [`reactionCounts.${type}`]: (counts[type] || 0) + 1,
+        });
+      } else {
+        // new reaction
+        transaction.update(postRef, {
+          [`reactionCounts.${type}`]: (counts[type] || 0) + 1,
+        });
+      }
+    }
+  });
 }

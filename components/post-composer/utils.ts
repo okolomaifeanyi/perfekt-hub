@@ -23,12 +23,14 @@ export async function handlePost({
   user,
   onSuccess,
   parentPostId = null,
+  quotePostId = null,
 }: {
   text: string;
   media: MediaProps[];
   user: UserProps;
   onSuccess?: () => void;
   parentPostId?: string | null;
+  quotePostId?: string | null;
 }) {
   try {
     const uploadedMedia: MediaProps[] = [];
@@ -51,6 +53,7 @@ export async function handlePost({
       media: uploadedMedia,
       user,
       parentPostId,
+      quotePostId
     });
 
     toast.success("Post published");

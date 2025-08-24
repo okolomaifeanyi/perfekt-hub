@@ -1,26 +1,20 @@
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
-import { getUser } from "@/lib/data";
-import { UserProps, PostProps } from "@/lib/types";
-import { useEffect, useState } from "react";
-
+import { usePostWithQuote } from "@/hooks/UsePostWithQuote";
+import { PostProps } from "@/lib/types";
 const Post = ({ post }: { post: PostProps }) => {
-  const [user, setUser] = useState<UserProps | null>(null);
+  const { user, quotedPost, quotedUser, replyCount } = usePostWithQuote(post);
 
-  useEffect(() => {
-    async function getNewUser() {
-      const newUser = await getUser(post.userId);
+  if (!post || !user) return null;
 
-      setUser(newUser);
-    }
-
-    getNewUser();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (!post || !user) return;
   return (
     <li>
-      <PostCard post={post} user={user} />
+      <PostCard
+        post={post}
+        user={user}
+        quotedPost={quotedPost}
+        quotedUser={quotedUser}
+        replyCount={replyCount}
+      />
     </li>
   );
 };

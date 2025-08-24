@@ -1,4 +1,4 @@
-import { followUser, sendFriendRequest } from "@/components/actions";
+import { followUser, sendFriendRequest, sendNotification } from "@/components/actions";
 import { authAdmin } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
 
@@ -29,7 +29,13 @@ export async function POST(
   }
 
   await sendFriendRequest(currentUid, targetUid);
-  await followUser(currentUid, targetUid);
+    await followUser(currentUid, targetUid);
+    
+    await sendNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "friendRequest",
+    });
 
   return NextResponse.json({ success: true });
 }

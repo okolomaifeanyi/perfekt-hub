@@ -15,10 +15,12 @@ const PostComposer = ({
   placeholder,
   sendButton,
   parentPostId,
+  quotePostId,
 }: {
   sendButton?: string;
   placeholder?: string;
   parentPostId?: string | "";
+  quotePostId?: string | "";
 }) => {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<MediaProps[]>([]);
@@ -68,6 +70,7 @@ const PostComposer = ({
         setGifDialogOpen(false);
       },
       parentPostId,
+      quotePostId,
     }).catch(err => {
       console.error("Error sending post:", err);
     });
@@ -90,7 +93,7 @@ const PostComposer = ({
             onChange={e => setText(e.target.value)}
             value={text}
             placeholder={placeholder || "What's on your mind?"}
-            className="resize-none overflow-hidden"
+            className="resize-none overflow-hidden rounded-lg"
             onKeyDown={e => {
               if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                 handleSend();

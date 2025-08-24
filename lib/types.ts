@@ -39,6 +39,7 @@ export interface PostProps {
   parentPostId?: string;
   createdAt: string;
   isPinned?: boolean;
+  quotePostId?: string | null;
 }
 
 export interface EmojiProps {
@@ -57,4 +58,25 @@ export interface ButtonsProps {
   setGifDialogOpen: Dispatch<SetStateAction<boolean>>;
   gifDialogOpen: boolean;
   media: MediaProps[];
+}
+
+export type NotificationType =
+  | "follow"
+  | "friendRequest"
+  | "reply"
+  | "mention"
+  | "like"
+  | "comment"
+  | "acceptRequest"
+  | "quote";
+
+export type ReactionType = "like" | "dislike";
+
+export interface NotificationInput {
+  recipientUid: string;
+  actorUid: string;
+  type: NotificationType;
+  postId?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  extra?: Record<string, any>;
 }

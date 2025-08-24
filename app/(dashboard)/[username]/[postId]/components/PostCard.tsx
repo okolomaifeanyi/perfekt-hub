@@ -1,14 +1,10 @@
 "use client";
 
-import { Dot } from "lucide-react";
-import MyAvatar from "@/components/feed/post/MyAvatar";
-import Name from "@/components/feed/post/Name";
 import Reactions from "@/components/feed/post/Reactions";
 import Text from "@/components/feed/post/Text";
 import PostMedia from "./PostMedia";
 import PostMenu from "./PostMenu";
 import { Card } from "@/components/ui/card";
-import { getCompactTimeAgo } from "@/components/utils";
 import { PostProps, UserProps } from "@/lib/types";
 import { useUserStore } from "@/lib/store/useUserStore";
 import {
@@ -20,8 +16,21 @@ import {
 } from "./utils";
 import { useUserConnections } from "@/hooks/UserConnections";
 import ConnectDropdown from "@/components/Connect";
+import PostIdDate from "./PostIdDate";
 
-const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
+const PostCard = ({
+  post,
+  user,
+  quotedPost,
+  quotedUser,
+  replyCount
+}: {
+  post: PostProps;
+  user: UserProps;
+  quotedPost?: PostProps | null;
+  quotedUser?: UserProps | null;
+  replyCount?: number | null
+}) => {
   const { user: currentUser } = useUserStore(state => state);
   const { friends, following } = useUserConnections();
 
@@ -33,22 +42,13 @@ const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
   const isFriend = friends?.includes(user.uid);
 
   return (
-    <Card className="p-2 rounded cursor-pointer">
-      <div className="flex justify-between items-center">
-        <div className="flex space-x-2 items-center">
-          <MyAvatar
-            photoURL={user.photoURL}
-            username={user.username}
-            fullName={user.fullName}
-          />
-          <Name fullName={user.fullName} username={user.username} />
-          <span className="text-xs text-muted-foreground flex items-center">
-            <Dot />
-            {getCompactTimeAgo(new Date(post.createdAt))}
-          </span>
-        </div>
+    <Card className="rounded-lg">
+      <div className="flex justify-between items-center px-2">
+        <PostIdDate user={user} post={post} />
         <div className="flex gap-x-2 items-center">
-          {currentUser.uid !== user.uid && <ConnectDropdown targetUid={user.uid} />}
+          {currentUser.uid !== user.uid && (
+            <ConnectDropdown targetUid={user.uid} />
+          )}
 
           <PostMenu
             isOwner={isOwner}
@@ -70,7 +70,19 @@ const PostCard = ({ post, user }: { post: PostProps; user: UserProps }) => {
 
       <Text text={post.content} />
       <PostMedia post={post} />
-      <Reactions reactions={post.reactions} />
+
+      <div className="px-2">
+      {quotedPost && quotedUser && (
+        <Card className="rounded-lg">
+          <div className="flex justify-between items-center px-2">
+            <PostIdDate user={quotedUser} post={quotedPost} />
+          </div>
+          <Text text={quotedPost.content} />
+          <PostMedia post={quotedPost} />
+        </Card>
+      )}</div>
+
+      <Reactions replyCount={replyCount} currentUser={currentUser} user={user} post={post} />
     </Card>
   );
 };

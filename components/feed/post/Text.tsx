@@ -54,7 +54,7 @@ export default function Text({ text }: TextProps) {
   }, [lines, text]);
 
   return (
-    <div>
+    <div className="px-2">
       <div
         ref={textRef}
         className="overflow-hidden transition-all duration-300 text-justify break-words"

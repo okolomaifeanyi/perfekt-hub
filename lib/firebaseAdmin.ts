@@ -29,3 +29,4 @@ if (!getApps().length) {
 
 export const authAdmin = getAuth();
 export const firestoreAdmin = getFirestore();
+export const dbAdmin = getFirestore();
