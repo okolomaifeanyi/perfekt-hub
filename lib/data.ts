@@ -213,3 +213,9 @@ export async function getReplyCount(postId: string) {
   const snapshot = await getDocs(q);
   return snapshot.size;
 }
+
+export async function getQuoteCount(postId: string) {
+  const q = query(collection(db, "posts"), where("quotePostId", "==", postId));
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+}

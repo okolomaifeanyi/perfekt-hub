@@ -2,31 +2,28 @@ import { PostProps } from "@/lib/types";
 import Image from "next/image";
 import React from "react";
 
-const PostMedia = ({ post }: {
-    post: PostProps;
-}) => {
+const PostMedia = ({ post }: { post: PostProps }) => {
+  const mediaCount = post?.media?.length || 0;
 
-    const mediaCount = post?.media?.length || 0;
-
-    const getRoundedClass = (index: number) => {
-      if (mediaCount === 1) return "rounded-md";
-      if (mediaCount === 2) {
-        if (index === 0) return "rounded-l-md";
-        if (index === 1) return "rounded-r-md";
-      }
-      if (mediaCount === 3) {
-        if (index === 0) return "rounded-l-md";
-        if (index === 1) return "rounded-tr-md";
-        if (index === 2) return "rounded-br-md";
-      }
-      if (mediaCount === 4) {
-        if (index === 0) return "rounded-tl-md";
-        if (index === 1) return "rounded-tr-md";
-        if (index === 2) return "rounded-bl-md";
-        if (index === 3) return "rounded-br-md";
-      }
-      return "";
-    };
+  const getRoundedClass = (index: number) => {
+    if (mediaCount === 1) return "rounded-md";
+    if (mediaCount === 2) {
+      if (index === 0) return "rounded-l-md";
+      if (index === 1) return "rounded-r-md";
+    }
+    if (mediaCount === 3) {
+      if (index === 0) return "rounded-l-md";
+      if (index === 1) return "rounded-tr-md";
+      if (index === 2) return "rounded-br-md";
+    }
+    if (mediaCount === 4) {
+      if (index === 0) return "rounded-tl-md";
+      if (index === 1) return "rounded-tr-md";
+      if (index === 2) return "rounded-bl-md";
+      if (index === 3) return "rounded-br-md";
+    }
+    return "";
+  };
 
   return (
     <div

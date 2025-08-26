@@ -11,15 +11,14 @@ import { MessageCircleMore } from "lucide-react";
 import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdDate";
 import { PostProps, UserProps } from "@/lib/types";
 import Text from "../feed/post/Text";
+import { usePostCounts } from "@/lib/store/postCounts";
 
 export function PostReplyDialog({
   user,
   post,
-  replyCount,
 }: {
   user: UserProps;
   post: PostProps;
-  replyCount?: number | null;
 }) {
   // build media summary
   const mediaSummary = (() => {
@@ -50,7 +49,9 @@ export function PostReplyDialog({
     return `Contains ${parts.join(", ")}`;
   })();
 
-  const hasCount = (replyCount ?? 0) > 0;
+  const postCounts = usePostCounts(state => state.counts[post.id]);
+  const replyCount = postCounts?.replyCount ?? 0;
+  const hasCount = replyCount > 0;
 
   return (
     <Dialog>
@@ -63,12 +64,12 @@ export function PostReplyDialog({
         >
           <MessageCircleMore
             fontSize={16}
-            // fill={hasCount ? "#00a63e" : "none"}
-            // color={hasCount ? "#00a63e" : undefined}
+            fill={hasCount ? "#00a63e" : "none"}
+            color={hasCount ? "#00a63e" : undefined}
           />
 
           {hasCount && (
-            <span className={`text-base`}>
+            <span className={`${hasCount ? "text-[#00a63e]" : ""}text-base`}>
               {replyCount}
             </span>
           )}

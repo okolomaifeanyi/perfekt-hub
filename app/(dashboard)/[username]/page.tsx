@@ -45,6 +45,7 @@ export default async function page({
       parentPostId: data.parentPostId,
       createdAt: data.createdAt.toDate().toISOString(),
       userId: data.userId,
+      quotePostId: data.quotePostId || null,
     };
   });
 

@@ -1,37 +1,45 @@
 import { useEffect, useState } from "react";
-import { getPost, getUser, getReplyCount } from "@/lib/data";
+import { getPost, getUser} from "@/lib/data";
 import { PostProps, UserProps } from "@/lib/types";
+import { usePostCounts } from "@/lib/store/postCounts";
+import { getFirebaseToken } from "@/lib/utils";
 
 export function usePostWithQuote(post: PostProps) {
   const [user, setUser] = useState<UserProps | null>(null);
   const [quotedPost, setQuotedPost] = useState<PostProps | null>(null);
   const [quotedUser, setQuotedUser] = useState<UserProps | null>(null);
-  const [replyCount, setReplyCount] = useState<number | null>(null);
+
+  const { counts, setCounts } = usePostCounts();
+  const postCounts = counts[post.id];
 
   useEffect(() => {
-    async function fetchData() {
-      // Fetch main post user
-      const mainUser = await getUser(post.userId);
-      setUser(mainUser);
+  async function fetchData() {
+    const mainUser = await getUser(post.userId);
+    setUser(mainUser);
 
-      // Fetch quoted post + user if any
-      if (post.quotePostId) {
-        const quoted = await getPost(post.quotePostId);
-        setQuotedPost(quoted);
-
-        if (quoted) {
-          const qUser = await getUser(quoted.userId);
-          setQuotedUser(qUser);
-        }
+    if (post.quotePostId) {
+      const quoted = await getPost(post.quotePostId);
+      setQuotedPost(quoted);
+      if (quoted) {
+        const qUser = await getUser(quoted.userId);
+        setQuotedUser(qUser);
       }
-
-      // Fetch reply count
-      const replies = await getReplyCount(post.id);
-      setReplyCount(replies);
     }
 
-    fetchData();
-  }, [post]);
+    // 🔥 fetch all counts + userReaction at once
+    const res = await fetch(`/api/posts/${post.id}/counts`, {
+      headers: {
+        Authorization: `Bearer ${await getFirebaseToken()}`,
+      },
+    });
+    const data = await res.json();
 
-  return { user, quotedPost, quotedUser, replyCount };
+    setCounts(post.id, data);
+  }
+
+  fetchData();
+}, [post, setCounts]);
+
+
+  return { user, quotedPost, quotedUser, counts: postCounts };
 }

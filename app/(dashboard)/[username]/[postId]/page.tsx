@@ -4,7 +4,7 @@ import { getPost, getUser } from "@/lib/data";
 import NavBar from "../components/NavBar";
 import { notFound } from "next/navigation";
 import ClientFeed from "@/components/feed/post/ClientFeed";
-import { PostProps, UserProps } from "@/lib/types";
+import ViewTracker from "./components/ViewTracker";
 
 const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
   const { postId } = await params;
@@ -22,28 +22,27 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
     current = parent;
   }
 
-  let quotedPost: PostProps | null = null;
-  let qpUser: UserProps | null = null;
-  if (current.quotePostId) {
-    quotedPost = await getPost(current.quotePostId);
-
-    qpUser = quotedPost ? await getUser(quotedPost.userId) : null;
-  }
-
   const user = await getUser(post.userId);
   if (!user) return null;
+
+  const parentChainWithUsers = await Promise.all(
+    parentChain.map(async parent => {
+      const userParent = await getUser(parent.userId);
+      return userParent ? { parent, userParent } : null;
+    })
+  );
+
 
   return (
     <div className="space-y-4 pb-4 w-full mx-auto px-4">
       <NavBar title="Post" />
 
       <div className="relative pl-4 border-l border-muted space-y-4">
-        {parentChain.map(async parent => {
-          const userParent = await getUser(parent.userId);
-          if (!userParent) return null;
+        {parentChainWithUsers.map(item => {
+          if (!item) return null;
           return (
-            <div key={parent.id}>
-              <PostCard post={parent} user={userParent} />
+            <div key={item.parent.id}>
+              <PostCard post={item.parent} />
             </div>
           );
         })}
@@ -51,7 +50,7 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
 
       <div className="relative">
         <div className="absolute -top-4 left-0 h-4 w-px " />
-        <PostCard quotedPost={quotedPost} quotedUser={qpUser} post={post} user={user} />
+        <PostCard post={post} />
       </div>
 
       <div className="px-2">
@@ -62,6 +61,7 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
         />
 
         <ClientFeed postId={post.id} />
+        <ViewTracker postId={postId} />
       </div>
     </div>
   );

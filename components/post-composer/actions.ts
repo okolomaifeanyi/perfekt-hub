@@ -2,7 +2,7 @@
 "use server";
 
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { sendNotification } from "../actions";
 
 export async function notifyChainUsers(
@@ -77,11 +77,36 @@ export async function sendPost({
     createdAt: Timestamp.now(),
     userPhotoURL: user.photoURL || "",
     userFullName: user.fullName || "",
-    parentPostId: parentPostId || "", // for reply chains
-    quotePostId: quotePostId || "", // for quoting another post
+    parentPostId: parentPostId || "",
+    quotePostId: quotePostId || "",
+    replyCount: 0,
+    quoteCount: 0,
   };
 
-  const docRef = await firestoreAdmin.collection("posts").add(postData);
+  const batch = firestoreAdmin.batch();
+  const postRef = firestoreAdmin.collection("posts").doc();
+
+  // 1. Save the new post
+  batch.set(postRef, postData);
+
+  // 2. If reply → increment parent's replyCount
+  if (parentPostId) {
+    const parentRef = firestoreAdmin.collection("posts").doc(parentPostId);
+    batch.update(parentRef, {
+      replyCount: FieldValue.increment(1),
+    });
+  }
+
+  // 3. If quote → increment quoted post’s quoteCount
+  if (quotePostId) {
+    const quotedRef = firestoreAdmin.collection("posts").doc(quotePostId);
+    batch.update(quotedRef, {
+      quoteCount: FieldValue.increment(1),
+    });
+  }
+
+  // Commit batched writes
+  await batch.commit();
 
   // 🔔 Notify participants in reply chain
   if (parentPostId) {
@@ -105,12 +130,13 @@ export async function sendPost({
           recipientUid: quotedPost?.userId,
           actorUid: user.uid,
           type: "quote",
-          postId: docRef.id,
+          postId: postRef.id,
           extra: { quotePostId },
         });
       }
     }
   }
 
-  return docRef.id;
+  return postRef.id;
 }
+

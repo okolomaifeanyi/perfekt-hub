@@ -12,6 +12,7 @@ import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdD
 import { PostProps, UserProps } from "@/lib/types";
 import Text from "../feed/post/Text";
 import { Card } from "../ui/card";
+import { usePostCounts } from "@/lib/store/postCounts";
 
 export function QuotePostDialog({
   user,
@@ -49,17 +50,27 @@ export function QuotePostDialog({
     return `Contains ${parts.join(", ")}`;
   })();
 
+  const postCounts = usePostCounts(state => state.counts[post.id]);
+  const quoteCount = postCounts?.quoteCount ?? 0;
+  const hasCount = quoteCount > 0;
+
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="secondary"
+          variant={hasCount ? "outline" : "secondary"}
           title="Quote"
           size="sm"
           className="hover:text-green-600"
           aria-label="Quote this post"
         >
-          <Quote fontSize={16} />
+          <Quote
+            fontSize={16}
+            fill={hasCount ? "#00a63e" : "none"}
+            color={hasCount ? "#00a63e" : undefined}
+          />
+
+          {hasCount && <span className={`${hasCount ? "text-[#00a63e]" : ""} text-base`}>{quoteCount}</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="space-y-4">

@@ -10,35 +10,85 @@ import {
   where,
   writeBatch,
   getDoc,
+  updateDoc,
+  increment,
 } from "firebase/firestore";
 import { toast } from "sonner";
 import { getAuth } from "firebase/auth";
 const auth = getAuth();
 
-export async function deletePost(postId: string) {
-  const user = auth.currentUser;
-  if (!user) {
-    toast.error("Not signed in", {position: "top-right"});
-    return;
+async function deleteChildrenPosts(parentId: string) {
+  // Find replies
+  const repliesQ = query(
+    collection(db, "posts"),
+    where("parentPostId", "==", parentId)
+  );
+  const repliesSnap = await getDocs(repliesQ);
+
+  for (const reply of repliesSnap.docs) {
+    await deletePost(reply.id, true); // recursive delete
   }
 
-  console.log("Post Id", postId);
+  // Find quotes
+  const quotesQ = query(
+    collection(db, "posts"),
+    where("quotePostId", "==", parentId)
+  );
+  const quotesSnap = await getDocs(quotesQ);
+
+  for (const quote of quotesSnap.docs) {
+    await deletePost(quote.id, true); // recursive delete
+  }
+}
+
+export async function deletePost(postId: string, skipAuthCheck = false) {
+  const user = auth.currentUser;
+  if (!user && !skipAuthCheck) {
+    toast.error("Not signed in", { position: "top-right" });
+    return;
+  }
 
   try {
     const postRef = doc(db, "posts", postId);
     const postSnap = await getDoc(postRef);
+
+    if (!postSnap.exists()) {
+      if (!skipAuthCheck)
+        toast.error("Post not found", { position: "top-right" });
+      return;
+    }
+
     const post = postSnap.data();
 
-    if (post?.userId !== user.uid) {
+    if (!skipAuthCheck && post?.userId !== user?.uid) {
       toast.error("You can't delete this post", { position: "top-right" });
       return;
     }
 
+    // 🔽 Decrement parent’s reply count
+    if (post?.parentPostId) {
+      const parentRef = doc(db, "posts", post.parentPostId);
+      await updateDoc(parentRef, { replyCount: increment(-1) });
+    }
+
+    // 🔽 Decrement quoted post’s quote count
+    if (post?.quotePostId) {
+      const quotedRef = doc(db, "posts", post.quotePostId);
+      await updateDoc(quotedRef, { quoteCount: increment(-1) });
+    }
+
+    // 🔁 Recursively delete children replies & quotes
+    await deleteChildrenPosts(postId);
+
+    // ❌ Delete actual post
     await deleteDoc(postRef);
-    toast.success("Post deleted successfully", { position: "top-right" });
+
+    if (!skipAuthCheck)
+      toast.success("Post deleted successfully", { position: "top-right" });
   } catch (err) {
     console.error("deletePost:", err);
-    toast.error("Failed to delete post", { position: "top-right" });
+    if (!skipAuthCheck)
+      toast.error("Failed to delete post", { position: "top-right" });
   }
 }
 

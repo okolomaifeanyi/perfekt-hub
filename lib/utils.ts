@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { usePostCounts } from "@/lib/store/postCounts";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -74,4 +75,42 @@ export function mapFirebaseAuthError(error: FirebaseAuthError): string {
       console.error("Unhandled Firebase Auth Error:", error.code, error.message);
       return "An unknown error occurred. Please try again later.";
   }
+}
+
+export async function toggleReaction({
+  postId,
+  userId,
+  type, // "like" | "dislike"
+}: {
+  postId: string;
+  userId: string;
+  type: "like" | "dislike";
+}) {
+  const res = await fetch("/api/reactions/toggle", {
+    method: "POST",
+    body: JSON.stringify({ postId, userId, type }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to toggle reaction");
+  }
+
+  const updatedCounts = await res.json();
+
+  // 🔥 Update zustand
+  const { setCounts } = usePostCounts.getState();
+  setCounts(postId, {
+    likeCount: updatedCounts.likeCount,
+    dislikeCount: updatedCounts.dislikeCount,
+  });
+
+  return updatedCounts;
+}
+
+export async function getFirebaseToken(): Promise<string> {
+  const user = await import("firebase/auth").then(
+    ({ getAuth }) => getAuth().currentUser
+  );
+  if (!user) throw new Error("Not authenticated");
+  return await user.getIdToken();
 }

@@ -1,23 +1,47 @@
 import { PostReplyDialog } from "@/components/post-composer/PostReplyDialog";
 import { QuotePostDialog } from "@/components/post-composer/QuotePostDialog";
 import { Button } from "@/components/ui/button";
-import { usePostReactions } from "@/hooks/useReactions";
+import { usePostCounts } from "@/lib/store/postCounts";
+import { useUserStore } from "@/lib/store/useUserStore";
 import { PostProps, UserProps } from "@/lib/types";
-import {
-  Heart,
-  View,
-  Share,
-  ThumbsDown,
-} from "lucide-react";
+import { toggleReaction } from "@/lib/utils";
+import { Heart, View, Share, ThumbsDown } from "lucide-react";
 
-const Reactions = ({ post, user, currentUser, replyCount }: { user: UserProps; post: PostProps, currentUser: UserProps, replyCount?: number | null }) => {
-  const { counts, userReaction, loading, isPending, toggleReaction } =
-    usePostReactions(post.id, currentUser.uid);
+const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
+  const postCounts = usePostCounts(state => state.counts[post.id]);
+  const { user: currentUser } = useUserStore(state => state);
+  if (!currentUser) return null;
 
-  if (loading) return <p>Loading...</p>;
+  const liked = postCounts?.userReaction?.liked ?? false;
 
-  const liked = userReaction === "like";
-  const disliked = userReaction === "dislike";
+  const disliked = postCounts?.userReaction?.disliked ?? false;
+
+  const viewed = postCounts?.userReaction?.viewed ?? false;
+
+  const likeCount = (postCounts?.likeCount ?? 0);
+
+  const dislikeCount = (postCounts?.dislikeCount ?? 0);
+
+  const viewCount = (postCounts?.viewCount ?? 0);
+
+  console.log({viewCount});
+  
+
+  const handleLike = async () => {
+    await toggleReaction({
+      postId: post.id,
+      userId: currentUser.uid,
+      type: "like",
+    });
+  };
+
+  const handleDislike = async () => {
+    await toggleReaction({
+      postId: post.id,
+      userId: currentUser.uid,
+      type: "dislike",
+    });
+  };
 
   return (
     <div className="flex justify-between items-center px-2">
@@ -26,8 +50,7 @@ const Reactions = ({ post, user, currentUser, replyCount }: { user: UserProps; p
           size="sm"
           variant={liked ? "outline" : "secondary"}
           title="Like"
-          onClick={() => toggleReaction("like")}
-          disabled={isPending}
+          onClick={handleLike}
           className="flex items-center gap-1 hover:text-[#f42525]"
         >
           <Heart
@@ -35,9 +58,9 @@ const Reactions = ({ post, user, currentUser, replyCount }: { user: UserProps; p
             fill={liked ? "#f42525" : "none"}
             color={liked ? "#f42525" : undefined}
           />
-          {(counts.like ?? 0) > 0 && (
+          {likeCount > 0 && (
             <span className={`${liked ? "text-[#f42525]" : ""} text-base`}>
-              {counts.like ?? 0}
+              {likeCount}
             </span>
           )}
         </Button>
@@ -46,8 +69,7 @@ const Reactions = ({ post, user, currentUser, replyCount }: { user: UserProps; p
           size="sm"
           variant={disliked ? "outline" : "secondary"}
           title="Dislike"
-          onClick={() => toggleReaction("dislike")}
-          disabled={isPending}
+          onClick={handleDislike}
           className="flex items-center gap-1 hover:text-[#17559b]"
         >
           <ThumbsDown
@@ -55,27 +77,38 @@ const Reactions = ({ post, user, currentUser, replyCount }: { user: UserProps; p
             fill={disliked ? "#17559b" : "none"}
             color={disliked ? "#17559b" : undefined}
           />
-          {(counts.dislike ?? 0) > 0 && (
+          {dislikeCount > 0 && (
             <span className={`${disliked ? "text-[#17559b]" : ""} text-base`}>
-              {counts.dislike ?? 0}
+              {dislikeCount}
             </span>
           )}
         </Button>
       </div>
 
       <div className="flex space-x-2">
-        <PostReplyDialog user={user} post={post} replyCount={replyCount} />
+        <PostReplyDialog user={user} post={post} />
         <QuotePostDialog user={user} post={post} />
       </div>
 
       <div className="flex space-x-2">
         <Button
           size="sm"
-          variant="secondary"
+          variant={viewed ? "outline" : "secondary"}
           title="views"
-          className="hover:text-purple-500"
+          className="flex items-center gap-1 hover:text-purple-500"
+          disabled
         >
-          <View />
+          <View
+            fontSize={16}
+            fill={disliked ? "#6a0fff" : "none"}
+            color={disliked ? "#6a0fff" : undefined}
+          />
+
+          {viewCount > 0 && (
+            <span className={`${viewed ? "text-purple-500" : ""} text-base`}>
+              {viewCount}
+            </span>
+          )}
         </Button>
 
         <Button

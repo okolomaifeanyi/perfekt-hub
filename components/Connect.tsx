@@ -15,6 +15,7 @@ import {
   // UserCheck,
   // Loader2,
 } from "lucide-react";
+import { getFirebaseToken } from "@/lib/utils";
 
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const [status, setStatus] = useState<
@@ -153,13 +154,4 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-// Firebase token fetcher (if not already implemented)
-async function getFirebaseToken(): Promise<string> {
-  const user = await import("firebase/auth").then(
-    ({ getAuth }) => getAuth().currentUser
-  );
-  if (!user) throw new Error("Not authenticated");
-  return await user.getIdToken();
 }
