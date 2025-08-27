@@ -16,11 +16,13 @@ const PostComposer = ({
   sendButton,
   parentPostId,
   quotePostId,
+  onSuccess,
 }: {
   sendButton?: string;
   placeholder?: string;
   parentPostId?: string | "";
   quotePostId?: string | "";
+   onSuccess?: () => void;
 }) => {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<MediaProps[]>([]);
@@ -31,9 +33,9 @@ const PostComposer = ({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { user } = useUserStore(state => state);
 
-  useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+  // useEffect(() => {
+  //   textareaRef.current?.focus();
+  // }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -68,6 +70,7 @@ const PostComposer = ({
         setText("");
         setMedia([]);
         setGifDialogOpen(false);
+        onSuccess?.();
       },
       parentPostId,
       quotePostId,

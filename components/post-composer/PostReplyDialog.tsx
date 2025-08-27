@@ -12,6 +12,7 @@ import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdD
 import { PostProps, UserProps } from "@/lib/types";
 import Text from "../feed/post/Text";
 import { usePostCounts } from "@/lib/store/postCounts";
+import { useState } from "react";
 
 export function PostReplyDialog({
   user,
@@ -20,6 +21,9 @@ export function PostReplyDialog({
   user: UserProps;
   post: PostProps;
 }) {
+  const [open, setOpen] = useState(false);
+
+
   // build media summary
   const mediaSummary = (() => {
     if (!post.media || post.media.length === 0) return null;
@@ -54,13 +58,14 @@ export function PostReplyDialog({
   const hasCount = replyCount > 0;
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           size="sm"
           variant={hasCount ? "outline" : "secondary"}
           title="Comment"
           className="hover:text-green-600 flex items-center gap-1"
+          onClick={() => setOpen(true)}
         >
           <MessageCircleMore
             fontSize={16}
@@ -93,6 +98,7 @@ export function PostReplyDialog({
           parentPostId={post.id}
           placeholder="Write your reply"
           sendButton="Reply"
+          onSuccess={() => setOpen(false)}
         />
       </DialogContent>
     </Dialog>

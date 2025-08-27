@@ -13,6 +13,7 @@ import { PostProps, UserProps } from "@/lib/types";
 import Text from "../feed/post/Text";
 import { Card } from "../ui/card";
 import { usePostCounts } from "@/lib/store/postCounts";
+import { useState } from "react";
 
 export function QuotePostDialog({
   user,
@@ -21,6 +22,9 @@ export function QuotePostDialog({
   user: UserProps;
   post: PostProps;
 }) {
+  const [open, setOpen] = useState(false);
+
+
   // build media summary
   const mediaSummary = (() => {
     if (!post.media || post.media.length === 0) return null;
@@ -55,7 +59,7 @@ export function QuotePostDialog({
   const hasCount = quoteCount > 0;
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           variant={hasCount ? "outline" : "secondary"}
@@ -63,6 +67,8 @@ export function QuotePostDialog({
           size="sm"
           className="hover:text-green-600"
           aria-label="Quote this post"
+                    onClick={() => setOpen(true)}
+
         >
           <Quote
             fontSize={16}
@@ -83,6 +89,8 @@ export function QuotePostDialog({
           quotePostId={post.id}
           placeholder="Write your quote"
           sendButton="Quote"
+                    onSuccess={() => setOpen(false)}
+
         />
 
         <Card className="p-2 rounded-lg">
