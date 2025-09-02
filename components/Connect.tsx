@@ -28,7 +28,7 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
     fetchStatus(targetUid);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetUid]);
+  }, []);
 
   return (
     <DropdownMenu>
