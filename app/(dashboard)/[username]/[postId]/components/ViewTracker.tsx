@@ -1,14 +1,11 @@
 "use client";
 
 import { getFirebaseToken } from "@/lib/utils";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 export default function ViewTracker({ postId }: { postId: string }) {
-  const hasTracked = useRef(false);
 
   useEffect(() => {
-    if (hasTracked.current) return; // prevent second run in dev StrictMode
-    hasTracked.current = true;
 
     const recordView = async () => {
       try {

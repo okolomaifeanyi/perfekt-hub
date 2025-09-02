@@ -20,7 +20,7 @@ const ClientHomeTab = () => {
   };
 
   return (
-    <>
+    <div>
       {count > 0 && (
         <div onClick={handleShowNewPosts} className="flex justify-center">
           <P className="!m-0 cursor-pointer">
@@ -29,7 +29,7 @@ const ClientHomeTab = () => {
         </div>
       )}
       <Feed initialPosts={posts} />
-    </>
+    </div>
   );
 };
 

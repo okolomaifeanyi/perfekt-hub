@@ -22,10 +22,7 @@ const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
 
   const dislikeCount = (postCounts?.dislikeCount ?? 0);
 
-  const viewCount = (postCounts?.viewCount ?? 0);
-
-  console.log({viewCount});
-  
+  const viewCount = (postCounts?.viewCount ?? 0);  
 
   const handleLike = async () => {
     await toggleReaction({

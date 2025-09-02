@@ -11,24 +11,24 @@ import { Button } from "@/components/ui/button";
 import { Handshake, UserPlus, UserMinus } from "lucide-react";
 import { useFriendStore } from "@/lib/store/friendStore";
 
-
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
-  const { statuses, loading, fetchStatus, handleAction } = useFriendStore();
-
-  const status = statuses[targetUid] ?? "none";
-  const isLoading = loading[targetUid] ?? false;
+  const status = useFriendStore(s => s.statuses[targetUid]) ?? "none";
+  const isLoading = useFriendStore(s => Boolean(s.loading[targetUid]));
+  const { fetchStatus, handleAction } = useFriendStore();
 
   const label = {
     none: "Connect",
     following: "Following",
     friends: "Connected",
-    requested: "Requested",
     pending: "Pending",
+    requested: "Requested",
   }[status];
 
   useEffect(() => {
     fetchStatus(targetUid);
-  }, [targetUid, fetchStatus]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetUid]);
 
   return (
     <DropdownMenu>
@@ -41,34 +41,48 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
         {/* NONE */}
         {status === "none" && (
           <>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "befriend")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "befriend")}
+            >
               <Handshake className="mr-2 h-4 w-4" /> Befriend
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "follow")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "follow")}
+            >
               <UserPlus className="mr-2 h-4 w-4" /> Follow
             </DropdownMenuItem>
           </>
         )}
 
-        {/* REQUESTED */}
         {status === "requested" && (
           <>
             <DropdownMenuItem disabled>
               <UserPlus className="mr-2 h-4 w-4" /> Request Sent
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "unfriend")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "cancel")}
+            >
               <UserMinus className="mr-2 h-4 w-4" /> Cancel Request
             </DropdownMenuItem>
           </>
         )}
 
-        {/* PENDING */}
+        {/* PENDING (you received) */}
         {status === "pending" && (
           <>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "befriend")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "accept")}
+            >
               <Handshake className="mr-2 h-4 w-4" /> Accept Request
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "unfriend")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "disconnect")}
+            >
               <UserMinus className="mr-2 h-4 w-4" /> Decline Request
             </DropdownMenuItem>
           </>
@@ -77,10 +91,16 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
         {/* FOLLOWING */}
         {status === "following" && (
           <>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "unfollow")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "unfollow")}
+            >
               <UserMinus className="mr-2 h-4 w-4" /> Unfollow
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleAction(targetUid, "befriend")}>
+            <DropdownMenuItem
+              disabled={isLoading}
+              onClick={() => handleAction(targetUid, "befriend")}
+            >
               <Handshake className="mr-2 h-4 w-4" /> Befriend
             </DropdownMenuItem>
           </>
@@ -88,7 +108,10 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
 
         {/* FRIENDS */}
         {status === "friends" && (
-          <DropdownMenuItem onClick={() => handleAction(targetUid, "disconnect")}>
+          <DropdownMenuItem
+            disabled={isLoading}
+            onClick={() => handleAction(targetUid, "disconnect")}
+          >
             <UserMinus className="mr-2 h-4 w-4" /> Disconnect
           </DropdownMenuItem>
         )}

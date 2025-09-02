@@ -14,6 +14,11 @@ export async function followUser(currentUid: string, targetUid: string) {
   await Promise.all([
     followingRef.set({ followedAt: Date.now() }),
     followerRef.set({ followedAt: Date.now() }),
+    sendNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "follow",
+    }),
   ]);
 }
 
@@ -25,7 +30,15 @@ export async function unfollowUser(currentUid: string, targetUid: string) {
     `users/${targetUid}/followers/${currentUid}`
   );
 
-  await Promise.all([followingRef.delete(), followerRef.delete()]);
+  await Promise.all([
+    followingRef.delete(),
+    followerRef.delete(),
+    deleteNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "follow",
+    }),
+  ]);
 }
 
 export async function sendFriendRequest(currentUid: string, targetUid: string) {
@@ -35,15 +48,26 @@ export async function sendFriendRequest(currentUid: string, targetUid: string) {
   const receivedRef = firestoreAdmin.doc(
     `users/${targetUid}/friendRequestsReceived/${currentUid}`
   );
-  const followRef = firestoreAdmin.doc(
-    `users/${targetUid}/followers/${currentUid}`
-  );
 
   await Promise.all([
-    sentRef.set({ createdAt: Date.now() }),
-    receivedRef.set({ createdAt: Date.now() }),
-    followRef.set({ followedAt: Date.now() }),
+    sentRef.set({
+      from: currentUid,
+      to: targetUid,
+      createdAt: Date.now(),
+    }),
+    receivedRef.set({
+      from: currentUid,
+      to: targetUid,
+      createdAt: Date.now(),
+    }),
+    sendNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "friendRequest",
+    }),
   ]);
+
+  return { status: "requested" };
 }
 
 export async function unfriendUser(currentUid: string, targetUid: string) {
@@ -57,6 +81,11 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
   await Promise.all([
     currentUserFriendRef.delete(),
     targetUserFriendRef.delete(),
+    deleteNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "friendRequest",
+    }),
   ]);
 }
 
@@ -71,20 +100,34 @@ export async function acceptFriendRequest(
     `users/${requesterUid}/friendRequestsSent/${currentUid}`
   );
 
-  const currentUserFriendRef = firestoreAdmin.doc(
+  const currentFriendRef = firestoreAdmin.doc(
     `users/${currentUid}/friends/${requesterUid}`
   );
   const requesterFriendRef = firestoreAdmin.doc(
     `users/${requesterUid}/friends/${currentUid}`
   );
 
-  await Promise.all([
-    currentUserFriendRef.set({ createdAt: Date.now() }),
-    requesterFriendRef.set({ createdAt: Date.now() }),
+  const since = Date.now();
 
+  await Promise.all([
+    currentFriendRef.set({
+      since,
+      initiatedBy: requesterUid,
+    }),
+    requesterFriendRef.set({
+      since,
+      initiatedBy: requesterUid,
+    }),
     receivedRef.delete(),
     sentRef.delete(),
+    sendNotification({
+    recipientUid: requesterUid,
+    actorUid: currentUid,
+    type: "acceptRequest",
+  }),
   ]);
+
+  return { status: "friends" };
 }
 
 export async function cancelFriendRequest(
@@ -97,6 +140,7 @@ export async function cancelFriendRequest(
   const receivedRef = firestoreAdmin.doc(
     `users/${targetUid}/friendRequestsReceived/${currentUid}`
   );
+  
   const followRef = firestoreAdmin.doc(
     `users/${targetUid}/followers/${currentUid}`
   );
@@ -105,6 +149,11 @@ export async function cancelFriendRequest(
     sentRef.delete(),
     receivedRef.delete(),
     followRef.delete(),
+    deleteNotification({
+      recipientUid: targetUid,
+      actorUid: currentUid,
+      type: "friendRequest",
+    }),
   ]);
 }
 
@@ -126,6 +175,11 @@ export async function declineFriendRequest(
     receivedRef.delete(),
     sentRef.delete(),
     followRef.delete(),
+    deleteNotification({
+      recipientUid: requesterUid,
+      actorUid: currentUid,
+      type: "acceptRequest",
+    }),
   ]);
 }
 
@@ -137,7 +191,15 @@ export async function removeFollower(currentUid: string, followerUid: string) {
     `users/${followerUid}/following/${currentUid}`
   );
 
-  await Promise.all([followerRef.delete(), followingRef.delete()]);
+  await Promise.all([
+    followerRef.delete(),
+    followingRef.delete(),
+    deleteNotification({
+      recipientUid: currentUid,
+      actorUid: followerUid,
+      type: "follow",
+    }),
+  ]);
 }
 
 export async function sendNotification({
@@ -162,6 +224,38 @@ export async function sendNotification({
   };
 
   await notificationRef.set(payload);
+}
+
+export async function deleteNotification({
+  recipientUid,
+  actorUid,
+  type,
+}: {
+  recipientUid: string;
+  actorUid: string;
+  type: NotificationInput["type"];
+}) {
+if (!recipientUid || !actorUid || !type) {
+  console.error("deleteNotification called with missing params", {
+    recipientUid,
+    actorUid,
+    type,
+  });
+  return;
+}
+
+  const snapshot = await firestoreAdmin
+    .collection("notifications")
+    .where("recipientUid", "==", recipientUid)
+    .where("actorUid", "==", actorUid)
+    .where("type", "==", type)
+    .get();
+
+  if (snapshot.empty) return;
+
+  const batch = firestoreAdmin.batch();
+  snapshot.forEach(doc => batch.delete(doc.ref));
+  await batch.commit();
 }
 
 export async function toggleLikeDislikeAdmin({
@@ -227,10 +321,7 @@ export async function toggleLikeDislikeAdmin({
   });
 }
 
-export async function addUniqueView(
-  postId: string,
-  userId: string,
-) {
+export async function addUniqueView(postId: string, userId: string) {
   try {
     if (!userId) return;
 

@@ -1,41 +1,34 @@
-import { followUser, sendFriendRequest, sendNotification } from "@/components/actions";
-import { authAdmin } from "@/lib/firebaseAdmin";
+import { getCurrentUid } from "@/app/actions";
+import {
+  followUser,
+  sendFriendRequest,
+} from "@/components/actions";
 import { NextResponse } from "next/server";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ targetUid: string }> }
 ) {
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "");
+  const uidOrResponse = await getCurrentUid(req);
+  if ("status" in uidOrResponse) return uidOrResponse;
 
-  if (!token) {
-    return NextResponse.json({ error: "No token provided" }, { status: 401 });
-  }
-
-  let decoded;
-  try {
-    decoded = await authAdmin.verifyIdToken(token);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-  }
-  const currentUid = decoded.uid;
+  const currentUid = uidOrResponse.uid;
 
   const { targetUid } = await params;
 
-  if (!currentUid || !targetUid || currentUid === targetUid) {
-    return NextResponse.json({ error: "Invalid user" }, { status: 400 });
-  }
-
-  await sendFriendRequest(currentUid, targetUid);
+  try {
+    // follow immediately (like one-way connection before acceptance)
     await followUser(currentUid, targetUid);
-    
-    await sendNotification({
-      recipientUid: targetUid,
-      actorUid: currentUid,
-      type: "friendRequest",
-    });
 
-  return NextResponse.json({ success: true });
+    // store pending request
+    const result = await sendFriendRequest(currentUid, targetUid);
+
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error("Error sending friend request:", err);
+    return NextResponse.json(
+      { error: "Failed to send friend request" },
+      { status: 500 }
+    );
+  }
 }

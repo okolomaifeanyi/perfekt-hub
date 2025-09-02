@@ -6,21 +6,22 @@ import { NextResponse } from "next/server";
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ uid: string }> }
+  { params }: { params: Promise<{ targetUid: string }> }
 ) {
   const uidOrResponse = await getCurrentUid(req);
   if ("status" in uidOrResponse) return uidOrResponse;
 
   const currentUid = uidOrResponse.uid;
 
-  const { uid: otherUid } = await params;
+  const { targetUid: otherUid } = await params;
 
   try {
     await unfriendUser(currentUid, otherUid);
 
     return NextResponse.json({ success: true, status: "none" });
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   } catch (err) {
+    console.error("disconnect error:", err);
     return NextResponse.json(
       { error: "Failed to disconnect" },
       { status: 500 }

@@ -22,12 +22,12 @@ export async function GET(
   const uid = decoded.uid;
   const { targetUid } = await params;
 
-  const [friendSnap, sentSnap, receivedSnap, followSnap] = await Promise.all([
+  const [friendSnap, receivedSnap, sentSnap, followSnap] = await Promise.all([
     firestoreAdmin.doc(`users/${uid}/friends/${targetUid}`).get(),
-    firestoreAdmin.doc(`users/${uid}/friendRequestsSent/${targetUid}`).get(),
     firestoreAdmin
       .doc(`users/${uid}/friendRequestsReceived/${targetUid}`)
       .get(),
+    firestoreAdmin.doc(`users/${uid}/friendRequestsSent/${targetUid}`).get(),
     firestoreAdmin.doc(`users/${uid}/following/${targetUid}`).get(),
   ]);
 
@@ -39,8 +39,8 @@ export async function GET(
   let status: "none" | "following" | "friends" | "requested" | "pending";
 
   if (isFriend) status = "friends";
-  else if (sentRequest) status = "requested"; // you sent the request
-  else if (receivedRequest) status = "pending"; // waiting for you to accept
+  else if (receivedRequest) status = "pending";
+  else if (sentRequest) status = "requested";
   else if (isFollow) status = "following";
   else status = "none";
 

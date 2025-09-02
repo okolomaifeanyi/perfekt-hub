@@ -83,7 +83,7 @@ const PostComposer = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex space-x-2">
+      <div className="flex space-x-2 items-center">
         <MyAvatar
           username={user.username}
           photoURL={user.photoURL}

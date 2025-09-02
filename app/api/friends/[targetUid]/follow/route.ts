@@ -1,40 +1,28 @@
-import { followUser, sendNotification } from "@/components/actions";
-import { authAdmin } from "@/lib/firebaseAdmin";
+// app/api/friends/[targetUid]/follow/route.ts
+import { getCurrentUid } from "@/app/actions";
+import { followUser } from "@/components/actions";
 import { NextResponse } from "next/server";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ targetUid: string }> }
 ) {
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "");
+  const uidOrResponse = await getCurrentUid(req);
+  if ("status" in uidOrResponse) return uidOrResponse;
 
-  if (!token) {
-    return NextResponse.json({ error: "No token provided" }, { status: 401 });
-  }
+  const currentUid = uidOrResponse.uid;
+  const { targetUid } = await params;
 
-  let decoded;
-  try {
-    decoded = await authAdmin.verifyIdToken(token);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-  }
-  const currentUid = decoded.uid;
-
-  const {targetUid} = await params;
-
-  if (!currentUid || !targetUid || currentUid === targetUid) {
+  if (currentUid === targetUid) {
     return NextResponse.json({ error: "Invalid user" }, { status: 400 });
   }
 
+  try {
     await followUser(currentUid, targetUid);
-    
-    await sendNotification({
-      recipientUid: targetUid,
-      actorUid: currentUid,
-      type: "follow",
-    });
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("follow error:", err);
+    return NextResponse.json({ error: "Failed to follow" }, { status: 500 });
+  }
 }
