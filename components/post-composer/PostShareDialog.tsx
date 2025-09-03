@@ -145,16 +145,24 @@ export function SharePostDialog({
         </motion.div>
 
         {/* Copy link */}
-        <div className="mt-6 flex items-center justify-between border rounded-lg py-2">
-          <span className="truncate text-sm text-gray-500">{url}</span>
+        <div className="mt-6 flex items-center gap-2 border rounded-lg px-3 py-2 overflow-x-hidden">
+          <span
+            title={url}
+            className="flex-1 min-w-0 truncate text-sm text-muted-foreground"
+          >
+            {url}
+          </span>
+
           <Button
             onClick={handleCopy}
             size="sm"
             variant="ghost"
-            className="ml-2 flex items-center gap-2"
+            className="shrink-0 inline-flex items-center gap-2"
           >
             {copied ? <Check size={16} /> : <Copy size={16} />}
-            {copied ? "Copied" : "Copy"}
+            <span className="hidden sm:inline">
+              {copied ? "Copied" : "Copy"}
+            </span>
           </Button>
         </div>
       </DialogContent>
