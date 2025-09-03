@@ -1,11 +1,12 @@
 import { PostReplyDialog } from "@/components/post-composer/PostReplyDialog";
+import { SharePostDialog } from "@/components/post-composer/PostShareDialog";
 import { QuotePostDialog } from "@/components/post-composer/QuotePostDialog";
 import { Button } from "@/components/ui/button";
 import { usePostCounts } from "@/lib/store/postCounts";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { PostProps, UserProps } from "@/lib/types";
 import { toggleReaction } from "@/lib/utils";
-import { Heart, View, Share, ThumbsDown } from "lucide-react";
+import { Heart, View, ThumbsDown } from "lucide-react";
 
 const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
   const postCounts = usePostCounts(state => state.counts[post.id]);
@@ -143,14 +144,7 @@ const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
           )}
         </Button>
 
-        <Button
-          size="sm"
-          variant="secondary"
-          title="Share"
-          className="hover:text-purple-600"
-        >
-          <Share />
-        </Button>
+        <SharePostDialog username={user.username} postId={post.id} title={"Share"} />
       </div>
     </div>
   );
