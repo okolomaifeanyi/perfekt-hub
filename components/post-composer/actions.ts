@@ -1,9 +1,10 @@
 // /app/actions/notifyChainUsers.ts
 "use server";
 
+import { sendNotification } from "@/app/actions/notifications";
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-import { sendNotification } from "../actions";
+
 
 export async function notifyChainUsers(
   parentPostId: string,

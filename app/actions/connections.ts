@@ -1,7 +1,5 @@
-// lib/actions/friends.ts
-import { dbAdmin, firestoreAdmin } from "@/lib/firebaseAdmin";
-import { NotificationInput } from "@/lib/types";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { deleteNotification, sendNotification } from "./notifications";
 
 export async function followUser(currentUid: string, targetUid: string) {
   const followingRef = firestoreAdmin.doc(
@@ -121,10 +119,10 @@ export async function acceptFriendRequest(
     receivedRef.delete(),
     sentRef.delete(),
     sendNotification({
-    recipientUid: requesterUid,
-    actorUid: currentUid,
-    type: "acceptRequest",
-  }),
+      recipientUid: requesterUid,
+      actorUid: currentUid,
+      type: "acceptRequest",
+    }),
   ]);
 
   return { status: "friends" };
@@ -140,7 +138,7 @@ export async function cancelFriendRequest(
   const receivedRef = firestoreAdmin.doc(
     `users/${targetUid}/friendRequestsReceived/${currentUid}`
   );
-  
+
   const followRef = firestoreAdmin.doc(
     `users/${targetUid}/followers/${currentUid}`
   );
@@ -202,148 +200,3 @@ export async function removeFollower(currentUid: string, followerUid: string) {
   ]);
 }
 
-export async function sendNotification({
-  recipientUid,
-  actorUid,
-  type,
-  postId,
-  extra = {},
-}: NotificationInput) {
-  if (recipientUid === actorUid) return;
-
-  const notificationRef = firestoreAdmin.collection("notifications").doc();
-
-  const payload = {
-    recipientUid,
-    actorUid,
-    type,
-    postId: postId || null,
-    read: false,
-    createdAt: Timestamp.now(),
-    ...extra,
-  };
-
-  await notificationRef.set(payload);
-}
-
-export async function deleteNotification({
-  recipientUid,
-  actorUid,
-  type,
-}: {
-  recipientUid: string;
-  actorUid: string;
-  type: NotificationInput["type"];
-}) {
-if (!recipientUid || !actorUid || !type) {
-  console.error("deleteNotification called with missing params", {
-    recipientUid,
-    actorUid,
-    type,
-  });
-  return;
-}
-
-  const snapshot = await firestoreAdmin
-    .collection("notifications")
-    .where("recipientUid", "==", recipientUid)
-    .where("actorUid", "==", actorUid)
-    .where("type", "==", type)
-    .get();
-
-  if (snapshot.empty) return;
-
-  const batch = firestoreAdmin.batch();
-  snapshot.forEach(doc => batch.delete(doc.ref));
-  await batch.commit();
-}
-
-export async function toggleLikeDislikeAdmin({
-  postId,
-  userId,
-  type,
-}: {
-  postId: string;
-  userId: string;
-  type: "like" | "dislike";
-}) {
-  const postRef = dbAdmin.collection("posts").doc(postId);
-  const reactionRef = postRef.collection("reactions").doc(userId);
-
-  return dbAdmin.runTransaction(async transaction => {
-    const reactionDoc = await transaction.get(reactionRef);
-    const postDoc = await transaction.get(postRef);
-
-    if (!postDoc.exists) throw new Error("Post not found");
-
-    const counts = postDoc.data()?.reactionCounts || {};
-    const currentReaction = reactionDoc.exists
-      ? reactionDoc.data()?.type
-      : null;
-
-    const updatedCounts = { ...counts };
-
-    if (currentReaction === type) {
-      // remove reaction
-      transaction.delete(reactionRef);
-      updatedCounts[type] = Math.max((updatedCounts[type] || 1) - 1, 0);
-
-      transaction.update(postRef, {
-        [`reactionCounts.${type}`]: updatedCounts[type],
-      });
-    } else {
-      // set new reaction
-      transaction.set(reactionRef, { type, createdAt: Date.now() });
-
-      if (currentReaction) {
-        // switch reaction
-        updatedCounts[currentReaction] = Math.max(
-          (updatedCounts[currentReaction] || 1) - 1,
-          0
-        );
-        updatedCounts[type] = (updatedCounts[type] || 0) + 1;
-
-        transaction.update(postRef, {
-          [`reactionCounts.${currentReaction}`]: updatedCounts[currentReaction],
-          [`reactionCounts.${type}`]: updatedCounts[type],
-        });
-      } else {
-        // new reaction
-        updatedCounts[type] = (updatedCounts[type] || 0) + 1;
-
-        transaction.update(postRef, {
-          [`reactionCounts.${type}`]: updatedCounts[type],
-        });
-      }
-    }
-
-    return updatedCounts;
-  });
-}
-
-export async function addUniqueView(postId: string, userId: string) {
-  try {
-    if (!userId) return;
-
-    const viewRef = firestoreAdmin
-      .collection("posts")
-      .doc(postId)
-      .collection("views")
-      .doc(userId);
-
-    const viewSnap = await viewRef.get();
-
-    if (!viewSnap.exists) {
-      // create view record
-      await viewRef.set({ viewedAt: new Date() });
-
-      // atomically increment post viewCount
-      const postRef = firestoreAdmin.collection("posts").doc(postId);
-      await postRef.update({
-        viewCount: FieldValue.increment(1),
-      });
-    }
-  } catch (err) {
-    console.error("addUniqueView (admin):", err);
-  }
-}

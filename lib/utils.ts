@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { usePostCounts } from "@/lib/store/postCounts";
+// import { usePostCounts } from "@/lib/store/postCounts";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -67,12 +67,16 @@ export function mapFirebaseAuthError(error: FirebaseAuthError): string {
     case "auth/invalid-credential":
       return "Invalid login credentials. Please check your email and password.";
     case "auth/credential-already-in-use":
-        return "This credential (e.g., Google account) is already linked to another user.";
+      return "This credential (e.g., Google account) is already linked to another user.";
     case "auth/account-exists-with-different-credential":
-        return "An account with this email already exists but with a different login method. Please try logging in with the original method.";
+      return "An account with this email already exists but with a different login method. Please try logging in with the original method.";
     // Add more cases as you encounter them or need specific messages
     default:
-      console.error("Unhandled Firebase Auth Error:", error.code, error.message);
+      console.error(
+        "Unhandled Firebase Auth Error:",
+        error.code,
+        error.message
+      );
       return "An unknown error occurred. Please try again later.";
   }
 }
@@ -80,7 +84,7 @@ export function mapFirebaseAuthError(error: FirebaseAuthError): string {
 export async function toggleReaction({
   postId,
   userId,
-  type, // "like" | "dislike"
+  type,
 }: {
   postId: string;
   userId: string;
@@ -97,12 +101,16 @@ export async function toggleReaction({
 
   const updatedCounts = await res.json();
 
-  // 🔥 Update zustand
-  const { setCounts } = usePostCounts.getState();
-  setCounts(postId, {
-    likeCount: updatedCounts.likeCount,
-    dislikeCount: updatedCounts.dislikeCount,
-  });
+  // ✅ Only update counts, leave userReaction as-is (optimistic already set it)
+  // const { setCounts } = usePostCounts.getState();
+  // setCounts(postId, {
+  //   likeCount: updatedCounts.likeCount,
+  //   dislikeCount: updatedCounts.dislikeCount,
+  //   replyCount: updatedCounts.replyCount, // in case server also sends these
+  //   quoteCount: updatedCounts.quoteCount,
+  //   viewCount: updatedCounts.viewCount,
+  //   shareCount: updatedCounts.shareCount,
+  // });
 
   return updatedCounts;
 }

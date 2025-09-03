@@ -1,6 +1,6 @@
 // app/api/friends/[uid]/cancel/route.ts
 import { getCurrentUid } from "@/app/actions";
-import { cancelFriendRequest } from "@/components/actions";
+import { cancelFriendRequest } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(

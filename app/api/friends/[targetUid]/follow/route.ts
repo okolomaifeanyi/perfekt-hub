@@ -1,6 +1,6 @@
 // app/api/friends/[targetUid]/follow/route.ts
 import { getCurrentUid } from "@/app/actions";
-import { followUser } from "@/components/actions";
+import { followUser } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(

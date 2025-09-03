@@ -1,6 +1,6 @@
 // app/api/posts/[postId]/view/route.ts
 import { getCurrentUid } from "@/app/actions";
-import { addUniqueView } from "@/components/actions";
+import { addUniqueView } from "@/app/actions/reactions";
 import { NextRequest, NextResponse } from "next/server";
 
 

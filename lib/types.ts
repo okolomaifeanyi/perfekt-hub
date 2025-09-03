@@ -68,7 +68,9 @@ export type NotificationType =
   | "like"
   | "comment"
   | "acceptRequest"
-  | "quote";
+  | "quote"
+  | "like"
+  | "dislike";
 
 export type ReactionType = "like" | "dislike";
 

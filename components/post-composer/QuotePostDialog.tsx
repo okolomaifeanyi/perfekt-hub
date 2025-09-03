@@ -24,32 +24,20 @@ export function QuotePostDialog({
 }) {
   const [open, setOpen] = useState(false);
 
-
-  // build media summary
   const mediaSummary = (() => {
     if (!post.media || post.media.length === 0) return null;
 
-    let imageCount = 0;
-    let gifCount = 0;
-    let videoCount = 0;
-
+    let imageCount = 0, gifCount = 0, videoCount = 0;
     for (const medium of post.media) {
-      if (medium.type === "image" && medium.src.includes("giphy")) {
-        gifCount++;
-      } else if (medium.type === "image") {
-        imageCount++;
-      } else if (medium.type === "video") {
-        videoCount++;
-      }
+      if (medium.type === "image" && medium.src.includes("giphy")) gifCount++;
+      else if (medium.type === "image") imageCount++;
+      else if (medium.type === "video") videoCount++;
     }
 
     const parts: string[] = [];
-    if (imageCount > 0)
-      parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
-    if (gifCount > 0)
-      parts.push(`${gifCount} gif image${gifCount > 1 ? "s" : ""}`);
-    if (videoCount > 0)
-      parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
+    if (imageCount > 0) parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
+    if (gifCount > 0) parts.push(`${gifCount} gif${gifCount > 1 ? "s" : ""}`);
+    if (videoCount > 0) parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
 
     return `Contains ${parts.join(", ")}`;
   })();
@@ -62,43 +50,44 @@ export function QuotePostDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
+          size="sm"
           variant={hasCount ? "outline" : "secondary"}
           title="Quote"
-          size="sm"
-          className="hover:text-green-600"
-          aria-label="Quote this post"
-                    onClick={() => setOpen(true)}
-
+          className="hover:text-green-600 flex items-center gap-1"
+          onClick={() => setOpen(true)}
         >
           <Quote
-            fontSize={16}
-            fill={hasCount ? "#00a63e" : "none"}
-            color={hasCount ? "#00a63e" : undefined}
+            size={16}
+            fill={hasCount ? "currentColor" : "none"}
+            stroke="currentColor"
+            className={hasCount ? "text-green-600" : ""}
           />
-
-          {hasCount && <span className={`${hasCount ? "text-[#00a63e]" : ""} text-base`}>{quoteCount}</span>}
+          {hasCount && (
+            <span className={`text-base ${hasCount ? "text-green-600" : ""}`}>
+              {quoteCount}
+            </span>
+          )}
         </Button>
       </DialogTrigger>
+
       <DialogContent className="space-y-4">
         <DialogHeader>
           <DialogTitle>
             Quote <span className="text-primary">{user.username}</span>
           </DialogTitle>
         </DialogHeader>
+
         <PostComposer
           quotePostId={post.id}
           placeholder="Write your quote"
           sendButton="Quote"
-                    onSuccess={() => setOpen(false)}
-
+          onSuccess={() => setOpen(false)}
         />
 
         <Card className="p-2 rounded-lg">
           <PostIdDate user={user} post={post} />
           <Text text={post.content} />
-          {mediaSummary && (
-            <div className="text-secondary mt-2">{mediaSummary}</div>
-          )}
+          {mediaSummary && <div className="text-secondary mt-2">{mediaSummary}</div>}
         </Card>
       </DialogContent>
     </Dialog>

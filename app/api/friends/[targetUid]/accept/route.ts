@@ -2,7 +2,7 @@ import { getCurrentUid } from "@/app/actions";
 import {
   acceptFriendRequest,
   followUser,
-} from "@/components/actions";
+} from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(

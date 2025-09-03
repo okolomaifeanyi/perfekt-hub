@@ -23,30 +23,22 @@ export function PostReplyDialog({
 }) {
   const [open, setOpen] = useState(false);
 
-
-  // build media summary
   const mediaSummary = (() => {
     if (!post.media || post.media.length === 0) return null;
 
-    let imageCount = 0;
-    let gifCount = 0;
-    let videoCount = 0;
-
+    let imageCount = 0,
+      gifCount = 0,
+      videoCount = 0;
     for (const medium of post.media) {
-      if (medium.type === "image" && medium.src.includes("giphy")) {
-        gifCount++;
-      } else if (medium.type === "image") {
-        imageCount++;
-      } else if (medium.type === "video") {
-        videoCount++;
-      }
+      if (medium.type === "image" && medium.src.includes("giphy")) gifCount++;
+      else if (medium.type === "image") imageCount++;
+      else if (medium.type === "video") videoCount++;
     }
 
     const parts: string[] = [];
     if (imageCount > 0)
       parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
-    if (gifCount > 0)
-      parts.push(`${gifCount} gif image${gifCount > 1 ? "s" : ""}`);
+    if (gifCount > 0) parts.push(`${gifCount} gif${gifCount > 1 ? "s" : ""}`);
     if (videoCount > 0)
       parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
 
@@ -68,18 +60,19 @@ export function PostReplyDialog({
           onClick={() => setOpen(true)}
         >
           <MessageCircleMore
-            fontSize={16}
-            fill={hasCount ? "#00a63e" : "none"}
-            color={hasCount ? "#00a63e" : undefined}
+            size={16}
+            fill={hasCount ? "currentColor" : "none"}
+            stroke="currentColor"
+            className={hasCount ? "text-green-600" : ""}
           />
-
           {hasCount && (
-            <span className={`${hasCount ? "text-[#00a63e]" : ""}text-base`}>
+            <span className={`text-base ${hasCount ? "text-green-600" : ""}`}>
               {replyCount}
             </span>
           )}
         </Button>
       </DialogTrigger>
+
       <DialogContent className="space-y-4">
         <div>
           <PostIdDate user={user} post={post} />
@@ -94,6 +87,7 @@ export function PostReplyDialog({
             Replying to <span className="text-primary">{user.username}</span>
           </DialogTitle>
         </DialogHeader>
+
         <PostComposer
           parentPostId={post.id}
           placeholder="Write your reply"

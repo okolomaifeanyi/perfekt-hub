@@ -23,7 +23,7 @@ export async function GET(
   const currentUid = uidOrResponse.uid;
 
   // default userReaction flags
-  let userReaction = {
+  const userReaction = {
     liked: false,
     disliked: false,
     commented: false,
@@ -38,11 +38,19 @@ export async function GET(
       .collection("reactions")
       .doc(currentUid)
       .get();
+
     if (reactionSnap.exists) {
-      userReaction = {
-        ...userReaction,
-        ...reactionSnap.data(),
-      };
+      const reactionData = reactionSnap.data() as { type: "like" | "dislike" };
+
+      if (reactionData.type === "like") userReaction.liked = true;
+      if (reactionData.type === "dislike") userReaction.disliked = true;
+    }
+
+    // 👀 check if user viewed
+    const viewSnap = await postRef.collection("views").doc(currentUid).get();
+
+    if (viewSnap.exists) {
+      userReaction.viewed = true;
     }
   }
 

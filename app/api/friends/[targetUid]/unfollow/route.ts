@@ -1,6 +1,6 @@
 // app/api/friends/[targetUid]/unfollow/route.ts
 import { getCurrentUid } from "@/app/actions";
-import { unfollowUser } from "@/components/actions";
+import { unfollowUser } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(

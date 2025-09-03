@@ -1,7 +1,7 @@
 // app/api/friends/[uid]/disconnect/route.ts
 
 import { getCurrentUid } from "@/app/actions";
-import { unfriendUser, unfollowUser } from "@/components/actions";
+import { unfriendUser, unfollowUser } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(
