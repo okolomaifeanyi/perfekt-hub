@@ -14,7 +14,9 @@ import { useFriendStore } from "@/lib/store/friendStore";
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const status = useFriendStore(s => s.statuses[targetUid]) ?? "none";
   const isLoading = useFriendStore(s => Boolean(s.loading[targetUid]));
-  const { fetchStatus, handleAction } = useFriendStore();
+  const handleAction = useFriendStore(state => state.handleAction);
+  const fetchStatus = useFriendStore(state => state.fetchStatus);
+
 
   const label = {
     none: "Connect",
@@ -25,10 +27,10 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   }[status];
 
   useEffect(() => {
+    console.log("fetchStatus effect fired", targetUid);
     fetchStatus(targetUid);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchStatus, targetUid]);
 
   return (
     <DropdownMenu>
