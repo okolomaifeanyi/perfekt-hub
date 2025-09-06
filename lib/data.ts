@@ -46,6 +46,7 @@ export async function getInitialPosts(limit = 10) {
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
 
@@ -73,6 +74,7 @@ export async function getMorePosts(lastDoc: number, limit = 10) {
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
   return posts;
@@ -99,6 +101,7 @@ export async function getInitialUserPosts(userId: string, limit = 10) {
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
   return posts;
@@ -119,6 +122,7 @@ export async function getPost(postId: string): Promise<PostProps | null> {
     userPhotoURL: data.userPhotoURL,
     parentPostId: data.parentPostId || null,
     quotePostId: data.quotePostId || null,
+    linkPreview: data.linkPreview || null,
   } as PostProps;
 
   return post;
@@ -143,6 +147,7 @@ export async function getComments(postId: string, limit = 10) {
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
 }
@@ -172,6 +177,7 @@ export async function getMoreComments(
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
       parentPostId: data.parentPostId || "",
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
 }
@@ -202,6 +208,7 @@ export async function getMoreUserPosts(
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
+      linkPreview: data.linkPreview || null,
     };
   }) as PostProps[];
 

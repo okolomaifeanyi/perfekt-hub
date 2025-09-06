@@ -3,8 +3,9 @@
 
 import { sendNotification } from "@/app/actions/notifications";
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { extractLinks, fetchMetadata, isSafeLink, resolveNativePost } from "@/lib/links";
+import { LinkPreviewType } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
-
 
 export async function notifyChainUsers(
   parentPostId: string,
@@ -62,8 +63,37 @@ export async function sendPost({
   user: { uid: string; username: string; photoURL?: string; fullName?: string };
   parentPostId?: string | null;
   quotePostId?: string | null;
+  linkPreview?: LinkPreviewType;
 }): Promise<string> {
   if (!user || !text.trim()) throw new Error("User or text is missing");
+
+  // 🔍 Extract and validate links
+  const links = extractLinks(text);
+  let linkPreview: LinkPreviewType = null;
+
+  if (links.length > 0) {
+    for (const link of links) {
+      const safeResult = await isSafeLink (link);
+      if (!safeResult.safe) {
+        throw new Error(
+          safeResult.reason || "Unsafe or malicious link detected"
+        );
+      }
+
+      // resolve native post if no manual quotePostId
+      if (!quotePostId) {
+        const nativePost = await resolveNativePost(link);
+        if (nativePost) {
+          quotePostId = nativePost.id;
+          break;
+        }
+      }
+
+      if (!linkPreview && !quotePostId) {
+        linkPreview = await fetchMetadata(link);
+      }
+    }
+  }
 
   const mediaPayload = media.map(item => ({
     src: item.src,
@@ -82,6 +112,7 @@ export async function sendPost({
     quotePostId: quotePostId || "",
     replyCount: 0,
     quoteCount: 0,
+    linkPreview,
   };
 
   const batch = firestoreAdmin.batch();
@@ -140,4 +171,3 @@ export async function sendPost({
 
   return postRef.id;
 }
-

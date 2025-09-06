@@ -32,22 +32,6 @@ export default async function page({
     photoURL: userData.photoURL,
   };
 
-  const postRef = collection(db, "posts");
-  const q2 = query(postRef, where("userId", "==", user.uid));
-  const postSnapshot = await getDocs(q2);
-
-  const posts = postSnapshot.docs.map(doc => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      content: data.content,
-      media: data.media || [],
-      parentPostId: data.parentPostId,
-      createdAt: data.createdAt.toDate().toISOString(),
-      userId: data.userId,
-      quotePostId: data.quotePostId || null,
-    };
-  });
 
   return (
     <div className="w-full">
@@ -84,7 +68,7 @@ export default async function page({
           <H2>Posts</H2>
         </div>
 
-        <UserFeed initialUserPosts={posts} userId={user.uid} />
+        <UserFeed />
       </div>
     </div>
   );

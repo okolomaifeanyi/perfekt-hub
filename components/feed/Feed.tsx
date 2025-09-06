@@ -1,77 +1,79 @@
 "use client";
 
-import { PostProps } from "@/lib/types";
-import Post from "./post/Post";
-import { List } from "../Typography";
-import { useActionState } from "react";
-import { useEffect, useState, useCallback, startTransition } from "react";
-import { loadMore } from "@/app/actions";
+import { P } from "../Typography";
+import {
+  ScrollPosition,
+  trackWindowScroll,
+} from "react-lazy-load-image-component";
+import { usePostsLiveFeed } from "@/hooks/PostsLiveFeed";
+import { useUserConnections } from "@/hooks/UserConnections";
+import Posts from "./post/Posts";
+import { useEffect, useCallback, useState } from "react";
 import { useInView } from "react-intersection-observer";
+import { Loader2 } from "lucide-react";
 
 interface FeedProps {
-  initialPosts: PostProps[];
+  scrollPosition?: ScrollPosition;
 }
 
-const Feed = ({ initialPosts }: FeedProps) => {
-  const [posts, setPosts] = useState<PostProps[]>(initialPosts);
+const Feed = ({ scrollPosition }: FeedProps) => {
+  const { friends, watched } = useUserConnections();
+  const {
+    newPosts,
+    getNewPosts,
+    posts,
+    loadMorePosts: fetchMoreFromHook,
+    hasMore,
+  } = usePostsLiveFeed({
+    friends: friends || [],
+    watched: watched || [],
+  });
 
-  useEffect(() => {
-    setPosts(initialPosts);
-  }, [initialPosts]);
-
-  const [page, setPage] = useState(2);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-
-  const [value, loadMoreAction, pending] = useActionState(loadMore, null);
 
   const { ref: loadMoreRef, inView } = useInView({
     triggerOnce: false,
-    rootMargin: "0px 0px 50px 0px",
+    rootMargin: "200px 0px",
   });
 
-  useEffect(() => {
-    if (value && typeof value.newPosts !== "undefined") {
-      if (value.newPosts.length === 0) {
-        setHasMore(false);
-      } else {
-        setPosts(prev => [...prev, ...value.newPosts]);
-        setPage(value.nextPage);
-      }
-    }
+  const handleLoadMore = useCallback(async () => {
+    if (loading || !hasMore) return; // Guard clauses
+    setLoading(true);
+    await fetchMoreFromHook(); // Call the function from the hook
     setLoading(false);
-  }, [value]);
-
-  const loadMoreCallback = useCallback(() => {
-    if (!pending && !loading && hasMore) {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append("page", page.toString());
-      formData.append("limit", "10");
-
-      startTransition(() => {
-        loadMoreAction(formData);
-      });
-    }
-  }, [page, pending, loading, loadMoreAction, hasMore]);
+  }, [loading, hasMore, fetchMoreFromHook]);
 
   useEffect(() => {
     if (inView) {
-      loadMoreCallback();
+      handleLoadMore();
     }
-  }, [inView, loadMoreCallback]);
+  }, [inView, handleLoadMore]);
+
+  const count = newPosts.length;
+
+  const handleShowNewPosts = () => {
+    getNewPosts();
+  };
 
   return (
-    <List className="space-y-4 list-none !m-0 !p-0">
-      {posts.map(post => {
-        return <Post key={post.id} post={post} />;
-      })}
+    <div>
+      {count > 0 && (
+        <div onClick={handleShowNewPosts} className="flex justify-center">
+          <P className="!m-0 cursor-pointer">
+            Show {count} new post{count > 1 ? "s" : ""}
+          </P>
+        </div>
+      )}
+
+     
+      <Posts posts={posts} scrollPosition={scrollPosition} />
 
       <div ref={loadMoreRef} className="flex justify-center py-4">
         {!hasMore && <span className="text-sm text-muted">No more posts</span>}
+        {loading && <Loader2 className="animate-spin w-4 h-4" />}
       </div>
-    </List>
+    </div>
   );
 };
 
-export default Feed;
+export default trackWindowScroll(Feed);

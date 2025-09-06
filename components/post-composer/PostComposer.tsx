@@ -22,7 +22,7 @@ const PostComposer = ({
   placeholder?: string;
   parentPostId?: string | "";
   quotePostId?: string | "";
-   onSuccess?: () => void;
+  onSuccess?: () => void;
 }) => {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<MediaProps[]>([]);
@@ -32,10 +32,6 @@ const PostComposer = ({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { user } = useUserStore(state => state);
-
-  // useEffect(() => {
-  //   textareaRef.current?.focus();
-  // }, []);
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -83,7 +79,7 @@ const PostComposer = ({
 
   return (
     <div className="space-y-2">
-      <div className="flex space-x-2 items-center">
+      <div className="flex space-x-2 items-start">
         <MyAvatar
           username={user.username}
           photoURL={user.photoURL}
@@ -125,10 +121,7 @@ const PostComposer = ({
               aria-label="Send post"
             >
               {loading ? (
-                <>
-                  <Loader2 className="animate-spin w-4 h-4 mr-1" />
-                  Sending...
-                </>
+                <Loader2 className="animate-spin w-4 h-4" />
               ) : (
                 sendButton || "Share"
               )}

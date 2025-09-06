@@ -6,13 +6,15 @@ import {
   where,
   onSnapshot,
   orderBy,
-  limit,
   getDocs,
   startAfter,
+  limit,
   QueryDocumentSnapshot,
   DocumentData,
 } from "firebase/firestore";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const PAGE_SIZE = 10;
 
 export function usePostsLiveFeed({
   friends = [],
@@ -28,24 +30,23 @@ export function usePostsLiveFeed({
   const [lastVisible, setLastVisible] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  const seenPostIds = useRef<Set<string>>(new Set());
-  const didInitialLoad = useRef(false);
+  const [hasMore, setHasMore] = useState(true); // 🟢 ADD: State to track if more posts exist
 
-  // const followed = [...friends, ...watched];
-  const friendsKey = friends.join(",");
-  const watchedKey = watched.join(",");
+  const seenPostIds = useRef<Set<string>>(new Set());
+  const isInitialLoad = useRef(true);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const toSafeISOString = (val: any): string => {
     try {
       if (val instanceof Date) return val.toISOString();
       if (val?.toDate instanceof Function) return val.toDate().toISOString();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (_) {}
+    } catch (err) {
+      console.error("Failed to convert to ISO string:", err);
+    }
     return new Date(0).toISOString();
   };
 
-  const clearAlert = () => {
+  const getNewPosts = () => {
     setPosts(prev => {
       const merged = [...newPosts, ...prev];
       const unique = Array.from(new Map(merged.map(p => [p.id, p])).values());
@@ -56,83 +57,37 @@ export function usePostsLiveFeed({
     setNewPostAlert(false);
   };
 
-  const fetchInitial = useCallback(async () => {
-    const q = query(
-      collection(db, "posts"),
-      where("parentPostId", "==", ""),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
-
-    const snapshot = await getDocs(q);
-
-    const freshPhotoURLs = new Set<string>();
-    const freshSeen = new Set<string>();
-
-    const freshPosts: PostProps[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      const createdAt = toSafeISOString(data.createdAt);
-
-      freshSeen.add(doc.id);
-
-      if (
-        (friends.includes(data.uid) || watched.includes(data.uid)) &&
-        data.userPhotoURL
-      ) {
-        freshPhotoURLs.add(data.userPhotoURL);
-      }
-
-      return {
-        id: doc.id,
-        createdAt,
-        userId: data.userId,
-        content: data.content,
-        media: data.media || [],
-        username: data.username,
-        userFullName: data.userFullName || "",
-        userPhotoURL: data.userPhotoURL,
-        quotePostId: data.quotePostId || null,
-      };
-    });
-
-    seenPostIds.current = freshSeen;
-    setPosts(freshPosts);
-    setUserPhotoURLs(Array.from(freshPhotoURLs));
-    didInitialLoad.current = true;
-
-    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (lastDoc) setLastVisible(lastDoc);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [friendsKey, watchedKey]);
-
-  const getNewPosts = () => {
-    clearAlert();
-  };
-
+  // 🔹 Load more (next 10 posts)
   const loadMorePosts = async () => {
-    if (!lastVisible) return;
+    if (!lastVisible) {
+      // 🟡 CHANGED: Also check lastVisible here
+      setHasMore(false);
+      return;
+    }
 
     const q = query(
       collection(db, "posts"),
       where("parentPostId", "==", ""),
       orderBy("createdAt", "desc"),
       startAfter(lastVisible),
-      limit(10)
+      limit(PAGE_SIZE)
     );
 
     const snapshot = await getDocs(q);
-    const morePosts: PostProps[] = [];
+    if (snapshot.empty) {
+      setHasMore(false); // 🟢 ADD: Update state when no more posts are returned
+      return;
+    }
 
+    const morePosts: PostProps[] = [];
     const photoURLs = new Set(userPhotoURLs);
 
     snapshot.docs.forEach(doc => {
       const data = doc.data();
       const id = doc.id;
-
       if (seenPostIds.current.has(id)) return;
 
       seenPostIds.current.add(id);
-
       const createdAt = toSafeISOString(data.createdAt);
 
       morePosts.push({
@@ -145,6 +100,7 @@ export function usePostsLiveFeed({
         userFullName: data.userFullName || "",
         userPhotoURL: data.userPhotoURL,
         quotePostId: data.quotePostId || null,
+        linkPreview: data.linkPreview || null,
       });
 
       if (
@@ -159,64 +115,33 @@ export function usePostsLiveFeed({
     setUserPhotoURLs(Array.from(photoURLs));
 
     const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (lastDoc) setLastVisible(lastDoc);
+    if (lastDoc) {
+      setLastVisible(lastDoc);
+    } else {
+      setHasMore(false); // 🟢 ADD: Also handle case where there's no next doc
+    }
   };
 
+  // 🟡 REWRITTEN: This useEffect now handles both initial load and live updates
   useEffect(() => {
     const q = query(
       collection(db, "posts"),
       where("parentPostId", "==", ""),
       orderBy("createdAt", "desc"),
-      limit(10)
+      limit(PAGE_SIZE) // 🟢 ADDED: Limit the initial query for the listener
     );
 
     const unsubscribe = onSnapshot(q, snapshot => {
-      const freshPosts: PostProps[] = [];
-      const newPhotoURLs = new Set(userPhotoURLs);
+      // 🟢 HANDLE THE VERY FIRST SNAPSHOT AS THE INITIAL DATA
+      if (isInitialLoad.current) {
+        const initialPosts: PostProps[] = [];
 
-      snapshot.docChanges().forEach(change => {
-        const doc = change.doc;
-        const data = doc.data();
-        const id = doc.id;
-
-        if (change.type === "removed") {
-          seenPostIds.current.delete(id);
-          setPosts(prev => prev.filter(p => p.id !== id));
-          return;
-        }
-
-        if (change.type === "modified") {
-          const createdAt = toSafeISOString(data.createdAt);
-
-          setPosts(prev =>
-            prev.map(p =>
-              p.id === id
-                ? {
-                    ...p,
-                    createdAt,
-                    userId: data.userId,
-                    content: data.content,
-                    media: data.media || [],
-                    username: data.username,
-                    userFullName: data.userFullName || "",
-                  userPhotoURL: data.userPhotoURL,
-                  quotePostId: data.quotePostId || null,
-                  }
-                : p
-            )
-          );
-          return;
-        }
-
-        if (change.type === "added") {
-          if (seenPostIds.current.has(id)) return;
-
-          seenPostIds.current.add(id);
-          const createdAt = toSafeISOString(data.createdAt);
-
-          const post: PostProps = {
-            id,
-            createdAt,
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          initialPosts.push({
+            id: doc.id,
+            createdAt: toSafeISOString(data.createdAt),
+            // ... map other fields
             userId: data.userId,
             content: data.content,
             media: data.media || [],
@@ -224,47 +149,68 @@ export function usePostsLiveFeed({
             userFullName: data.userFullName || "",
             userPhotoURL: data.userPhotoURL,
             quotePostId: data.quotePostId || null,
-          };
+            linkPreview: data.linkPreview || null,
+          });
+          seenPostIds.current.add(doc.id); // Mark these as seen
+        });
 
-          if (
-            (friends.includes(data.uid) || watched.includes(data.uid)) &&
-            data.userPhotoURL
-          ) {
-            newPhotoURLs.add(data.userPhotoURL);
-          }
+        setPosts(initialPosts);
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        setLastVisible(lastDoc);
+        isInitialLoad.current = false; // Mark initial load as complete
+        return; // Don't process this first snapshot as "new" posts
+      }
 
-          freshPosts.push(post);
+      // 🟢 HANDLE SUBSEQUENT UPDATES (REAL NEW POSTS)
+      const freshPosts: PostProps[] = [];
+      snapshot.docChanges().forEach(change => {
+        if (change.type === "added") {
+          const doc = change.doc;
+          if (seenPostIds.current.has(doc.id)) return; // Already seen, ignore
+
+          const data = doc.data();
+          freshPosts.push({
+            id: doc.id,
+            createdAt: toSafeISOString(data.createdAt),
+            // ... map other fields
+            userId: data.userId,
+            content: data.content,
+            media: data.media || [],
+            username: data.username,
+            userFullName: data.userFullName || "",
+            userPhotoURL: data.userPhotoURL,
+            quotePostId: data.quotePostId || null,
+            linkPreview: data.linkPreview || null,
+          });
+          seenPostIds.current.add(doc.id); // Add to seen list immediately
+        }
+        // You can handle "modified" and "removed" changes here too if needed
+        if (change.type === "removed") {
+          const removedId = change.doc.id;
+          seenPostIds.current.delete(removedId);
+
+          setPosts(prev => prev.filter(p => p.id !== removedId));
+          setNewPosts(prev => prev.filter(p => p.id !== removedId));
         }
       });
 
-      if (!didInitialLoad.current) return;
-
       if (freshPosts.length > 0) {
-        setNewPosts(prev => {
-          const merged = [...freshPosts, ...prev];
-          const unique = Array.from(
-            new Map(merged.map(p => [p.id, p])).values()
-          );
-          return unique;
-        });
-
+        setNewPosts(prev => [...freshPosts, ...prev]);
         setNewPostAlert(true);
-        setUserPhotoURLs(Array.from(newPhotoURLs));
       }
     });
 
-    fetchInitial();
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchInitial, friendsKey, watchedKey]);
+  }, [friends.join(","), watched.join(",")]); // Dependency array is now simpler
 
   return {
     posts,
     newPosts,
     newPostAlert,
-    clearAlert,
     getNewPosts,
     loadMorePosts,
     userPhotoURLs,
+    hasMore,
   };
 }

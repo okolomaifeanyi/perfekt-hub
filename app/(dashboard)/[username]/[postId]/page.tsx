@@ -3,8 +3,8 @@ import PostCard from "./components/PostCard";
 import { getPost, getUser } from "@/lib/data";
 import NavBar from "../components/NavBar";
 import { notFound } from "next/navigation";
-import ClientFeed from "@/components/feed/post/ClientFeed";
 import ViewTracker from "./components/ViewTracker";
+import CommentFeed from "@/components/feed/post/CommentFeed";
 
 const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
   const { postId } = await params;
@@ -32,7 +32,6 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
     })
   );
 
-
   return (
     <div className="space-y-4 pb-4 w-full mx-auto px-4">
       <NavBar title="Post" />
@@ -40,11 +39,7 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
       <div className="relative pl-4 border-l border-muted space-y-4">
         {parentChainWithUsers.map(item => {
           if (!item) return null;
-          return (
-            <div key={item.parent.id}>
-              <PostCard post={item.parent} />
-            </div>
-          );
+          return <PostCard key={item.parent.id} post={item.parent} />;
         })}
       </div>
 
@@ -60,7 +55,7 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
           parentPostId={post.id}
         />
 
-        <ClientFeed postId={post.id} />
+        <CommentFeed />
         <ViewTracker postId={postId} />
       </div>
     </div>

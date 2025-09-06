@@ -40,6 +40,7 @@ export interface PostProps {
   createdAt: string;
   isPinned?: boolean;
   quotePostId?: string | null;
+  linkPreview: LinkPreviewType;
 }
 
 export interface EmojiProps {
@@ -82,3 +83,12 @@ export interface NotificationInput {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   extra?: Record<string, any>;
 }
+
+export type LinkPreviewType = {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+} | null;
+
+

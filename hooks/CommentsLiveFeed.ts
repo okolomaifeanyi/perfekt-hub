@@ -39,6 +39,8 @@ export function useLiveComments(postId: string, limit = 10) {
           username: data.username,
           userFullName: data.userFullName || "",
           userPhotoURL: data.userPhotoURL,
+          parentPostId: data.parentPostId,
+          linkPreview: data.linkPreview || null,
         };
       });
 

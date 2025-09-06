@@ -1,38 +1,33 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { ReactNode, useEffect, useRef, useState } from "react";
 
 type TextProps = {
   text: string;
 };
 
-function parseText(text: string): (string | ReactNode)[] {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
+function parseText(text: string): ReactNode[] {
+  // A robust regex to find various URL formats, including those without "http" or "www".
+  const urlRegex =
+    /((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*))/gi;
 
-  return parts.map((part, i) => {
-    if (urlRegex.test(part)) {
-      return (
-        <Link
-          key={i}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 underline break-all"
-        >
-          {part}
-        </Link>
-      );
+  // Replace any found URLs with an empty string and trim surrounding whitespace.
+  const textWithoutUrls = text.replace(urlRegex, "").trim();
+
+  // If the text is empty after removing links, there's nothing to render.
+  if (!textWithoutUrls) {
+    return [];
+  }
+
+  // Split the cleaned text by newlines and render each line, separated by <br> tags.
+  return textWithoutUrls.split("\n").reduce<ReactNode[]>((acc, line, index) => {
+    if (index > 0) {
+      acc.push(<br key={`br-${index}`} />);
     }
-
-    return part.split("\n").reduce<ReactNode[]>((acc, line, index) => {
-      if (index > 0) acc.push(<br key={`br-${i}-${index}`} />);
-      acc.push(<span key={`line-${i}-${index}`}>{line}</span>);
-      return acc;
-    }, []);
-  });
+    acc.push(<span key={`line-${index}`}>{line}</span>);
+    return acc;
+  }, []);
 }
 
 export default function Text({ text }: TextProps) {
@@ -44,17 +39,32 @@ export default function Text({ text }: TextProps) {
   useEffect(() => {
     const checkOverflow = () => {
       if (textRef.current) {
+        // Check if the content's actual scroll height is greater than its visible height.
         const isOverflowing =
           textRef.current.scrollHeight > textRef.current.clientHeight;
         setShowSeeMore(isOverflowing);
       }
     };
 
-    checkOverflow();
+    // Use a timeout to ensure the check runs after the DOM has fully updated.
+    const timeoutId = setTimeout(checkOverflow, 50);
+    window.addEventListener("resize", checkOverflow);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener("resize", checkOverflow);
+    };
   }, [lines, text]);
 
+  const content = parseText(text);
+
+  // If the text only contained a URL (or was empty), render nothing.
+  if (content.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="px-2">
+    <div>
       <div
         ref={textRef}
         className="overflow-hidden transition-all duration-300 text-justify break-words"
@@ -64,12 +74,12 @@ export default function Text({ text }: TextProps) {
           WebkitBoxOrient: "vertical",
         }}
       >
-        {parseText(text)}
+        {content}
       </div>
 
       {showSeeMore && lines < maxLines && (
         <Button
-          className="p-0 mt-1"
+          className="p-0"
           variant="link"
           onClick={() => setLines(prev => prev + 3)}
         >

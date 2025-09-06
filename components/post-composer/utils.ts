@@ -1,5 +1,4 @@
-import { MediaProps } from "@/lib/types";
-import { UserProps } from "@/lib/types";
+import { MediaProps, UserProps } from "@/lib/types";
 import { toast } from "sonner";
 import { sendPost } from "./actions";
 
@@ -33,27 +32,24 @@ export async function handlePost({
   quotePostId?: string | null;
 }) {
   try {
-    const uploadedMedia: MediaProps[] = [];
+    // 📤 Upload media (parallel)
+    const uploadedMedia: MediaProps[] = await Promise.all(
+      media.map(async item => {
+        if (item.file) {
+          const result = await uploadToCloudinary(item.file);
+          return { src: result.secure_url, type: item.type };
+        }
+        return item;
+      })
+    );
 
-    for (const item of media) {
-      if (item.file) {
-        const result = await uploadToCloudinary(item.file);
-        uploadedMedia.push({
-          src: result.secure_url,
-          type: item.type,
-        });
-      } else {
-        // Use existing URL (likely GIF)
-        uploadedMedia.push(item);
-      }
-    }
-
+    // 📝 Ask server to do link handling + post saving
     const postId = await sendPost({
       text,
       media: uploadedMedia,
       user,
       parentPostId,
-      quotePostId
+      quotePostId,
     });
 
     toast.success("Post published");
@@ -64,5 +60,6 @@ export async function handlePost({
     toast.error("Post failed", {
       description: err instanceof Error ? err.message : "Something went wrong",
     });
+    return null;
   }
 }

@@ -4,26 +4,24 @@ import { getMoreComments, getMorePosts, getMoreUserPosts } from "@/lib/data";
 import { authAdmin } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
 
-export async function loadMore(prevState: unknown, formData: FormData) {
+export async function loadMore(formData: FormData) {
   try {
     const page = parseInt(formData.get("page") as string);
     const limit = parseInt(formData.get("limit") as string);
 
-    // Check if parsing worked
     if (isNaN(page) || isNaN(limit)) {
-      console.error("Server Action: Invalid page or limit parsed.");
-      return { newPosts: [], nextPage: page };
+      console.error("Invalid page or limit");
+      return { newPosts: [], nextPage: page || 1 };
     }
 
     const posts = await getMorePosts(page, limit);
-
     return { newPosts: posts, nextPage: page + 1 };
   } catch (error) {
-    console.error("Server Action: Error in loadMore:", error); // ADD THIS
-    // You might want to return an error state or empty posts in case of failure
-    return { newPosts: [], nextPage: 1 }; // Or original page, depending on desired fallback
+    console.error("Server Action: Error in loadMore:", error);
+    return { newPosts: [], nextPage: 1 };
   }
 }
+
 
 export async function loadMoreUserPosts(
   prevState: unknown,

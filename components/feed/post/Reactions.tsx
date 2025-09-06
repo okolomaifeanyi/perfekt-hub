@@ -72,7 +72,7 @@ const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
   };
 
   return (
-    <div className="flex justify-between items-center px-2">
+    <div className="flex justify-between items-center">
       {/* Like / Dislike */}
       <div className="flex space-x-2">
         <Button

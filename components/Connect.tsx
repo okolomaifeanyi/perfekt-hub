@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Handshake, UserPlus, UserMinus } from "lucide-react";
+import { Handshake, UserPlus, UserMinus, Loader2 } from "lucide-react";
 import { useFriendStore } from "@/lib/store/friendStore";
 
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
@@ -21,9 +21,9 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const label = {
     none: "Connect",
     following: "Following",
-    friends: "Connected",
+    friends: "Friend",
     pending: "Pending",
-    requested: "Requested",
+    requested: "Sent",
   }[status];
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="sm" disabled={isLoading}>
-          {isLoading ? "Processing..." : label}
+          {isLoading ? <Loader2 /> : label}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
