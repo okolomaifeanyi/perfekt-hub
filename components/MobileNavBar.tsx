@@ -1,55 +1,136 @@
 "use client";
 
-import { Home, Bell, Mail, Users, User } from "lucide-react";
 import Link from "next/link";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
 import { Badge } from "./ui/badge";
+import { Avatar } from "./ui/avatar";
+import { AvatarFallback } from "@radix-ui/react-avatar";
+import { AccountMenu } from "./AccountMenu";
+import { DropdownMenu } from "./ui/dropdown-menu";
+import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
+import Image from "next/image";
+import { userAltImageUrl } from "./UserAltImageUrl";
+import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 
-const MobileNavBar = () => {
+// Heroicons
+import {
+  HomeIcon as HomeSolid,
+  BellIcon as BellSolid,
+  EnvelopeIcon as MailSolid,
+  UserGroupIcon as UsersSolid,
+} from "@heroicons/react/24/solid";
+import {
+  HomeIcon as HomeOutline,
+  BellIcon as BellOutline,
+  EnvelopeIcon as MailOutline,
+  UserGroupIcon as UsersOutline,
+} from "@heroicons/react/24/outline";
+import { RefObject } from "react";
+import { useHideOnScroll } from "@/hooks/useHideOnScroll";
+
+interface NavItemProps {
+  href: string;
+  label: string;
+  SolidIcon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  OutlineIcon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  badgeCount?: number;
+}
+
+const NavItem = ({
+  href,
+  SolidIcon,
+  OutlineIcon,
+  badgeCount,
+}: NavItemProps) => {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+
+  return (
+    <Link
+      href={href}
+      className="flex flex-col items-center justify-center text-sm hover:text-gray relative"
+    >
+      {isActive ? (
+        <SolidIcon className="size-6 text-foreground" />
+      ) : (
+        <OutlineIcon className="size-6 text-foreground" />
+      )}
+      {badgeCount && badgeCount > 0 && (
+        <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] rounded-full">
+          {badgeCount}
+        </Badge>
+      )}
+    </Link>
+  );
+};
+
+const MobileNavBar = ({
+  scrollRef,
+}: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+}) => {
   const { user } = useUserStore();
   const count = useUnreadNotificationsCount();
+  const hidden = useHideOnScroll(scrollRef);
 
   if (!user) return null;
 
-  const navItems = [
-    { href: "/", icon: <Home />, label: "Home" },
-    {
-      href: "#",
-      icon: (
-        <div className="relative">
-          <Bell />
-          {count > 0 && (
-            <Badge className="absolute -top-1.5 -right-1.5 h-4 min-w-4 px-1 text-[10px] rounded-full">
-              {count}
-            </Badge>
-          )}
-        </div>
-      ),
-      label: "Notifications",
-    },
-    { href: "#", icon: <Mail />, label: "Messages" },
-    { href: "#", icon: <Users />, label: "Groups" },
-    { href: `/${user.username}`, icon: <User />, label: "Me" },
-  ];
+  const altImage = userAltImageUrl({ name: user.fullName || user.username });
 
   return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t shadow-sm">
+    <motion.nav
+      initial={false}
+      animate={{ y: hidden ? "100%" : "0%" }}
+      transition={{ duration: 0.25, ease: "easeInOut" }}
+      className="sm:hidden fixed bottom-0 z-50 bg-card border-t shadow-sm backdrop-blur-lg w-full"
+    >
       <div className="flex justify-between px-4 py-2">
-        {navItems.map(item => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="flex flex-col items-center justify-center text-sm
-             hover:text-gray
-            "
-          >
-            {item.icon}
-            <span className="text-xs">{item.label}</span>
-          </Link>
-        ))}
+        <NavItem
+          href="/"
+          label="Home"
+          SolidIcon={HomeSolid}
+          OutlineIcon={HomeOutline}
+        />
+        <NavItem
+          href="/notifications"
+          label="Notification"
+          SolidIcon={BellSolid}
+          OutlineIcon={BellOutline}
+          badgeCount={count}
+        />
+        <NavItem
+          href="#"
+          label="Message"
+          SolidIcon={MailSolid}
+          OutlineIcon={MailOutline}
+        />
+        <NavItem
+          href="/group"
+          label="Group"
+          SolidIcon={UsersSolid}
+          OutlineIcon={UsersOutline}
+        />
+
+        {/* Account dropdown stays separate */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="cursor-pointer">
+              <Image
+                alt={`${user.fullName || user.username}'s avatar`}
+                width={500}
+                height={500}
+                className="object-cover"
+                src={user.photoURL || altImage}
+              />
+              <AvatarFallback>{user.username}</AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <AccountMenu />
+        </DropdownMenu>
       </div>
-    </nav>
+    </motion.nav>
   );
 };
 

@@ -56,7 +56,7 @@ const PostCard = ({
       <Card
         className="
         cursor-pointer
-        transition hover:bg-background/60"
+        transition hover:bg-background/60 backdrop-blur-lg"
         onClick={() => user && handleCardClick(`/${user.username}/${post.id}`)}
       >
         {/* Header */}

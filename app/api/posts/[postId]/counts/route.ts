@@ -54,7 +54,6 @@ export async function GET(
     }
   }
 
-  // ✅ dynamically compute replyCount & quoteCount
   const replyCount = await getReplyCount(postId);
   const quoteCount = await getQuoteCount(postId);
 

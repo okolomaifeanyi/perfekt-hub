@@ -14,89 +14,125 @@ export async function toggleLikeDislikeAdmin({
   const postRef = firestoreAdmin.collection("posts").doc(postId);
   const reactionRef = postRef.collection("reactions").doc(userId);
 
-  return firestoreAdmin.runTransaction(async transaction => {
-    const [reactionDoc, postDoc] = await Promise.all([
-      transaction.get(reactionRef),
-      transaction.get(postRef),
-    ]);
+  console.log("🚀 toggleLikeDislikeAdmin called", { postId, userId, type });
 
-    if (!postDoc.exists) throw new Error("Post not found");
+  let recipientUid: string | null = null;
+  let action: "send" | "delete" | null = null;
+  let oldType: "like" | "dislike" | null = null;
 
-    const postData = postDoc.data();
-    const recipientUid = postData?.authorId; // make sure your posts store the owner uid
-    const counts = postData?.reactionCounts || {};
-    const currentReaction: "like" | "dislike" | null = reactionDoc.exists
-      ? reactionDoc.data()?.type
-      : null;
+  const updatedCounts = await firestoreAdmin.runTransaction(
+    async transaction => {
+      const [reactionDoc, postDoc] = await Promise.all([
+        transaction.get(reactionRef),
+        transaction.get(postRef),
+      ]);
 
-    const updatedCounts = { ...counts };
+      if (!postDoc.exists) throw new Error("❌ Post not found");
 
-    if (currentReaction === type) {
-      // 🔄 undo the reaction
-      transaction.delete(reactionRef);
-      updatedCounts[type] = Math.max((updatedCounts[type] || 0) - 1, 0);
+      const postData = postDoc.data();
+      recipientUid = postData?.userId || null;
 
-      transaction.update(postRef, {
-        [`reactionCounts.${type}`]: updatedCounts[type],
+      console.log("📌 Post data", {
+        authorId: recipientUid,
+        counts: postData?.reactionCounts,
       });
 
-      // 🔔 remove notification
+      const counts = postData?.reactionCounts || {};
+      const currentReaction: "like" | "dislike" | null = reactionDoc.exists
+        ? reactionDoc.data()?.type
+        : null;
+
+      oldType = currentReaction;
+      console.log("📌 Current reaction:", currentReaction);
+
+      const newCounts = { ...counts };
+
+      if (currentReaction === type) {
+        console.log("🗑️ Undoing same reaction:", type);
+
+        transaction.delete(reactionRef);
+        newCounts[type] = Math.max((newCounts[type] || 0) - 1, 0);
+        transaction.update(postRef, {
+          [`reactionCounts.${type}`]: newCounts[type],
+        });
+        action = "delete";
+      } else {
+        console.log("✨ Adding/switching reaction", {
+          from: currentReaction,
+          to: type,
+        });
+
+        transaction.set(reactionRef, {
+          type,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        if (currentReaction) {
+          newCounts[currentReaction] = Math.max(
+            (newCounts[currentReaction] || 0) - 1,
+            0
+          );
+          transaction.update(postRef, {
+            [`reactionCounts.${currentReaction}`]: newCounts[currentReaction],
+          });
+        }
+
+        newCounts[type] = (newCounts[type] || 0) + 1;
+        transaction.update(postRef, {
+          [`reactionCounts.${type}`]: newCounts[type],
+        });
+
+        action = "send";
+      }
+
+      console.log("✅ New reaction counts:", newCounts);
+      console.log("📌 Action decided:", action);
+
+      return newCounts;
+    }
+  );
+
+  console.log("📌 After transaction:", {
+    recipientUid,
+    action,
+    oldType,
+    updatedCounts,
+  });
+
+  // 🔔 Send/delete notifications OUTSIDE transaction
+  if (recipientUid && action && recipientUid !== userId) {
+    if (action === "delete" && oldType) {
+      console.log("🔔 Deleting notification", { type: oldType });
       await deleteNotification({
         recipientUid,
         actorUid: userId,
-        type,
+        type: oldType,
       });
-    } else {
-      // 🔄 set/switch reaction
-      transaction.set(reactionRef, {
-        type,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-
-      if (currentReaction) {
-        updatedCounts[currentReaction] = Math.max(
-          (updatedCounts[currentReaction] || 0) - 1,
-          0
-        );
-
-        transaction.update(postRef, {
-          [`reactionCounts.${currentReaction}`]: updatedCounts[currentReaction],
+    } else if (action === "send") {
+      if (oldType) {
+        console.log("🔔 Switching → delete old notification first", {
+          oldType,
         });
-
-        // 🔔 remove old notification
         await deleteNotification({
           recipientUid,
           actorUid: userId,
-          type: currentReaction,
+          type: oldType,
         });
       }
 
-      updatedCounts[type] = (updatedCounts[type] || 0) + 1;
-
-      transaction.update(postRef, {
-        [`reactionCounts.${type}`]: updatedCounts[type],
+      console.log("🔔 Sending new notification", { type, postId });
+      await sendNotification({
+        recipientUid,
+        actorUid: userId,
+        type,
+        postId,
       });
-
-      if (recipientUid && recipientUid !== userId) {
-        await sendNotification({
-          recipientUid,
-          actorUid: userId,
-          type,
-          postId,
-        });
-      } else if (recipientUid === userId) {
-        await sendNotification({
-          recipientUid,
-          actorUid: userId,
-          type,
-          postId,
-          extra: { message: `You ${type}d your own post` },
-        });
-      }
     }
+  } else {
+    console.log("⚠️ No notification sent", { recipientUid, action });
+  }
 
-    return updatedCounts;
-  });
+  return updatedCounts;
 }
 
 

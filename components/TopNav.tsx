@@ -1,19 +1,43 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+"use client";
 
+import { appInfo } from "@/lib/appInfo";
+import { Button } from "./ui/button";
+import { Menu, Search } from "lucide-react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { RefObject } from "react";
+import { useHideOnScroll } from "@/hooks/useHideOnScroll";
 
-const TopNav = () => {
+const TopNav = ({
+  scrollRef,
+}: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+}) => {
+  const hidden = useHideOnScroll(scrollRef);
+  {
+  }
+
   return (
-    <Tabs defaultValue="account" className="w-[400px]">
-      <TabsList>
-        <TabsTrigger value="you">You</TabsTrigger>
-        <TabsTrigger value="password">Group</TabsTrigger>
-      </TabsList>
-      <TabsContent value="account">
-        Make changes to your account here.
-      </TabsContent>
-      <TabsContent value="password">Change your password here.</TabsContent>
-    </Tabs>
-  );
-}
+    <motion.nav
+      initial={false}
+      animate={{ y: hidden ? "-100%" : "0%" }}
+      transition={{ duration: 0.25, ease: "easeInOut" }}
+      className="sm:hidden z-50 flex justify-between items-center px-4 h-12 sticky top-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-b shadow-sm"
+    >
+      <Link href="/" className="text-primary font-bold">
+        {appInfo.name}
+      </Link>
 
-export default TopNav
+      <div className="flex gap-2">
+        <Button variant="secondary" size="icon">
+          <Search className="h-5 w-5" />
+        </Button>
+        <Button variant="secondary" size="icon">
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+    </motion.nav>
+  );
+};
+
+export default TopNav;

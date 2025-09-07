@@ -1,27 +1,24 @@
 import Aside from "@/components/Aside";
+import Main from "@/components/Main";
 import NavBar from "@/components/NavBar";
-import MobileNavBar from "@/components/MobileNavBar";
+import { ReactNode } from "react";
 
-const layout = ({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) => {
+const layout = ({children}: {children: ReactNode}) => {
   return (
     <>
-      <div className="container grid grid-cols-1 sm:grid-cols-[70px_1fr] md:grid-cols-[200px_1fr] lg:grid-cols-[300px_1fr_300px] max-w-6xl mx-auto h-screen overflow-hidden">
-        <nav className="hidden sm:block sticky top-0 h-screen overflow-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-[70px_1fr] md:grid-cols-[200px_1fr] lg:grid-cols-[350px_1fr_350px] h-screen">
+        {/* Left Sidebar */}
+        <nav className="hidden sm:block sticky top-0 h-screen overflow-y-auto scrollbar-hide">
           <NavBar />
         </nav>
 
-        <main className="overflow-auto h-screen w-full">{children}</main>
+        <Main>{children}</Main>
 
-        <aside className="hidden md:block sticky top-0 h-screen overflow-auto w-full">
+        {/* Right Sidebar */}
+        <aside className="hidden md:block sticky top-0 h-screen overflow-y-auto scrollbar-hide">
           <Aside />
         </aside>
       </div>
-
-      <MobileNavBar />
     </>
   );
 };

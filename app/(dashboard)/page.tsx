@@ -3,9 +3,11 @@ import PostComposer from "@/components/post-composer/PostComposer";
 
 export default function Home() {
   return (
-    <div className="max-w-full px-4 py-4">
+    <>
+      <main className="p-4">
       <PostComposer />
       <Feed />
-    </div>
+      </main>
+    </>
   );
 }

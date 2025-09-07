@@ -8,7 +8,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Handshake, UserPlus, UserMinus, Loader2 } from "lucide-react";
+import {
+  Handshake,
+  UserPlus,
+  UserMinus,
+  Loader2,
+  ChevronDown,
+  UserCheck,
+} from "lucide-react"; // ✅ all from Lucide
 import { useFriendStore } from "@/lib/store/friendStore";
 
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
@@ -16,7 +23,6 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const isLoading = useFriendStore(s => Boolean(s.loading[targetUid]));
   const handleAction = useFriendStore(state => state.handleAction);
   const fetchStatus = useFriendStore(state => state.fetchStatus);
-
 
   const label = {
     none: "Connect",
@@ -27,18 +33,23 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   }[status];
 
   useEffect(() => {
-    console.log("fetchStatus effect fired", targetUid);
     fetchStatus(targetUid);
-
   }, [fetchStatus, targetUid]);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="sm" disabled={isLoading}>
-          {isLoading ? <Loader2 /> : label}
+        <Button variant="outline" size="sm" disabled={isLoading}>
+          {isLoading ? (
+            <Loader2 className="animate-spin mr-2 h-4 w-4" />
+          ) : (
+            <>
+              {label} <ChevronDown className="ml-1 h-4 w-4" />
+            </>
+          )}
         </Button>
       </DropdownMenuTrigger>
+
       <DropdownMenuContent align="end" className="w-48">
         {/* NONE */}
         {status === "none" && (
@@ -58,10 +69,11 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
           </>
         )}
 
+        {/* REQUESTED (you sent) */}
         {status === "requested" && (
           <>
             <DropdownMenuItem disabled>
-              <UserPlus className="mr-2 h-4 w-4" /> Request Sent
+              <UserCheck className="mr-2 h-4 w-4" /> Request Sent
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}
@@ -79,7 +91,7 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
               disabled={isLoading}
               onClick={() => handleAction(targetUid, "accept")}
             >
-              <Handshake className="mr-2 h-4 w-4" /> Accept Request
+              <UserCheck className="mr-2 h-4 w-4" /> Accept Request
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={isLoading}

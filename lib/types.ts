@@ -70,7 +70,6 @@ export type NotificationType =
   | "comment"
   | "acceptRequest"
   | "quote"
-  | "like"
   | "dislike";
 
 export type ReactionType = "like" | "dislike";
@@ -91,4 +90,18 @@ export type LinkPreviewType = {
   image: string;
 } | null;
 
-
+export interface Notification {
+  id: string;
+  actorUid: string;
+  recipientUid: string;
+  postId?: string;
+  quotePostId?: string;
+  type: NotificationType;
+  read: boolean;
+  createdAt: Date;
+  extra?: Record<string, unknown>;
+  actor: UserProps;
+  timeAgo: string;
+  url: string;
+  message: string;
+}

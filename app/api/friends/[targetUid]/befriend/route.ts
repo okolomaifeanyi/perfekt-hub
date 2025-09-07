@@ -1,6 +1,5 @@
 import { getCurrentUid } from "@/app/actions";
 import {
-  followUser,
   sendFriendRequest,
 } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
@@ -17,9 +16,6 @@ export async function POST(
   const { targetUid } = await params;
 
   try {
-    // follow immediately (like one-way connection before acceptance)
-    await followUser(currentUid, targetUid);
-
     // store pending request
     const result = await sendFriendRequest(currentUid, targetUid);
 

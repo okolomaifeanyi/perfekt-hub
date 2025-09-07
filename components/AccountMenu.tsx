@@ -3,14 +3,15 @@
 import { logoutClient } from "@/app/(auth)/lib/utils";
 import {
   DropdownMenuContent,
-  DropdownMenuGroup,
+  // DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
+  // DropdownMenuLabel,
+  // DropdownMenuSeparator,
+  // DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useRouter } from "next/navigation";
+import { Button } from "./ui/button";
 
 export function AccountMenu() {
   const { setGlobalLoading } = useUserStore(state => state);
@@ -19,24 +20,27 @@ export function AccountMenu() {
 
   return (
     <DropdownMenuContent className="w-56" align="start">
-      <DropdownMenuLabel>My Account</DropdownMenuLabel>
+      {/* <DropdownMenuLabel>My Account</DropdownMenuLabel> 
 
-      <DropdownMenuGroup>
+     <DropdownMenuGroup>
         <DropdownMenuItem>
           Settings
           <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuGroup>
 
-      <DropdownMenuSeparator />
+      <DropdownMenuSeparator /> 
+      */}
 
       <DropdownMenuItem
         onClick={() => {
           setGlobalLoading(true);
           logoutClient(router);
         }}
-      >
-        Logout
+        asChild>
+        <Button variant="destructive" className="w-full">
+          Logout
+          </Button>
       </DropdownMenuItem>
     </DropdownMenuContent>
   );
