@@ -30,6 +30,13 @@ export function usePostsLiveFeed({
   const [lastVisible, setLastVisible] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
 
+  // useEffect(() => {
+  //   console.log(
+  //     "[DEBUG] lastVisible changed:",
+  //     lastVisible ? lastVisible.id : "null"
+  //   );
+  // }, [lastVisible]);
+
   const [hasMore, setHasMore] = useState(true); // 🟢 ADD: State to track if more posts exist
 
   const seenPostIds = useRef<Set<string>>(new Set());
@@ -59,8 +66,11 @@ export function usePostsLiveFeed({
 
   // 🔹 Load more (next 10 posts)
   const loadMorePosts = async () => {
-    if (!lastVisible) {
-      // 🟡 CHANGED: Also check lastVisible here
+    // console.log("[loadMorePosts] Triggered. lastVisible:", lastVisible);
+
+    if (!lastVisible && !isInitialLoad.current) {
+      // console.warn("[loadMorePosts] No lastVisible, stopping pagination.");
+
       setHasMore(false);
       return;
     }
@@ -74,8 +84,12 @@ export function usePostsLiveFeed({
     );
 
     const snapshot = await getDocs(q);
+    console.log("[loadMorePosts] Fetched docs:", snapshot.size);
+
     if (snapshot.empty) {
-      setHasMore(false); // 🟢 ADD: Update state when no more posts are returned
+      console.warn("[loadMorePosts] No more posts, disabling hasMore.");
+
+      setHasMore(false);
       return;
     }
 
@@ -86,13 +100,14 @@ export function usePostsLiveFeed({
       const data = doc.data();
       const id = doc.id;
       if (seenPostIds.current.has(id)) return;
+      console.log("[loadMorePosts] Skipping already seen:", id);
 
       seenPostIds.current.add(id);
-      const createdAt = toSafeISOString(data.createdAt);
+      // console.log("[loadMorePosts] Adding new post:", id);
 
       morePosts.push({
         id,
-        createdAt,
+        createdAt: toSafeISOString(data.createdAt),
         userId: data.userId,
         content: data.content,
         media: data.media || [],
@@ -111,37 +126,49 @@ export function usePostsLiveFeed({
       }
     });
 
+    // if (morePosts.length === 0) {
+    //   console.warn(
+    //     "[loadMorePosts] Snapshot had docs, but all were already seen."
+    //   );
+    // }
+
     setPosts(prev => [...prev, ...morePosts]);
     setUserPhotoURLs(Array.from(photoURLs));
 
     const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (lastDoc) {
-      setLastVisible(lastDoc);
-    } else {
-      setHasMore(false); // 🟢 ADD: Also handle case where there's no next doc
+    // console.log("[loadMorePosts] New lastVisible:", lastDoc?.id);
+
+    if (!lastDoc) {
+      // console.warn("[loadMorePosts] No lastDoc found, disabling hasMore.");
+      setHasMore(false);
     }
   };
 
-  // 🟡 REWRITTEN: This useEffect now handles both initial load and live updates
   useEffect(() => {
     const q = query(
       collection(db, "posts"),
       where("parentPostId", "==", ""),
       orderBy("createdAt", "desc"),
-      limit(PAGE_SIZE) // 🟢 ADDED: Limit the initial query for the listener
+      limit(PAGE_SIZE) // 🟢
     );
 
     const unsubscribe = onSnapshot(q, snapshot => {
-      // 🟢 HANDLE THE VERY FIRST SNAPSHOT AS THE INITIAL DATA
       if (isInitialLoad.current) {
-        const initialPosts: PostProps[] = [];
+        if (snapshot.empty) {
+          // console.warn(
+          //   "[onSnapshot] Initial load empty. Falling back to pagination."
+          // );
+          setLastVisible(null); // allow loadMorePosts to kick in
+          isInitialLoad.current = false;
+          return;
+        }
 
-        snapshot.docs.forEach(doc => {
+        const initialPosts: PostProps[] = snapshot.docs.map(doc => {
           const data = doc.data();
-          initialPosts.push({
+          seenPostIds.current.add(doc.id);
+          return {
             id: doc.id,
             createdAt: toSafeISOString(data.createdAt),
-            // ... map other fields
             userId: data.userId,
             content: data.content,
             media: data.media || [],
@@ -150,15 +177,20 @@ export function usePostsLiveFeed({
             userPhotoURL: data.userPhotoURL,
             quotePostId: data.quotePostId || null,
             linkPreview: data.linkPreview || null,
-          });
-          seenPostIds.current.add(doc.id); // Mark these as seen
+          };
         });
 
         setPosts(initialPosts);
-        const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+        const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+        // console.log(
+        //   "[onSnapshot] Setting lastVisible to:",
+        //   lastDoc?.id || "null"
+        // );
         setLastVisible(lastDoc);
-        isInitialLoad.current = false; // Mark initial load as complete
-        return; // Don't process this first snapshot as "new" posts
+
+        isInitialLoad.current = false;
+        return;
       }
 
       // 🟢 HANDLE SUBSEQUENT UPDATES (REAL NEW POSTS)

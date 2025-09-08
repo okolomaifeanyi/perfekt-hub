@@ -116,14 +116,14 @@ const NotificationPage = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <H1 className="text-xl flex items-center gap-x-2">
-          <BellIcon className="w-5 h-5" /> Notifications
+          Notifications
           {unreadCount > 0 && (
             <span className="text-sm text-muted-foreground">
-              ({unreadCount} new)
+              ({unreadCount})
             </span>
           )}
         </H1>
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             size="sm"
             variant="ghost"
