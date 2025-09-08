@@ -15,14 +15,18 @@ import {
   Loader2,
   ChevronDown,
   UserCheck,
-} from "lucide-react"; // ✅ all from Lucide
+} from "lucide-react";
 import { useFriendStore } from "@/lib/store/friendStore";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { useUserStore } from "@/lib/store/useUserStore"; // ✅ assuming you keep logged-in user in Zustand
 
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const status = useFriendStore(s => s.statuses[targetUid]) ?? "none";
   const isLoading = useFriendStore(s => Boolean(s.loading[targetUid]));
   const handleAction = useFriendStore(state => state.handleAction);
-  const fetchStatus = useFriendStore(state => state.fetchStatus);
+  const setStatus = useFriendStore(s => s.setStatus);
+  const { user } = useUserStore();
 
   const label = {
     none: "Connect",
@@ -32,9 +36,48 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
     requested: "Sent",
   }[status];
 
+  // 🔥 Real-time Firestore subscription
   useEffect(() => {
-    fetchStatus(targetUid);
-  }, [fetchStatus, targetUid]);
+    if (!user?.uid || !targetUid) return;
+
+    const uid = user.uid;
+
+    const unsubFriends = onSnapshot(
+      doc(db, `users/${uid}/friends/${targetUid}`),
+      snap => {
+        if (snap.exists()) setStatus(targetUid, "friends");
+      }
+    );
+
+    const unsubSent = onSnapshot(
+      doc(db, `users/${uid}/friendRequestsSent/${targetUid}`),
+      snap => {
+        if (snap.exists()) setStatus(targetUid, "requested");
+      }
+    );
+
+    const unsubRecv = onSnapshot(
+      doc(db, `users/${uid}/friendRequestsReceived/${targetUid}`),
+      snap => {
+        if (snap.exists()) setStatus(targetUid, "pending");
+      }
+    );
+
+    const unsubFollow = onSnapshot(
+      doc(db, `users/${uid}/following/${targetUid}`),
+      snap => {
+        if (snap.exists()) setStatus(targetUid, "following");
+      }
+    );
+
+    // Clean up
+    return () => {
+      unsubFriends();
+      unsubSent();
+      unsubRecv();
+      unsubFollow();
+    };
+  }, [user?.uid, targetUid, setStatus]);
 
   return (
     <DropdownMenu>
