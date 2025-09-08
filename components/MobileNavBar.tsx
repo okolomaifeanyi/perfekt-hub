@@ -57,8 +57,11 @@ const NavItem = ({
       ) : (
         <OutlineIcon className="size-6 text-foreground" />
       )}
-      {badgeCount && badgeCount > 0 && (
-        <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] rounded-full">
+      {badgeCount !== undefined && (
+        <Badge
+          className={`absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] rounded-full
+      ${badgeCount === 0 ? "invisible" : ""}`}
+        >
           {badgeCount}
         </Badge>
       )}
