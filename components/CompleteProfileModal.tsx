@@ -34,10 +34,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertDescription } from "./ui/alert";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/high-res.css";
-import { cn } from "@/lib/utils";
 import { parse, isValid } from "date-fns";
+import { useUserStore } from "@/lib/store/useUserStore";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { getAuth, updateProfile } from "firebase/auth";
+import { cn } from "@/lib/utils";
 
-// Updated schema with stricter validation
+// ✅ Validation schema
 const schema = z.object({
   fullName: z
     .string()
@@ -70,6 +74,7 @@ export default function CompleteProfileModal({
 }: {
   onClose: () => void;
 }) {
+  const { user } = useUserStore();
   const [show, setShow] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
   const webcamRef = useRef<Webcam>(null);
@@ -88,7 +93,7 @@ export default function CompleteProfileModal({
     defaultValues: {
       fullName: "",
       phoneNumber: "",
-      gender: "male", // Default to a valid enum value
+      gender: "male",
       dob: "",
       photoURL: "",
     },
@@ -96,25 +101,17 @@ export default function CompleteProfileModal({
 
   const photoURL = watch("photoURL");
 
+  // ✅ Populate form from Firestore `user`
   useEffect(() => {
-    const checkProfile = async () => {
-      try {
-        const res = await fetch("/api/user-profile");
-        if (!res.ok) throw new Error("Failed to fetch profile");
-        const data = await res.json();
-        if (!data.completedProfile) setShow(true);
+    if (!user) return;
+    if (!user.completedProfile) setShow(true);
 
-        setValue("fullName", data.fullName || "");
-        setValue("phoneNumber", data.phoneNumber || "");
-        setValue("gender", data.gender || "male");
-        setValue("dob", data.dob || "");
-        setValue("photoURL", data.photoURL || "");
-      } catch {
-        toast.error("Failed to load profile data. Please try again.");
-      }
-    };
-    checkProfile();
-  }, [setValue]);
+    setValue("fullName", user.fullName || "");
+    setValue("phoneNumber", user.phoneNumber || "");
+    setValue("gender", user.gender || "male");
+    setValue("dob", user.dob || "");
+    setValue("photoURL", user.photoURL || "");
+  }, [user, setValue]);
 
   const uploadToCloudinary = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -138,8 +135,7 @@ export default function CompleteProfileModal({
       const data = await res.json();
       return data.secure_url;
     } catch (error) {
-      console.log("Upload error:", error);
-
+      console.error("Upload error:", error);
       toast.error("Failed to upload image. Please try again.");
       return "";
     }
@@ -159,8 +155,7 @@ export default function CompleteProfileModal({
       if (url) setValue("photoURL", url);
       setShowWebcam(false);
     } catch (error) {
-      console.log("Capture error:", error);
-
+      console.error("Capture error:", error);
       toast.error("Failed to process photo. Please try again.");
     }
   };
@@ -173,18 +168,22 @@ export default function CompleteProfileModal({
     }
   };
 
+  // ✅ Save profile directly to Firestore
   const onSubmit = async (form: FormData) => {
+    if (!user?.uid) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/complete-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      const ref = doc(db, "users", user.uid);
+      await updateDoc(ref, {
+        fullName: form.fullName,
+        phoneNumber: form.phoneNumber,
+        gender: form.gender,
+        dob: form.dob,
+        photoURL: form.photoURL,
+        completedProfile: true,
       });
 
-      if (!res.ok) throw new Error("Failed to save profile");
-
-      const { getAuth, updateProfile } = await import("firebase/auth");
+      // Sync Firebase Auth profile
       const auth = getAuth();
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
@@ -196,8 +195,7 @@ export default function CompleteProfileModal({
       toast.success("Profile completed successfully.");
       onClose();
     } catch (error) {
-      console.log("Profile save error:", error);
-
+      console.error("Profile save error:", error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -215,12 +213,13 @@ export default function CompleteProfileModal({
 
   return (
     <Dialog open={show} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="sm:max-w-[425px] max-h-[calc(100vh-6rem)] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[calc(100vh-6rem)] overflow-y-auto">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <DialogHeader>
             <DialogTitle>Complete Your Profile</DialogTitle>
           </DialogHeader>
 
+          {/* Full Name */}
           <div className="grid gap-3">
             <Label htmlFor="fullName">Full Name</Label>
             <Input
@@ -239,8 +238,9 @@ export default function CompleteProfileModal({
             )}
           </div>
 
+          {/* Phone */}
           <div className="grid gap-3">
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone">Phone Number</Label>{" "}
             <PhoneInput
               country={"ng"}
               value={watch("phoneNumber").replace("+", "")}
@@ -274,17 +274,20 @@ export default function CompleteProfileModal({
                   "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
                 ),
               }}
-            />
+            />{" "}
             {errors.phoneNumber && (
               <Alert variant="destructive" className="mt-2">
-                <AlertCircle className="mt-1 h-5 w-5" />
+                {" "}
+                <AlertCircle className="mt-1 h-5 w-5" />{" "}
                 <AlertDescription>
-                  <p className="text-sm">{errors.phoneNumber.message}</p>
-                </AlertDescription>
+                  {" "}
+                  <p className="text-sm">{errors.phoneNumber.message}</p>{" "}
+                </AlertDescription>{" "}
               </Alert>
-            )}
+            )}{" "}
           </div>
 
+          {/* Gender */}
           <div className="grid gap-3">
             <Label>Gender</Label>
             <Select
@@ -312,6 +315,7 @@ export default function CompleteProfileModal({
             )}
           </div>
 
+          {/* DOB */}
           <div className="grid gap-3">
             <Label htmlFor="dob">Date of Birth</Label>
             <div className="relative flex gap-2">
@@ -329,30 +333,18 @@ export default function CompleteProfileModal({
                     setMonth(parsedDate);
                   }
                 }}
-                onKeyDown={e => {
-                  if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    setOpen(true);
-                  }
-                }}
               />
               <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="ghost"
-                    className="absolute top-1/2 right-2 size-6 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
                   >
                     <CalendarIcon className="size-3.5" />
-                    <span className="sr-only">Select date</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent
-                  className="w-auto overflow-hidden p-0 bg-popover text-popover-foreground border border-border rounded-md shadow-md"
-                  align="end"
-                  alignOffset={-8}
-                  sideOffset={10}
-                >
+                <PopoverContent align="end" sideOffset={10}>
                   <Calendar
                     mode="single"
                     selected={date}
@@ -380,6 +372,7 @@ export default function CompleteProfileModal({
             )}
           </div>
 
+          {/* Photo */}
           <div className="grid gap-3">
             <Label htmlFor="profile-pic">Profile Picture</Label>
             <Input

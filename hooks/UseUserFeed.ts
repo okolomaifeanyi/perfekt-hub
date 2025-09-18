@@ -42,7 +42,6 @@ export function useUserFeed(username: string) {
 
     const q = query(
       collection(db, "posts"),
-      where("parentPostId", "==", ""),
       where("username", "==", username),
       orderBy("createdAt", "desc"),
       limit(PAGE_SIZE)

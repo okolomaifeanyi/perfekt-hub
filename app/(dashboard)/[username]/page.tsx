@@ -1,75 +1,70 @@
-import { H2, Large, Muted } from "@/components/Typography";
-import { UserProps } from "@/lib/types";
-import UserFeed from "./[postId]/components/UserFeed";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import NavBar from "./components/NavBar";
 import Image from "next/image";
-import MyAvatar from "@/components/feed/post/MyAvatar";
-import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import ProfileClient from "./components/ProfileClient";
 
-export default async function page({
+export default async function Page({
   params,
 }: {
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
 
+  // Lookup user by username
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("username", "==", username));
   const snapshot = await getDocs(q);
-
-  if (snapshot.empty) {
-    throw new Error("User not found");
-  }
+  if (snapshot.empty) throw new Error("User not found");
 
   const userDoc = snapshot.docs[0];
-  const userData = userDoc.data() as UserProps;
+  const data = userDoc.data();
 
-  const user = {
+  // ✅ Safe timestamp handling
+  let timeStamp: Date | null = null;
+  if (data.timestamp) {
+    if (typeof data.timestamp.toDate === "function") {
+      timeStamp = data.timestamp.toDate(); // Firestore Timestamp
+    } else if (typeof data.timestamp === "number") {
+      timeStamp = new Date(data.timestamp); // stored as millis
+    } else if (typeof data.timestamp === "string") {
+      timeStamp = new Date(data.timestamp); // stored as string
+    }
+  }
+
+  const profile = {
     uid: userDoc.id,
-    username: userData.username,
-    fullName: userData.fullName,
-    photoURL: userData.photoURL,
+    username: data.username,
+    fullName: data.fullName ?? "",
+    photoURL: data.photoURL ?? "",
+    coverURL:
+      data.coverURL || `https://picsum.photos/seed/${data.username}/1200/400`,
+    bio: data.bio ?? "",
+    website: data.website ?? "",
+    location: data.location ?? "",
+    followersCount: data.followersCount ?? 0,
+    followingCount: data.followingCount ?? 0,
+    friendsCount: data.friendsCount ?? 0,
+    postsCount: data.postsCount ?? 0,
+    timeStamp, 
   };
-
 
   return (
     <div className="w-full">
-      <div>
-        <NavBar title={user.fullName || user.username} />
+      <NavBar title={profile.fullName || profile.username} />
 
-        <div className="h-[200px] relative">
-          <Image
-            src={`https://picsum.photos/seed/${user.username}/600/300`}
-            alt="Wall"
-            width={600}
-            height={300}
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        <div className="-mt-20 flex justify-center">
-          <div className="!text-center">
-            <MyAvatar size={200} username={user.username} photoURL={user.photoURL} fullName={user.fullName} />
-
-            {user.fullName && (
-              <Large>
-                <strong>{user.fullName}</strong>
-              </Large>
-            )}
-
-            <Muted>@{user.username}</Muted>
-          </div>
-        </div>
+      {/* Cover */}
+      <div className="h-32 relative">
+        <Image
+          src={profile.coverURL}
+          alt="Cover"
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
       </div>
 
-      <div className="px-4 py-4">
-        <div className="my-4">
-          <H2>Posts</H2>
-        </div>
-
-        <UserFeed />
-      </div>
+      <ProfileClient profile={profile} />
     </div>
   );
 }

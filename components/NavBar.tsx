@@ -86,12 +86,14 @@ const NavBar = () => {
             >
               <div className="relative">
                 <Icon className="size-8 text-foreground" />
-                {badge && badge > 0 && (
-                  <Badge className="absolute -top-1.5 -right-1 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums">
-                    {badge}
-                  </Badge>
-                )}
+                <Badge
+                  className={`absolute -top-1.5 -right-1 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums
+                ${!badge || badge === 0 ? "invisible" : ""}`}
+                >
+                  {badge ?? 0}
+                </Badge>
               </div>
+
               <span className="hidden md:block">{label}</span>
             </Link>
           );

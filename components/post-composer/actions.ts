@@ -73,7 +73,7 @@ export async function sendPost({
 
   if (links.length > 0) {
     for (const link of links) {
-      const safeResult = await isSafeLink (link);
+      const safeResult = await isSafeLink(link);
       if (!safeResult.safe) {
         throw new Error(
           safeResult.reason || "Unsafe or malicious link detected"
@@ -100,6 +100,7 @@ export async function sendPost({
     type: item.type,
   }));
 
+  const postRef = firestoreAdmin.collection("posts").doc();
   const postData = {
     userId: user.uid,
     username: user.username,
@@ -116,25 +117,44 @@ export async function sendPost({
   };
 
   const batch = firestoreAdmin.batch();
-  const postRef = firestoreAdmin.collection("posts").doc();
 
   // 1. Save the new post
   batch.set(postRef, postData);
 
-  // 2. If reply → increment parent's replyCount
+  // 2. If reply → increment parent's replyCount + add engagement
   if (parentPostId) {
     const parentRef = firestoreAdmin.collection("posts").doc(parentPostId);
     batch.update(parentRef, {
       replyCount: FieldValue.increment(1),
     });
+
+    const engagementRef = parentRef.collection("engagements").doc(user.uid);
+    batch.set(
+      engagementRef,
+      {
+        replied: true,
+        lastEngagedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
   }
 
-  // 3. If quote → increment quoted post’s quoteCount
+  // 3. If quote → increment quoted post’s quoteCount + add engagement
   if (quotePostId) {
     const quotedRef = firestoreAdmin.collection("posts").doc(quotePostId);
     batch.update(quotedRef, {
       quoteCount: FieldValue.increment(1),
     });
+
+    const engagementRef = quotedRef.collection("engagements").doc(user.uid);
+    batch.set(
+      engagementRef,
+      {
+        quoted: true,
+        lastEngagedAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
   }
 
   // Commit batched writes
@@ -171,3 +191,4 @@ export async function sendPost({
 
   return postRef.id;
 }
+

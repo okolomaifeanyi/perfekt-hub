@@ -1,6 +1,5 @@
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { authAdmin } from "@/lib/firebaseAdmin";
-// import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {

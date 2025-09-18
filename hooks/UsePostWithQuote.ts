@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import { getPost, getUser} from "@/lib/data";
 import { PostProps, UserProps } from "@/lib/types";
 import { usePostCounts } from "@/lib/store/postCounts";
-import { getFirebaseToken } from "@/lib/utils";
+import { useRealtimePostCounts } from "./usePostCount";
 
 export function usePostWithQuote(post: PostProps) {
   const [user, setUser] = useState<UserProps | null>(null);
   const [quotedPost, setQuotedPost] = useState<PostProps | null>(null);
   const [quotedUser, setQuotedUser] = useState<UserProps | null>(null);
+  useRealtimePostCounts(post.id);
 
-  const { counts, setCounts } = usePostCounts();
+  const { counts } = usePostCounts();
   const postCounts = counts[post.id];
 
   useEffect(() => {
@@ -25,20 +26,10 @@ export function usePostWithQuote(post: PostProps) {
         setQuotedUser(qUser);
       }
     }
-
-    // 🔥 fetch all counts + userReaction at once
-    const res = await fetch(`/api/posts/${post.id}/counts`, {
-      headers: {
-        Authorization: `Bearer ${await getFirebaseToken()}`,
-      },
-    });
-    const data = await res.json();
-
-    setCounts(post.id, data);
   }
 
   fetchData();
-}, [post, setCounts]);
+}, [post]);
 
 
   return { user, quotedPost, quotedUser, counts: postCounts };

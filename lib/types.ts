@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase/firestore";
 import { Dispatch, SetStateAction } from "react";
 
 export interface UserProps {
@@ -7,6 +8,20 @@ export interface UserProps {
   fullName?: string;
   email?: string;
   bio?: string;
+  coverURL?: string;
+  location?: string;
+  website?: string;
+  followingCount?: number;
+  followersCount?: number;
+  friendsCount?: number;
+  postsCount?: number;
+  timeStamp?: Date | null;
+  online?: boolean;
+  lastSeen?: Timestamp;
+  completedProfile?: boolean;
+  phoneNumber?: string;
+  gender?: "male" | "female";
+  dob?: string;
 }
 
 export interface CommentProps {
@@ -104,4 +119,36 @@ export interface Notification {
   timeAgo: string;
   url: string;
   message: string;
+}
+
+export interface MessageProps {
+  id: string;
+  senderId: string;
+  media: MediaProps;
+  text: string;
+  createdAt: Timestamp;
+  reactions: Record<string, string[]>;
+  hiddenFor: string[];
+  replyTo?: {
+    id: string;
+    text: string;
+    senderId: string;
+  };
+}
+
+export interface DraftMessage {
+  text: string;
+  replyTo?: {
+    id: string;
+    text: string;
+    senderId: string;
+  };
+}
+
+export interface ConversationProps {
+  id: string;
+  participants: string[];
+  lastMessage?: string;
+  lastMessageAt?: Timestamp;
+  lastMessageSender?: string;
 }

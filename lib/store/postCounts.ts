@@ -3,10 +3,9 @@ import { create } from "zustand";
 type ReactionState = {
   liked: boolean;
   disliked: boolean;
-  commented: boolean;
+  replied: boolean;
   quoted: boolean;
   viewed: boolean;
-  shared: boolean;
 };
 
 type PostCountData = {
@@ -15,51 +14,60 @@ type PostCountData = {
   likeCount: number;
   dislikeCount: number;
   viewCount: number;
-  shareCount: number;
   userReaction: ReactionState;
 };
 
-type PostCounts = {
-  [postId: string]: PostCountData;
-};
+type PostCounts = Record<string, PostCountData>;
 
 type State = {
   counts: PostCounts;
   setCounts: (postId: string, data: Partial<PostCountData>) => void;
+  resetCounts: (postId: string) => void;
 };
 
-// ✅ helper for defaults
+// ✅ default reaction flags
 const defaultReaction: ReactionState = {
   liked: false,
   disliked: false,
-  commented: false,
+  replied: false,
   quoted: false,
   viewed: false,
-  shared: false,
+};
+
+// ✅ default post counts
+const defaultCounts: PostCountData = {
+  replyCount: 0,
+  quoteCount: 0,
+  likeCount: 0,
+  dislikeCount: 0,
+  viewCount: 0,
+  userReaction: defaultReaction,
 };
 
 export const usePostCounts = create<State>(set => ({
   counts: {},
   setCounts: (postId, data) =>
     set(state => {
-      const prev = state.counts[postId];
+      const prev = state.counts[postId] ?? defaultCounts;
       return {
         counts: {
           ...state.counts,
           [postId]: {
-            replyCount: data.replyCount ?? prev?.replyCount ?? 0,
-            quoteCount: data.quoteCount ?? prev?.quoteCount ?? 0,
-            likeCount: data.likeCount ?? prev?.likeCount ?? 0,
-            dislikeCount: data.dislikeCount ?? prev?.dislikeCount ?? 0,
-            viewCount: data.viewCount ?? prev?.viewCount ?? 0,
-            shareCount: data.shareCount ?? prev?.shareCount ?? 0,
+            ...prev,
+            ...data,
             userReaction: {
               ...defaultReaction,
-              ...prev?.userReaction,
+              ...prev.userReaction,
               ...data.userReaction,
             },
           },
         },
       };
+    }),
+  resetCounts: postId =>
+    set(state => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [postId]: _, ...rest } = state.counts;
+      return { counts: rest };
     }),
 }));

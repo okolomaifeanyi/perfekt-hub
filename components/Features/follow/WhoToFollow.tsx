@@ -38,11 +38,6 @@ export default function WhoToFollow() {
               <Name username={u.username} fullName={u.fullName} />
             </div>
             <div>
-              {/* <FollowButton
-                currentUid={currentUser.uid}
-                targetUid={u.uid}
-                initialFollowing={followingMap[u.uid] ?? false}
-              /> */}
               <ConnectDropdown targetUid={u.uid} />
             </div>
           </li>

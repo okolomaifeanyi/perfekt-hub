@@ -1,5 +1,12 @@
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { deleteNotification, sendNotification } from "./notifications";
+import { FieldValue } from "firebase-admin/firestore";
+
+function increment(uid: string, field: string, amount: number) {
+  return firestoreAdmin.doc(`users/${uid}`).update({
+    [field]: FieldValue.increment(amount),
+  });
+}
 
 export async function followUser(currentUid: string, targetUid: string) {
   const followingRef = firestoreAdmin.doc(
@@ -12,6 +19,8 @@ export async function followUser(currentUid: string, targetUid: string) {
   await Promise.all([
     followingRef.set({ followedAt: Date.now() }),
     followerRef.set({ followedAt: Date.now() }),
+    increment(currentUid, "followingCount", 1),
+    increment(targetUid, "followersCount", 1),
     sendNotification({
       recipientUid: targetUid,
       actorUid: currentUid,
@@ -31,6 +40,8 @@ export async function unfollowUser(currentUid: string, targetUid: string) {
   await Promise.all([
     followingRef.delete(),
     followerRef.delete(),
+    increment(currentUid, "followingCount", -1),
+    increment(targetUid, "followersCount", -1),
     deleteNotification({
       recipientUid: targetUid,
       actorUid: currentUid,
@@ -48,16 +59,8 @@ export async function sendFriendRequest(currentUid: string, targetUid: string) {
   );
 
   await Promise.all([
-    sentRef.set({
-      from: currentUid,
-      to: targetUid,
-      createdAt: Date.now(),
-    }),
-    receivedRef.set({
-      from: currentUid,
-      to: targetUid,
-      createdAt: Date.now(),
-    }),
+    sentRef.set({ from: currentUid, to: targetUid, createdAt: Date.now() }),
+    receivedRef.set({ from: currentUid, to: targetUid, createdAt: Date.now() }),
     sendNotification({
       recipientUid: targetUid,
       actorUid: currentUid,
@@ -79,6 +82,8 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
   await Promise.all([
     currentUserFriendRef.delete(),
     targetUserFriendRef.delete(),
+    increment(currentUid, "friendsCount", -1),
+    increment(targetUid, "friendsCount", -1),
     deleteNotification({
       recipientUid: targetUid,
       actorUid: currentUid,
@@ -108,16 +113,12 @@ export async function acceptFriendRequest(
   const since = Date.now();
 
   await Promise.all([
-    currentFriendRef.set({
-      since,
-      initiatedBy: requesterUid,
-    }),
-    requesterFriendRef.set({
-      since,
-      initiatedBy: requesterUid,
-    }),
+    currentFriendRef.set({ since, initiatedBy: requesterUid }),
+    requesterFriendRef.set({ since, initiatedBy: requesterUid }),
     receivedRef.delete(),
     sentRef.delete(),
+    increment(currentUid, "friendsCount", 1),
+    increment(requesterUid, "friendsCount", 1),
     sendNotification({
       recipientUid: requesterUid,
       actorUid: currentUid,
@@ -192,6 +193,8 @@ export async function removeFollower(currentUid: string, followerUid: string) {
   await Promise.all([
     followerRef.delete(),
     followingRef.delete(),
+    increment(currentUid, "followersCount", -1),
+    increment(followerUid, "followingCount", -1),
     deleteNotification({
       recipientUid: currentUid,
       actorUid: followerUid,
@@ -199,4 +202,3 @@ export async function removeFollower(currentUid: string, followerUid: string) {
     }),
   ]);
 }
-

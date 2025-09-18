@@ -2,6 +2,14 @@ import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { NotificationInput } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 
+/**
+ * Normalize engagement-style booleans into a consistent notification type string.
+ */
+function normalizeType(type: NotificationInput["type"] | undefined): string {
+  if (!type) return "unknown";
+  return type; // e.g. "like" | "dislike" | "reply" | "quote" | "view" | "share"
+}
+
 export async function sendNotification({
   recipientUid,
   actorUid,
@@ -9,14 +17,14 @@ export async function sendNotification({
   postId,
   extra = {},
 }: NotificationInput) {
-  if (recipientUid === actorUid) return;
+  if (!recipientUid || !actorUid || recipientUid === actorUid) return;
 
   const notificationRef = firestoreAdmin.collection("notifications").doc();
 
   const payload = {
     recipientUid,
     actorUid,
-    type,
+    type: normalizeType(type),
     postId: postId || null,
     read: false,
     createdAt: FieldValue.serverTimestamp(),
@@ -44,11 +52,13 @@ export async function deleteNotification({
     return;
   }
 
+  const normalized = normalizeType(type);
+
   const snapshot = await firestoreAdmin
     .collection("notifications")
     .where("recipientUid", "==", recipientUid)
     .where("actorUid", "==", actorUid)
-    .where("type", "==", type)
+    .where("type", "==", normalized)
     .get();
 
   if (snapshot.empty) return;

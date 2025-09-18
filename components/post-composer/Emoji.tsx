@@ -1,7 +1,5 @@
 "use client";
 
-import { Smile } from "lucide-react";
-
 import { Suspense, useState } from "react";
 import {
   DropdownMenu,
@@ -10,6 +8,7 @@ import {
 } from "../ui/dropdown-menu";
 import EmojiPicker, { EmojiClickData, Theme } from "emoji-picker-react";
 import { Button } from "../ui/button";
+import { FaceSmileIcon } from "@heroicons/react/24/solid";
 
 const Emoji = ({ onSelect }: { onSelect: (emoji: { native: string }) => void }) => {
   const [open, setOpen] = useState(false);
@@ -22,8 +21,8 @@ const Emoji = ({ onSelect }: { onSelect: (emoji: { native: string }) => void }) 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" title="Add Emoji">
-          <Smile />
+        <Button size="sm" variant="secondary" title="Add Emoji">
+          <FaceSmileIcon className="size-6" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-auto p-0 bg-transparent shadow-none border-none">

@@ -101,19 +101,10 @@ export async function toggleReaction({
 
   const updatedCounts = await res.json();
 
-  // ✅ Only update counts, leave userReaction as-is (optimistic already set it)
-  // const { setCounts } = usePostCounts.getState();
-  // setCounts(postId, {
-  //   likeCount: updatedCounts.likeCount,
-  //   dislikeCount: updatedCounts.dislikeCount,
-  //   replyCount: updatedCounts.replyCount, // in case server also sends these
-  //   quoteCount: updatedCounts.quoteCount,
-  //   viewCount: updatedCounts.viewCount,
-  //   shareCount: updatedCounts.shareCount,
-  // });
-
+  // ⚠️ Keep optimistic UI state — don’t overwrite userReaction here.
   return updatedCounts;
 }
+
 
 export async function getFirebaseToken(): Promise<string> {
   const user = await import("firebase/auth").then(

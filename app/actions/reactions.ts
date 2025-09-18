@@ -12,9 +12,7 @@ export async function toggleLikeDislikeAdmin({
   type: "like" | "dislike";
 }) {
   const postRef = firestoreAdmin.collection("posts").doc(postId);
-  const reactionRef = postRef.collection("reactions").doc(userId);
-
-  console.log("🚀 toggleLikeDislikeAdmin called", { postId, userId, type });
+  const engagementRef = postRef.collection("engagements").doc(userId);
 
   let recipientUid: string | null = null;
   let action: "send" | "delete" | null = null;
@@ -22,8 +20,8 @@ export async function toggleLikeDislikeAdmin({
 
   const updatedCounts = await firestoreAdmin.runTransaction(
     async transaction => {
-      const [reactionDoc, postDoc] = await Promise.all([
-        transaction.get(reactionRef),
+      const [engagementDoc, postDoc] = await Promise.all([
+        transaction.get(engagementRef),
         transaction.get(postRef),
       ]);
 
@@ -32,48 +30,49 @@ export async function toggleLikeDislikeAdmin({
       const postData = postDoc.data();
       recipientUid = postData?.userId || null;
 
-      console.log("📌 Post data", {
-        authorId: recipientUid,
-        counts: postData?.reactionCounts,
-      });
-
       const counts = postData?.reactionCounts || {};
-      const currentReaction: "like" | "dislike" | null = reactionDoc.exists
-        ? reactionDoc.data()?.type
+      const current = engagementDoc.data() || {};
+
+      const currentType: "like" | "dislike" | null = current.liked
+        ? "like"
+        : current.disliked
+        ? "dislike"
         : null;
 
-      oldType = currentReaction;
-      console.log("📌 Current reaction:", currentReaction);
-
+      oldType = currentType;
       const newCounts = { ...counts };
 
-      if (currentReaction === type) {
-        console.log("🗑️ Undoing same reaction:", type);
+      if (currentType === type) {
+        // toggle off
+        transaction.update(engagementRef, {
+          [type === "like" ? "liked" : "disliked"]: false,
+          lastEngagedAt: FieldValue.serverTimestamp(),
+        });
 
-        transaction.delete(reactionRef);
         newCounts[type] = Math.max((newCounts[type] || 0) - 1, 0);
         transaction.update(postRef, {
           [`reactionCounts.${type}`]: newCounts[type],
         });
         action = "delete";
       } else {
-        console.log("✨ Adding/switching reaction", {
-          from: currentReaction,
-          to: type,
-        });
+        // toggle on
+        transaction.set(
+          engagementRef,
+          {
+            liked: type === "like",
+            disliked: type === "dislike",
+            lastEngagedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
 
-        transaction.set(reactionRef, {
-          type,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-
-        if (currentReaction) {
-          newCounts[currentReaction] = Math.max(
-            (newCounts[currentReaction] || 0) - 1,
+        if (currentType) {
+          newCounts[currentType] = Math.max(
+            (newCounts[currentType] || 0) - 1,
             0
           );
           transaction.update(postRef, {
-            [`reactionCounts.${currentReaction}`]: newCounts[currentReaction],
+            [`reactionCounts.${currentType}`]: newCounts[currentType],
           });
         }
 
@@ -85,24 +84,13 @@ export async function toggleLikeDislikeAdmin({
         action = "send";
       }
 
-      console.log("✅ New reaction counts:", newCounts);
-      console.log("📌 Action decided:", action);
-
       return newCounts;
     }
   );
 
-  console.log("📌 After transaction:", {
-    recipientUid,
-    action,
-    oldType,
-    updatedCounts,
-  });
-
-  // 🔔 Send/delete notifications OUTSIDE transaction
+  // 🔔 notifications outside txn
   if (recipientUid && action && recipientUid !== userId) {
     if (action === "delete" && oldType) {
-      console.log("🔔 Deleting notification", { type: oldType });
       await deleteNotification({
         recipientUid,
         actorUid: userId,
@@ -110,17 +98,12 @@ export async function toggleLikeDislikeAdmin({
       });
     } else if (action === "send") {
       if (oldType) {
-        console.log("🔔 Switching → delete old notification first", {
-          oldType,
-        });
         await deleteNotification({
           recipientUid,
           actorUid: userId,
           type: oldType,
         });
       }
-
-      console.log("🔔 Sending new notification", { type, postId });
       await sendNotification({
         recipientUid,
         actorUid: userId,
@@ -128,8 +111,6 @@ export async function toggleLikeDislikeAdmin({
         postId,
       });
     }
-  } else {
-    console.log("⚠️ No notification sent", { recipientUid, action });
   }
 
   return updatedCounts;
@@ -140,15 +121,20 @@ export async function addUniqueView(postId: string, userId: string) {
   if (!userId) return;
 
   const postRef = firestoreAdmin.collection("posts").doc(postId);
-  const viewRef = postRef.collection("views").doc(userId);
+  const engagementRef = postRef.collection("engagements").doc(userId);
 
-  const viewSnap = await viewRef.get();
+  const snap = await engagementRef.get();
 
-  if (!viewSnap.exists) {
-    // create view record
-    await viewRef.set({ viewedAt: new Date() });
+  if (!snap.exists || !snap.data()?.viewed) {
+    await engagementRef.set(
+      {
+        viewed: true,
+        viewedAt: FieldValue.serverTimestamp(),
+        lastEngagedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
 
-    // atomically increment post viewCount
     await postRef.update({
       viewCount: FieldValue.increment(1),
     });

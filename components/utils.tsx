@@ -28,7 +28,7 @@ export function getCompactTimeAgo(date: Date): string {
   if (months >= 1) return format(date, "d MMM"); // e.g., 5 Jul
 
   // If older than 6 days but less than a month
-  return format(date, "d MMM");
+  return !date ? "Just now" : format(date, "d MMM");
 }
 
 export async function followUser(currentUid: string, targetUid: string) {

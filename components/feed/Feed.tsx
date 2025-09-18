@@ -17,7 +17,7 @@ interface FeedProps {
 }
 
 const Feed = ({ scrollPosition }: FeedProps) => {
-  const { friends, watched } = useUserConnections();
+  const { friends, followers } = useUserConnections();
   const {
     newPosts,
     getNewPosts,
@@ -26,7 +26,7 @@ const Feed = ({ scrollPosition }: FeedProps) => {
     hasMore,
   } = usePostsLiveFeed({
     friends: friends || [],
-    watched: watched || [],
+    watched: followers || [],
   });
 
   const [loading, setLoading] = useState(false);

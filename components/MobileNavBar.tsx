@@ -104,7 +104,7 @@ const MobileNavBar = ({
           badgeCount={count}
         />
         <NavItem
-          href="#"
+          href="/messages"
           label="Message"
           SolidIcon={MailSolid}
           OutlineIcon={MailOutline}

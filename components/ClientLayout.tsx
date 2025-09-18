@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import CompleteProfileModal from "./CompleteProfileModal";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,19 +9,21 @@ import { useUserStore } from "@/lib/store/useUserStore";
 import { logoutClient } from "@/app/(auth)/lib/utils";
 import Loader from "./Loader";
 
-import { auth } from "@/lib/firebase"; // client-side Firebase
-import { signInWithCustomToken } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { signInWithCustomToken, onAuthStateChanged } from "firebase/auth";
 
 const ClientLayout = ({ children }: { children: ReactNode }) => {
-  const [showCompleteProfileModal, setShowCompleteProfileModal] =
-    useState(false);
-
   const {
-    setUser,
+    user,
     clearUser,
     globalLoading,
     setGlobalLoading,
-    setSuggestions,
+    dismissedProfileModal,
+    setDismissedProfileModal,
+    startUserListener,
+    startMessageListener,
+    startNotificationListener,
+    stopListeners,
   } = useUserStore(state => state);
 
   const pathname = usePathname();
@@ -29,89 +31,61 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const controller = new AbortController();
+    if (isAuthPage) {
+      setGlobalLoading(false);
+      return;
+    }
 
-    const checkSession = async () => {
-      if (isAuthPage) {
-        setGlobalLoading(false);
-        return;
-      }
+    setGlobalLoading(true);
 
-      setGlobalLoading(true);
-
-      try {
-        const res = await fetch("/api/user-profile", {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error("Not logged in");
-
-        const data = await res.json();
-        setUser(data);
-        
-
-        // 🔄 Sync Firebase Client Auth
-        if (!auth.currentUser) {
-          try {
-            const tokenRes = await fetch("/api/firebase-token", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ uid: data.uid }),
-              signal: controller.signal,
-            });
-
-            if (tokenRes.ok) {
-              const { token } = await tokenRes.json();
-              await signInWithCustomToken(auth, token);
-            } else {
-              console.warn("Failed to get Firebase client token");
-            }
-          } catch (firebaseSyncErr) {
-            console.error("Firebase auth client sync failed", firebaseSyncErr);
-          }
-        }
-
-        if (!data.completedProfile) {
-          setShowCompleteProfileModal(true);
-        }
-
-        // 🔁 Fetch suggestions
+    const unsubscribeAuth = onAuthStateChanged(auth, async currentUser => {
+      // no client user yet → try server-issued custom token
+      if (!currentUser) {
         try {
-          const suggestionsRes = await fetch("/api/suggestions", {
+          const tokenRes = await fetch("/api/firebase-token", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ uid: data.uid }),
-            signal: controller.signal,
           });
+          if (!tokenRes.ok) throw new Error("Failed to fetch Firebase token");
 
-          if (suggestionsRes.ok) {
-            const suggestions = await suggestionsRes.json();
-            setSuggestions(suggestions);
-          } else {
-            console.warn(
-              "Suggestions fetch failed",
-              await suggestionsRes.text()
-            );
-          }
-        } catch (e) {
-          if (e instanceof Error && e.name !== "AbortError") {
-            console.error("Suggestions fetch crashed:", e);
-          }
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          console.error("Session invalid or profile fetch failed:", err);
+          const { token } = await tokenRes.json();
+          await signInWithCustomToken(auth, token);
+          // onAuthStateChanged will fire again after sign-in
+          return;
+        } catch (err) {
+          console.error("Auth sync failed:", err);
           await logoutClient(router);
           clearUser();
+          stopListeners();
+          setGlobalLoading(false);
+          return;
         }
-      } finally {
-        setGlobalLoading(false);
       }
-    };
 
-    checkSession();
-    return () => controller.abort();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+      // we now have a signed-in user
+      const uid = currentUser.uid;
+
+      // start real-time listeners tied to UID
+      startUserListener(uid); // 🔹 Firestore user doc
+      startMessageListener(uid);
+      startNotificationListener(uid);
+
+      setGlobalLoading(false);
+    });
+
+    return () => {
+      unsubscribeAuth();
+      stopListeners();
+    };
+  }, [
+    isAuthPage,
+    router,
+    setGlobalLoading,
+    clearUser,
+    startUserListener,
+    startMessageListener,
+    startNotificationListener,
+    stopListeners,
+  ]);
 
   return (
     <ThemeProvider
@@ -122,11 +96,15 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     >
       {!isAuthPage && globalLoading && <Loader />}
 
-      {!isAuthPage && !globalLoading && showCompleteProfileModal && (
-        <CompleteProfileModal
-          onClose={() => setShowCompleteProfileModal(false)}
-        />
-      )}
+      {!isAuthPage &&
+        !globalLoading &&
+        user &&
+        !user.completedProfile &&
+        !dismissedProfileModal && (
+          <CompleteProfileModal
+            onClose={() => setDismissedProfileModal(true)}
+          />
+        )}
 
       {(isAuthPage || !globalLoading) && children}
 

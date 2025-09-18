@@ -32,7 +32,6 @@ export async function handlePost({
   quotePostId?: string | null;
 }) {
   try {
-    // 📤 Upload media (parallel)
     const uploadedMedia: MediaProps[] = await Promise.all(
       media.map(async item => {
         if (item.file) {

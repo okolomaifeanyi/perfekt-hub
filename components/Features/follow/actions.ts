@@ -40,6 +40,14 @@ export async function getRandomUsers(currentUid: string) {
         username: data.username,
         photoURL: data.photoURL || null,
         fullName: data.fullName || null,
+        website: data.website || "",
+        followingCount: data.followingCount || 0,
+        followersCount: data.followersCount || 0,
+        friendsCount: data.friendsCount || 0,
+        postsCount: data.postsCount || 0,
+        timeStamp: data.timestamp ? data.timestamp.toDate() : null,
+        completedProfile: data.completedProfile || false,
+        phoneNumber: data.phoneNumber || null,
       });
     }
   });

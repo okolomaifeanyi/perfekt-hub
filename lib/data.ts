@@ -23,6 +23,7 @@ export async function getUser(userId: string): Promise<UserProps | null> {
     username: userDoc.data().username,
     photoURL: userDoc.data().photoURL,
     fullName: userDoc.data().fullName,
+    
   };
 }
 

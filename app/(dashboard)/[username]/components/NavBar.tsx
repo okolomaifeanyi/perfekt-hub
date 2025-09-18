@@ -1,13 +1,26 @@
-import React from "react";
+import { ReactNode } from "react";
 import Back from "./Back";
+import { H2 } from "@/components/Typography";
 
-
-const NavBar = ({ title }: { title: string }) => {
+const NavBar = ({
+  title,
+  extra,
+  avatar,
+}: {
+  title: string;
+  extra?: ReactNode;
+  avatar?: ReactNode;
+}) => {
   return (
-    <div className="p-2 flex space-x-1.5 items-center">
-      <Back />
+    <div className="py-2 sticky top-0 flex justify-between items-center z-10 bg-background px-2">
+      <div className="flex items-center space-x-2">
+        <Back />
 
-      <strong>{title}</strong>
+        {avatar && avatar}
+        <H2 className="text-lg">{title}</H2>
+      </div>
+
+      {extra && extra}
     </div>
   );
 };

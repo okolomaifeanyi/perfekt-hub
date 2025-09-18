@@ -78,7 +78,7 @@ export function usePostsLiveFeed({
     const q = query(
       collection(db, "posts"),
       where("parentPostId", "==", ""),
-      orderBy("createdAt", "desc"),
+      orderBy("reactionCounts.like", "desc"),
       startAfter(lastVisible),
       limit(PAGE_SIZE)
     );
@@ -148,7 +148,10 @@ export function usePostsLiveFeed({
     const q = query(
       collection(db, "posts"),
       where("parentPostId", "==", ""),
-      orderBy("createdAt", "desc"),
+      orderBy("reactionCounts.like", "desc"),
+      orderBy("quoteCount", "desc"),
+      orderBy("replyCount", "desc"),
+      orderBy("viewCount", "desc"),
       limit(PAGE_SIZE) // 🟢
     );
 

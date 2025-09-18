@@ -36,8 +36,6 @@ const PostCard = ({
   const { friends, following } = useUserConnections();
   const router = useRouter();
 
-  if (!currentUser && !user) return null;
-
   const isPinned = post?.isPinned;
   const isOwner = user ? currentUser?.uid === user.uid : false;
   const isFollowing = user ? following?.includes(user.uid) : false;
