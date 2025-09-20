@@ -18,17 +18,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 const PAGE_SIZE = 10;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toSafeISOString(val: any): string {
-  try {
-    if (val instanceof Date) return val.toISOString();
-    if (val?.toDate instanceof Function) return val.toDate().toISOString();
-  } catch (err) {
-    console.error("Failed to convert to ISO string:", err);
-  }
-  return new Date(0).toISOString();
-}
-
 export function useUserFeed(username: string) {
   const [posts, setPosts] = useState<PostProps[]>([]);
   const [lastVisible, setLastVisible] =
@@ -54,7 +43,7 @@ export function useUserFeed(username: string) {
           const data = doc.data();
           return {
             id: doc.id,
-            createdAt: toSafeISOString(data.createdAt),
+            createdAt: data.createdAt.toDate(),
             userId: data.userId,
             content: data.content,
             media: data.media || [],
@@ -81,7 +70,7 @@ export function useUserFeed(username: string) {
           setPosts(prev =>
             prev.map(p =>
               p.id === doc.id
-                ? { ...p, ...data, createdAt: toSafeISOString(data.createdAt) }
+                ? { ...p, ...data, createdAt: data.createdAt.toDate() }
                 : p
             )
           );
@@ -119,7 +108,7 @@ export function useUserFeed(username: string) {
       const data = doc.data();
       return {
         id: doc.id,
-        createdAt: toSafeISOString(data.createdAt),
+        createdAt: data.createdAt.toDate(),
         userId: data.userId,
         content: data.content,
         media: data.media || [],

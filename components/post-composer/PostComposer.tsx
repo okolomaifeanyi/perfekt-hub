@@ -58,10 +58,12 @@ const PostComposer = ({
 
     setLoading(true);
 
+    const { uid, username, photoURL, fullName } = user;
+
     await handlePost({
       text,
       media,
-      user,
+      user: { uid, username, photoURL, fullName },
       onSuccess: () => {
         setText("");
         setMedia([]);

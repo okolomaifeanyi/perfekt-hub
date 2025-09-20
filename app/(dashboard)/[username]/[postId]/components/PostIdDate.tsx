@@ -18,7 +18,7 @@ const PostIdDate = ({ user, post }: { user: UserProps, post: PostProps }) => {
       </Link>
       <span className="text-xs text-muted-foreground flex items-center">
         <Dot />
-        {getCompactTimeAgo(new Date(post.createdAt))}
+        {post.createdAt ? getCompactTimeAgo(post.createdAt) : "Just now"}
       </span>
     </div>
   );

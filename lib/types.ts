@@ -52,7 +52,7 @@ export interface PostProps {
   userFullName?: string;
   media?: MediaProps[];
   parentPostId?: string;
-  createdAt: string;
+  createdAt: Date;
   isPinned?: boolean;
   quotePostId?: string | null;
   linkPreview: LinkPreviewType;

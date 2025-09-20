@@ -25,7 +25,7 @@ export function getCompactTimeAgo(date: Date): string {
   if (years >= 1) return format(date, "d MMM yyyy"); // e.g., 5 Jul 2024
 
   const months = differenceInMonths(now, date);
-  if (months >= 1) return format(date, "d MMM"); // e.g., 5 Jul
+  if (months >= 1) return format(date, "d MMM");
 
   // If older than 6 days but less than a month
   return !date ? "Just now" : format(date, "d MMM");

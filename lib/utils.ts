@@ -113,3 +113,14 @@ export async function getFirebaseToken(): Promise<string> {
   if (!user) throw new Error("Not authenticated");
   return await user.getIdToken();
 }
+
+ // eslint-disable-next-line @typescript-eslint/no-explicit-any
+ export const toSafeISOString = (val: any): string => {
+   try {
+     if (val instanceof Date) return val.toISOString();
+     if (val?.toDate instanceof Function) return val.toDate().toISOString();
+   } catch (err) {
+     console.error("Failed to convert to ISO string:", err);
+   }
+   return new Date(0).toISOString();
+ };
