@@ -7,22 +7,30 @@ import { UserProps } from "@/lib/types";
 const JustAvatar = ({
   user,
   size = 48,
+  photoURL,
+  username,
+  fullName,
 }: {
-  user: UserProps;
+  user?: UserProps | null;
   size?: number;
+  photoURL?: string;
+  username?: string;
+  fullName?: string;
 }) => {
-  const altImage = userAltImageUrl({ name: user.fullName || user.username });
+  const altImage = userAltImageUrl({
+    name: user?.fullName || user?.username || "User",
+  });
   return (
     <Avatar
       style={{ height: `${size}px`, width: `${size}px` }}
       className="cursor-pointer"
     >
       <Image
-        alt={`${user.fullName || user.username}'s avatar`}
+        alt={fullName || username || `${user?.fullName || user?.username}'s avatar` || "User's avatar"}
         width={500}
         height={500}
         className="object-cover"
-        src={user.photoURL || altImage}
+        src={photoURL || user?.photoURL || altImage}
       />
     </Avatar>
   );

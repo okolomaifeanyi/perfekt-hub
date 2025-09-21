@@ -57,7 +57,7 @@ export const useUserStore = create<UserState>()(
       setUser: user => {
         set({
           user,
-          dismissedProfileModal: false, // reset modal dismissal on new user
+          dismissedProfileModal: false,
         });
       },
       clearUser: () => {
@@ -90,13 +90,11 @@ export const useUserStore = create<UserState>()(
               dismissedProfileModal: false,
             });
           } else {
-            // User doc deleted? Clear local state
             get().clearUser();
           }
         });
       },
 
-      // 🔹 Conversations badge listener
       startMessageListener: uid => {
         if (unsubMessages) return;
         const q = query(
@@ -150,7 +148,7 @@ export const useUserStore = create<UserState>()(
       name: "user-store",
       partialize: state => ({
         user: state.user,
-        dismissedProfileModal: state.dismissedProfileModal, // persist only essentials
+        dismissedProfileModal: state.dismissedProfileModal,
       }),
     }
   )

@@ -15,7 +15,7 @@ export interface UserProps {
   followersCount?: number;
   friendsCount?: number;
   postsCount?: number;
-  timeStamp?: Date | null;
+  createdAt?: Date | null;
   online?: boolean;
   lastSeen?: Timestamp;
   completedProfile?: boolean;

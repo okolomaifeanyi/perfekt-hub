@@ -45,7 +45,7 @@ export async function getRandomUsers(currentUid: string) {
         followersCount: data.followersCount || 0,
         friendsCount: data.friendsCount || 0,
         postsCount: data.postsCount || 0,
-        timeStamp: data.timestamp ? data.timestamp.toDate() : null,
+        createdAt: data.createdAt ? data.createdAt.toDate() : null,
         completedProfile: data.completedProfile || false,
         phoneNumber: data.phoneNumber || null,
       });

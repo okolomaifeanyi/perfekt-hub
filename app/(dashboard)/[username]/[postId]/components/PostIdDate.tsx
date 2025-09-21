@@ -23,15 +23,24 @@ const PostIdDate = ({
         photoURL={user?.photoURL || post?.userPhotoURL}
         username={user?.username || post?.username}
         fullName={user?.fullName || post?.userFullName}
+        createdAt={user?.createdAt}
+        uid={user?.uid || post?.userId}
+        bio={user?.bio}
+        followersCount={user?.followersCount}
+        followingCount={user?.followingCount}
+        friendsCount={user?.friendsCount}
       />
+
       <Link href={`/${user?.username}`}>
         <Name fullName={user?.fullName} username={user?.username || "user"} />
       </Link>
+
       <Tooltip>
         <TooltipTrigger className="text-xs text-muted-foreground flex items-center">
           {post.createdAt ? getCompactTimeAgo(post.createdAt) : "Just now"}
           <Dot />
         </TooltipTrigger>
+
         <TooltipContent>
           <p>
             {post.createdAt ? post.createdAt?.toLocaleString() : "Just now"}

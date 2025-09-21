@@ -23,7 +23,12 @@ export async function getUser(userId: string): Promise<UserProps | null> {
     username: userDoc.data().username,
     photoURL: userDoc.data().photoURL,
     fullName: userDoc.data().fullName,
-    
+    createdAt: userDoc.data().createdAt?.toDate() ?? null,
+    bio: userDoc.data().bio || "",
+    website: userDoc.data().website || "",
+    followersCount: userDoc.data().followersCount || 0,
+    followingCount: userDoc.data().followingCount || 0,
+    friendsCount: userDoc.data().friendsCount || 0,
   };
 }
 
@@ -102,7 +107,7 @@ export async function getInitialUserPosts(userId: string, limit = 10) {
       username: data.username,
       userFullName: data.userFullName || "",
       userPhotoURL: data.userPhotoURL,
-      linkPreview: data.linkPreview || null,
+      linkPreview: data.linkPreview || null,  
     };
   }) as PostProps[];
   return posts;

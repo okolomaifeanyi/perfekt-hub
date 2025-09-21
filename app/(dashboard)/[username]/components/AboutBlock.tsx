@@ -21,9 +21,9 @@ export function AboutBlock({ profile }: { profile: UserProps }) {
         </div>
       )}
       {/* Joined date */}
-      {profile.timeStamp && (
+      {profile.createdAt && (
         <div className="text-xs text-muted-foreground mt-2">
-          Joined {profile.timeStamp.toLocaleDateString()}
+          Joined {profile.createdAt.toLocaleDateString()}
         </div>
       )}
     </div>
