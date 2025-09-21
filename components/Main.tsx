@@ -8,7 +8,7 @@ const Main = ({ children }: { children: ReactNode }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   return (
-    <div ref={scrollRef} className="h-screen overflow-y-auto max-w-full overflow-x-hidden">
+    <div ref={scrollRef} className="h-screen overflow-y-auto max-w-full overflow-x-hidden border-x-2">
       <TopNav scrollRef={scrollRef} />
       <main>{children}</main>
       {/* <MobileNavBar scrollRef={scrollRef} /> */}
