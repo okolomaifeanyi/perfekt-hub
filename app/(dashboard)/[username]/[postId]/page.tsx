@@ -33,30 +33,32 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
   );
 
   return (
-    <div className="space-y-4 pb-4 w-full mx-auto px-4">
+    <div className="space-y-4 pb-4 w-full mx-auto">
       <NavBar title="Post" />
 
-      <div className="relative pl-4 border-l border-muted space-y-4">
-        {parentChainWithUsers.map(item => {
-          if (!item) return null;
-          return <PostCard key={item.parent.id} post={item.parent} />;
-        })}
-      </div>
-
-      <div className="relative">
-        <div className="absolute -top-4 left-0 h-4 w-px " />
-        <PostCard post={post} />
-      </div>
-
       <div className="px-2">
-        <PostComposer
-          sendButton="Reply"
-          placeholder="Reply this post"
-          parentPostId={post.id}
-        />
+        <div className="relative pl-4 border-l border-muted space-y-4">
+          {parentChainWithUsers.map(item => {
+            if (!item) return null;
+            return <PostCard key={item.parent.id} post={item.parent} />;
+          })}
+        </div>
 
-        <CommentFeed />
-        <ViewTracker postId={postId} />
+        <div className="relative">
+          <div className="absolute -top-4 left-0 h-4 w-px " />
+          <PostCard post={post} />
+        </div>
+
+        <div className="px-2 mt-4">
+          <PostComposer
+            sendButton="Reply"
+            placeholder="Reply this post"
+            parentPostId={post.id}
+          />
+
+          <CommentFeed />
+          <ViewTracker postId={postId} />
+        </div>
       </div>
     </div>
   );
