@@ -1,8 +1,21 @@
 import * as cheerio from "cheerio";
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { appInfo } from "./appInfo";
+import { decode } from 'html-entities';
 
 const APP_DOMAIN = process.env.APP_URL || "https://perfektmart.com.ng";
+
+function cleanText(str?: string) {
+  return str ? decode(str).replace(/\s+/g, " ").trim() : "";
+}
+
+// Known sites that block scraping → prefer LinkPreview directly
+const LINK_PREVIEW_DOMAINS = [
+  "facebook.com",
+  "instagram.com",
+  "twitter.com",
+  "x.com",
+];
 
 /** Normalize a URL string */
 export function normalizeUrl(raw: string): string {
@@ -135,6 +148,12 @@ async function fetchWithLinkPreview(url: string) {
 export async function fetchMetadata(rawUrl: string) {
   try {
     const normalized = normalizeUrl(rawUrl);
+    const { hostname } = new URL(normalized);
+
+    // If blocked domain → go straight to LinkPreview
+    if (LINK_PREVIEW_DOMAINS.some(d => hostname.endsWith(d))) {
+      return await fetchWithLinkPreview(normalized);
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -145,49 +164,62 @@ export async function fetchMetadata(rawUrl: string) {
     });
     clearTimeout(timeout);
 
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} for ${normalized}`);
+    }
+
     const html = await res.text();
     const $ = cheerio.load(html);
 
     // Prefer OG tags
-    let title =
-      $('meta[property="og:title"]').attr("content") || $("title").text() || "";
-
-    let description =
+    let title = cleanText($('meta[property="og:title"]').attr("content"));
+    let description = cleanText(
       $('meta[property="og:description"]').attr("content") ||
-      $('meta[name="description"]').attr("content") ||
-      "";
-
-    let image = $('meta[property="og:image"]').attr("content") || "";
+        $('meta[name="description"]').attr("content")
+    );
+    let image = cleanText($('meta[property="og:image"]').attr("content"));
 
     // Twitter card fallback
     if (!title) {
-      title = $('meta[name="twitter:title"]').attr("content") || title;
+      title =
+        cleanText($('meta[name="twitter:title"]').attr("content")) || title;
     }
     if (!description) {
       description =
-        $('meta[name="twitter:description"]').attr("content") || description;
+        cleanText($('meta[name="twitter:description"]').attr("content")) ||
+        description;
     }
     if (!image) {
-      image = $('meta[name="twitter:image"]').attr("content") || image;
+      image =
+        cleanText($('meta[name="twitter:image"]').attr("content")) || image;
     }
 
-    // Fallback: try with www if still nothing
-    if (!image && !normalized.includes("www.")) {
+    // Extra fallback for <meta name="title">
+    if (!title) {
+      title =
+        cleanText($('meta[name="title"]').attr("content")) ||
+        cleanText($("title").text());
+    }
+
+    // Retry with www if missing image
+    if (!image && !normalized.includes("://www.")) {
       const wwwUrl = normalized.replace("://", "://www.");
       try {
         const res2 = await fetch(wwwUrl, { redirect: "follow" });
-        const html2 = await res2.text();
-        const $$ = cheerio.load(html2);
-        image =
-          $$('meta[property="og:image"]').attr("content") ||
-          $$('meta[name="twitter:image"]').attr("content") ||
-          "";
+        if (res2.ok) {
+          const html2 = await res2.text();
+          const $$ = cheerio.load(html2);
+          image =
+            cleanText($$('meta[property="og:image"]').attr("content")) ||
+            cleanText($$('meta[name="twitter:image"]').attr("content")) ||
+            "";
+        }
       } catch {
-        // ignore www fallback error
+        // ignore www retry error
       }
     }
 
-    // Fallback: LinkPreview API (only if data still weak)
+    // Fallback: LinkPreview API (if weak data)
     if ((!title && !description) || !image) {
       try {
         const lp = await fetchWithLinkPreview(normalized);
@@ -201,22 +233,12 @@ export async function fetchMetadata(rawUrl: string) {
 
     // Fallback: Clearbit logo
     if (!image) {
-      try {
-        const { hostname } = new URL(normalized);
-        image = `https://logo.clearbit.com/${hostname}`;
-      } catch {
-        // ignore
-      }
+      image = `https://logo.clearbit.com/${hostname}`;
     }
 
     // Final fallback: Google favicon
     if (!image) {
-      try {
-        const { hostname } = new URL(normalized);
-        image = `https://www.google.com/s2/favicons?sz=128&domain=${hostname}`;
-      } catch {
-        // ignore bad URL
-      }
+      image = `https://www.google.com/s2/favicons?sz=128&domain=${hostname}`;
     }
 
     return { url: normalized, title, description, image };
