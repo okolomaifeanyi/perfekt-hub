@@ -65,7 +65,7 @@ export default function Text({ text }: TextProps) {
 
   return (
     <div>
-      <div
+      {content && <div
         ref={textRef}
         className="overflow-hidden transition-all duration-300 text-justify break-words"
         style={{
@@ -75,7 +75,7 @@ export default function Text({ text }: TextProps) {
         }}
       >
         {content}
-      </div>
+      </div>}
 
       {showSeeMore && lines < maxLines && (
         <Button
