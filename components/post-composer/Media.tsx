@@ -1,9 +1,9 @@
 import { MediaProps } from "@/lib/types";
 import { Label } from "../ui/label";
-import { ImageIcon } from "lucide-react";
 import { buttonVariants } from "../ui/button";
 import { Input } from "../ui/input";
 import { toast } from "sonner";
+import { PhotoIcon } from "@heroicons/react/24/solid";
 
 export default function Media({
   setMedia,
@@ -68,10 +68,10 @@ export default function Media({
         title="Upload Media"
         htmlFor="picture"
         className={`${buttonVariants({
-          variant: "outline",
+          variant: "secondary",
         })} cursor-pointer`}
       >
-        <ImageIcon />
+        <PhotoIcon className="text-primary" />
       </Label>
 
       <Input

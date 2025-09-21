@@ -40,7 +40,7 @@ export default function GifPicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" title="Add GIF">
+        <Button size="sm" variant="secondary" title="Add GIF" className="font-bold text-[#9933FF]">
           GIF
         </Button>
       </DialogTrigger>
