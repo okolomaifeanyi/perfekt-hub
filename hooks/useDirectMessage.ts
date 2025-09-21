@@ -1,4 +1,3 @@
-// Inside your useDirectMessage.ts file
 
 "use client";
 

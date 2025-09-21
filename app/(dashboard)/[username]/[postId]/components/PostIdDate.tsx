@@ -5,7 +5,7 @@ import { PostProps, UserProps } from "@/lib/types";
 import { Dot } from "lucide-react";
 import Link from "next/link";
 
-const PostIdDate = ({ user, post }: { user: UserProps, post: PostProps }) => {
+const PostIdDate = ({ user, post }: { user?: UserProps | null, post: PostProps }) => {
   return (
     <div className="flex space-x-2 items-center">
       <MyAvatar
@@ -14,7 +14,7 @@ const PostIdDate = ({ user, post }: { user: UserProps, post: PostProps }) => {
         fullName={user?.fullName || post?.userFullName}
       />
       <Link href={`/${user?.username}`}>
-        <Name fullName={user?.fullName} username={user?.username} />
+        <Name fullName={user?.fullName} username={user?.username || "user"} />
       </Link>
       <span className="text-xs text-muted-foreground flex items-center">
         <Dot />
