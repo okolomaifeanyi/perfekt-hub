@@ -26,13 +26,6 @@ export function useDirectMessage() {
       const ref = doc(db, "conversations", conversationId);
       const snap = await getDoc(ref);
 
-      // ✅ ADD THIS LOGGING BLOCK
-      console.log("--- STARTING DM DEBUG ---");
-      console.log("Current User UID:", currentUserUid);
-      console.log("Target User UID:", targetUid);
-      console.log("Participants Array (Sorted):", participants);
-      console.log("Generated Conversation ID:", conversationId);
-
       if (!snap.exists()) {
         const newConversationData = {
           participants: participants,

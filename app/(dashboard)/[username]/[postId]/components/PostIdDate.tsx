@@ -9,12 +9,12 @@ const PostIdDate = ({ user, post }: { user: UserProps, post: PostProps }) => {
   return (
     <div className="flex space-x-2 items-center">
       <MyAvatar
-        photoURL={user.photoURL}
-        username={user.username}
-        fullName={user.fullName}
+        photoURL={user?.photoURL || post?.userPhotoURL}
+        username={user?.username || post?.username}
+        fullName={user?.fullName || post?.userFullName}
       />
-      <Link href={`/${user.username}`}>
-        <Name fullName={user.fullName} username={user.username} />
+      <Link href={`/${user?.username}`}>
+        <Name fullName={user?.fullName} username={user?.username} />
       </Link>
       <span className="text-xs text-muted-foreground flex items-center">
         <Dot />

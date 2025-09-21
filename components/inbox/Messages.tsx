@@ -120,7 +120,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
     return (
       <div className="flex-1 overflow-y-auto p-3 space-y-2 sticky w-full bottom-0">
         {messages.map(msg => {
-          console.log(msg.createdAt);
 
           const isMe = msg.senderId === user?.uid;
           const isHidden = msg.hiddenFor?.includes(user?.uid || "");
@@ -132,7 +131,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
               className={`flex ${isMe ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`relative group max-w-[70%] px-3 py-2 rounded-2xl shadow-sm ${
+                className={`relative group w-full bg-gray-100 border-gray-200 max-w-[250px] p-4 rounded-2xl shadow-sm leading-1.5 rounded-e-xl rounded-es-xl dark:bg-gray-700 ${
                   isMe ? "bg-primary text-white" : "bg-secondary"
                 }`}
                 // long-press support for touch

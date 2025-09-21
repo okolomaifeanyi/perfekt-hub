@@ -62,7 +62,7 @@ const PostCard = ({
           className="flex justify-between items-center px-2"
           onClick={stopPropagation}
         >
-          {user && <PostIdDate user={user} post={post} />}
+          <PostIdDate user={user} post={post} />
           <div className="flex gap-x-2 items-center">
 
             <div onClick={stopPropagation}>
