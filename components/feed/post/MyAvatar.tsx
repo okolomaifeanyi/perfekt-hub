@@ -1,15 +1,9 @@
 "use client";
 
-import ConnectDropdown from "@/components/Connect";
-import JustAvatar from "@/components/JustAvatar";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+import { HoverCard, HoverCardTrigger } from "@/components/ui/hover-card";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
-import { useUserStore } from "@/lib/store/useUserStore";
+import UserCard from "@/components/UserCard";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -43,8 +37,6 @@ const MyAvatar = ({
 }) => {
   const altImage = userAltImageUrl({ name: fullName || username || "User" });
 
-  const currentUser = useUserStore(state => state.user);
-
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
@@ -76,63 +68,17 @@ const MyAvatar = ({
           </Avatar>
         </Link>
       </HoverCardTrigger>
-      <HoverCardContent className="w-64 sm:w-72">
-        <div className="flex flex-col space-y-2">
-          <div className="flex justify-between">
-            <JustAvatar
-              fullName={fullName}
-              photoURL={photoURL}
-              username={username}
-            />
-            {uid && uid !== currentUser?.uid && (
-              <ConnectDropdown targetUid={uid} />
-            )}
-          </div>
-          <div className="space-y-1 mb-4">
-            <h4 className="text-sm font-semibold">
-              {fullName || username || "User"}
-            </h4>
-            <p className="text-xs text-muted-foreground">
-              @{username || "user"}
-            </p>
-          </div>
-          <div className="pt-1 border-t space-y-3">
-            {bio && (
-              <p className="text-sm">
-                <strong>{bio.length > 100 ? bio.slice(0, 100) + "..." : bio}</strong>
-              </p>
-            )}
-
-            <div className="flex space-x-2 text-xs text-muted-foreground">
-              <span>
-                <strong className="text-white">{followersCount}</strong>{" "}
-                Followers
-              </span>
-
-              <span>
-                <strong className="text-white">{followingCount}</strong>{" "}
-                Followings
-              </span>
-
-              <span>
-                <strong className="text-white">{friendsCount}</strong>{" "}
-                Friends
-              </span>
-            </div>
-
-            {createdAt && (
-              <div className="text-muted-foreground text-xs">
-                Joined{" "}
-                <strong className="text-white">{createdAt?.toLocaleDateString("en-UK", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}</strong>
-              </div>
-            )}
-          </div>
-        </div>
-      </HoverCardContent>
+      <UserCard
+        fullName={fullName}
+        username={username}
+        followerCount={followersCount}
+        followingCount={followingCount}
+        friendsCount={friendsCount}
+        bio={bio}
+        uid={uid}
+        createdAt={createdAt}
+        photoURL={photoURL}
+      />
     </HoverCard>
   );
 };

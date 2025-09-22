@@ -34,8 +34,13 @@ const Avatar = ({ profile }: { profile: UserProps }) => {
             <p className="text-sm text-muted-foreground flex items-center gap-1">
               <LinkIcon className="h-3.5 w-3.5" />
               <a
-                href={profile.website}
+                href={
+                  profile.website?.match(/^https?:\/\//i)
+                    ? profile.website
+                    : `https://${profile.website}`
+                }
                 target="_blank"
+                rel="noopener noreferrer"
                 className="underline truncate max-w-[240px]"
               >
                 {profile.website}

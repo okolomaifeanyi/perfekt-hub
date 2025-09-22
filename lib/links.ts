@@ -19,20 +19,20 @@ const LINK_PREVIEW_DOMAINS = [
 
 /** Normalize a URL string */
 export function normalizeUrl(raw: string): string {
-  // Trim and add scheme if missing
   const url = raw.trim();
 
-  // If it already starts with http/https, return as is
+  // Already absolute
   if (/^https?:\/\//i.test(url)) return url;
 
-  // If it looks like a domain (e.g., x.com, www.x.com)
-  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url)) {
+  // Domain with optional path (e.g., x.com, www.x.com/abc123)
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(url)) {
     return "https://" + url;
   }
 
-  // Fallback: return unchanged
+  // Fallback
   return url;
 }
+
 
 /** Extract links from plain text */
 export function extractLinks(text: string): string[] {

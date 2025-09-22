@@ -36,19 +36,19 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
         <StatCard
           label="Followers"
           value={counts.followers}
-          // href={`/${profile.username}?tab=followers`}
+          href={`/${profile.username}/followers`}
         />
 
         <StatCard
           label="Following"
           value={counts.following}
-          // href={`/${profile.username}?tab=following`}
+          href={`/${profile.username}/following`}
         />
 
         <StatCard
           label="Friends"
           value={counts.friends}
-          // href={`/${profile.username}?tab=friends`}
+          href={`/${profile.username}/friends`}
         />
 
         <StatCard
@@ -60,7 +60,7 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
 
       <Separator className="my-6" />
 
-      <ProfileTab profile={profile} isMe={isMe} />
+      <ProfileTab profile={profile} />
     </div>
   );
 };

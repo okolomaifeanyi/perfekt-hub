@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { AccountMenu } from "./AccountMenu";
-import { Avatar } from "./ui/avatar";
-import Image from "next/image";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { userAltImageUrl } from "./UserAltImageUrl";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
 import { Badge } from "./ui/badge";
 import { usePathname } from "next/navigation";
@@ -27,6 +24,7 @@ import {
   UserGroupIcon as UsersSolid,
   UserIcon as UserSolid,
 } from "@heroicons/react/24/solid";
+import JustAvatar from "./JustAvatar";
 
 const NavBar = () => {
   const { user } = useUserStore(state => state);
@@ -34,8 +32,6 @@ const NavBar = () => {
   const pathname = usePathname();
 
   if (!user) return null;
-
-  const altImage = userAltImageUrl({ name: user.username || "User" });
 
   const navItems = [
     {
@@ -102,23 +98,20 @@ const NavBar = () => {
 
       {/* Account menu */}
       <div className="space-y-6 flex flex-col">
-        <span className="flex gap-2 items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="cursor-pointer">
-                <Image
-                  src={user.photoURL || altImage}
-                  alt={`${user.username}'s avatar`}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
-                />
-              </Avatar>
-            </DropdownMenuTrigger>
-            <AccountMenu />
-          </DropdownMenu>
-          <span>Accounts</span>
-        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <span className="flex gap-2 items-center">
+              <JustAvatar
+                size={32}
+                photoURL={user?.photoURL}
+                username={user?.username}
+                fullName={user?.fullName}
+              />
+              <span className="hidden md:block">Accounts</span>
+            </span>
+          </DropdownMenuTrigger>
+          <AccountMenu />
+        </DropdownMenu>
       </div>
     </div>
   );
