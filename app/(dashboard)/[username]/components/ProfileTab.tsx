@@ -12,10 +12,16 @@ const ProfileTab = ({
   return (
     <>
       <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
-          <TabsTrigger value="about">About</TabsTrigger>
+        <TabsList className="w-full">
+          <TabsTrigger id="posts" value="posts" className="cursor-pointer">
+            Posts
+          </TabsTrigger>
+          <TabsTrigger value="media" className="cursor-pointer">
+            Media
+          </TabsTrigger>
+          <TabsTrigger value="about" className="cursor-pointer">
+            About
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="posts" className="mt-4">

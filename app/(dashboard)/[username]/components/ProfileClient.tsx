@@ -24,7 +24,7 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
   return (
     <div className="px-4 pb-24">
       <div className="-mt-[30px] flex justify-between items-start">
-        <Avatar profile={profile} />
+        <Avatar uid={profile.uid} />
         <Actions isMe={isMe} profile={profile} />
       </div>
 
@@ -51,11 +51,7 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
           href={`/${profile.username}/friends`}
         />
 
-        <StatCard
-          label="Posts"
-          value={counts.posts}
-          // href={`/${profile.username}?tab=posts`}
-        />
+        <StatCard label="Posts" value={counts.posts} href={`#posts`} />
       </div>
 
       <Separator className="my-6" />

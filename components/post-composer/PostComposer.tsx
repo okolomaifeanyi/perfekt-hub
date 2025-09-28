@@ -94,7 +94,7 @@ const PostComposer = ({
             onChange={e => setText(e.target.value)}
             value={text}
             placeholder={placeholder || "What's on your mind?"}
-            className="resize-none overflow-hidden rounded-lg"
+            className="resize-none overflow-hidden rounded-lg break-words"
             onKeyDown={e => {
               if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                 handleSend();

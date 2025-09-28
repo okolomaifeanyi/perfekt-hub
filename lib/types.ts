@@ -152,3 +152,10 @@ export interface ConversationProps {
   lastMessageAt?: Timestamp;
   lastMessageSender?: string;
 }
+
+export interface PixelCrop {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

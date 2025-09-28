@@ -1,56 +1,37 @@
+"use client";
+
 import JustAvatar from "@/components/JustAvatar";
-import { UserProps } from "@/lib/types";
-import { MapPin, LinkIcon } from "lucide-react";
-const Avatar = ({ profile }: { profile: UserProps }) => {
+import EditImageButton from "./EditImageButton";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useUserStore } from "@/lib/store/useUserStore";
+import { useUserProfile } from "@/hooks/useUserProfile";
+
+const Avatar = ({ uid }: { uid: string }) => {
+  const profile = useUserProfile(uid);
+  const currentUser = useUserStore(s => s.user);
+
+  if (!profile) return null;
+  const isMe = currentUser?.uid === profile.uid;
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative w-fit rounded-full ring-2 ring-background overflow-hidden">
-        {/* <Image
-          src={profile.photoURL || altImage}
-          alt={profile.username}
-          fill
-          sizes="128px"
-          className="object-cover"
-        /> */}
+      <div className="relative w-fit rounded-full ring-2 ring-background">
         <JustAvatar size={70} user={profile} />
-      </div>
-      <div className="space-y-3">
-        <header className="space-y-0.5">
-          <h1 className="text-xl font-bold leading-tight">
-            {profile.fullName || profile.username}
-          </h1>
 
-          <p className="text-sm text-muted-foreground">@{profile.username}</p>
-        </header>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          {profile.location && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5" /> {profile.location}
-            </p>
-          )}
-
-          {profile.website && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <LinkIcon className="h-3.5 w-3.5" />
-              <a
-                href={
-                  profile.website?.match(/^https?:\/\//i)
-                    ? profile.website
-                    : `https://${profile.website}`
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline truncate max-w-[240px]"
-              >
-                {profile.website}
-              </a>
-            </p>
-          )}
-        </div>
+        {isMe && (
+          <EditImageButton
+            onChange={async url => {
+              await updateDoc(doc(db, "users", profile.uid), { photoURL: url });
+            }}
+            uid={profile.uid}
+            type="avatar"
+          />
+        )}
       </div>
     </div>
   );
 };
+
 
 export default Avatar;

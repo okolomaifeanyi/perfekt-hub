@@ -1,8 +1,7 @@
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import NavBar from "./components/NavBar";
-import Image from "next/image";
-import ProfileClient from "./components/ProfileClient";
+import NavBar from "./components/NavBar";import ProfileClient from "./components/ProfileClient";
+import Cover from "./components/Cover";
 
 export default async function Page({
   params,
@@ -52,16 +51,7 @@ export default async function Page({
       <div className="w-full">
         <NavBar title={profile.fullName || profile.username} />
 
-        {/* Cover */}
-        <div className="h-32 relative">
-          <Image
-            src={profile.coverURL}
-            alt="Cover"
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
-        </div>
+        <Cover uid={profile.uid} />
 
         <ProfileClient profile={profile} />
       </div>

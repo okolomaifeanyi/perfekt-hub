@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";import { useRouter } from "next/navigation";
 import {
   useUnreadNotificationsCount,
   useNotifications,
@@ -10,7 +10,6 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
   BellIcon,
-  CheckIcon,
   Cog6ToothIcon,
   HandThumbUpIcon,
   HandThumbDownIcon,
@@ -26,6 +25,7 @@ import ConnectDropdown from "./Connect";
 import { Avatar } from "./ui/avatar";
 import Image from "next/image";
 import { userAltImageUrl } from "./UserAltImageUrl";
+import Back from "@/app/(dashboard)/[username]/components/Back";
 
 const getNotificationMeta = (n: Notification) => {
   switch (n.type) {
@@ -87,6 +87,13 @@ const NotificationPage = () => {
 
   const [filter, setFilter] = useState<"all" | "mentions" | "unread">("all");
 
+   // ✅ Auto mark all as read once the page loads
+  useEffect(() => {
+    if (notifications.length > 0) {
+      markAllAsRead();
+    }
+  }, [notifications, markAllAsRead]);
+
   // 🔹 Apply filter
   const filtered = notifications.filter((n: Notification) => {
     if (filter === "mentions") return n.type === "mention";
@@ -115,6 +122,7 @@ const NotificationPage = () => {
     <div className="max-w-2xl mx-auto p-4 mb-10">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
+        <Back />
         <H1 className="text-xl flex items-center gap-x-2">
           Notifications
           {unreadCount > 0 && (
@@ -123,15 +131,8 @@ const NotificationPage = () => {
             </span>
           )}
         </H1>
+
         <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={markAllAsRead}
-            className="flex items-center gap-1"
-          >
-            <CheckIcon className="w-4 h-4" /> Mark all as read
-          </Button>
           <Button size="sm" variant="ghost">
             <Cog6ToothIcon className="w-4 h-4" />
           </Button>
@@ -154,6 +155,7 @@ const NotificationPage = () => {
         >
           Mentions
         </Button>
+        
         <Button
           size="sm"
           variant={filter === "unread" ? "secondary" : "ghost"}

@@ -1,5 +1,16 @@
 import { clsx, type ClassValue } from "clsx";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { twMerge } from "tailwind-merge";
+import { db } from "./firebase";
+import { PixelCrop, UserProps } from "./types";
+import { uploadToCloudinary } from "@/components/post-composer/utils";
 // import { usePostCounts } from "@/lib/store/postCounts";
 
 export function cn(...inputs: ClassValue[]) {
@@ -105,7 +116,6 @@ export async function toggleReaction({
   return updatedCounts;
 }
 
-
 export async function getFirebaseToken(): Promise<string> {
   const user = await import("firebase/auth").then(
     ({ getAuth }) => getAuth().currentUser
@@ -114,13 +124,92 @@ export async function getFirebaseToken(): Promise<string> {
   return await user.getIdToken();
 }
 
- // eslint-disable-next-line @typescript-eslint/no-explicit-any
- export const toSafeISOString = (val: any): string => {
-   try {
-     if (val instanceof Date) return val.toISOString();
-     if (val?.toDate instanceof Function) return val.toDate().toISOString();
-   } catch (err) {
-     console.error("Failed to convert to ISO string:", err);
-   }
-   return new Date(0).toISOString();
- };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const toSafeISOString = (val: any): string => {
+  try {
+    if (val instanceof Date) return val.toISOString();
+    if (val?.toDate instanceof Function) return val.toDate().toISOString();
+  } catch (err) {
+    console.error("Failed to convert to ISO string:", err);
+  }
+  return new Date(0).toISOString();
+};
+
+export async function getUserByUsername(username: string) {
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) return null;
+
+    // Assuming usernames are unique → take the first
+    const doc = querySnapshot.docs[0];
+
+    return { ...(doc.data() as UserProps) };
+  } catch (error) {
+    console.error("Error fetching user by username:", error);
+    return null;
+  }
+}
+
+export const handleAvatarUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>,
+  user: UserProps
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const url = await uploadToCloudinary(file);
+  if (url && user?.uid) {
+    await updateDoc(doc(db, "users", user.uid), { photoURL: url });
+  }
+};
+
+export const handleCoverUpload = async (
+  e: React.ChangeEvent<HTMLInputElement>,
+  user: UserProps
+) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const url = await uploadToCloudinary(file);
+  if (url && user?.uid) {
+    await updateDoc(doc(db, "users", user.uid), { coverURL: url });
+  }
+};
+
+export default function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: PixelCrop
+): Promise<{ file: File; url: string }> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.src = imageSrc;
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = pixelCrop.width;
+      canvas.height = pixelCrop.height;
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) return reject("Canvas not supported");
+
+      ctx.drawImage(
+        image,
+        pixelCrop.x,
+        pixelCrop.y,
+        pixelCrop.width,
+        pixelCrop.height,
+        0,
+        0,
+        pixelCrop.width,
+        pixelCrop.height
+      );
+
+      canvas.toBlob(blob => {
+        if (!blob) return reject("Canvas is empty");
+        const file = new File([blob], "cropped.jpg", { type: "image/jpeg" });
+        resolve({ file, url: URL.createObjectURL(blob) });
+      }, "image/jpeg");
+    };
+    image.onerror = e => reject(e);
+  });
+}
