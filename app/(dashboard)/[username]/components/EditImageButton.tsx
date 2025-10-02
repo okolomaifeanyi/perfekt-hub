@@ -6,21 +6,6 @@ import Webcam from "react-webcam";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
-// import {
-//   Drawer,
-//   DrawerContent,
-//   DrawerHeader,
-//   DrawerTitle,
-//   DrawerTrigger,
-// } from "@/components/ui/drawer";
-// import { useMediaQuery } from "@/hooks/useMediaQuery";
 import Cropper from "react-easy-crop";
 import getCroppedImg from "@/lib/utils";
 import {
@@ -328,9 +313,9 @@ export default function EditImageButton({
           <Button
             variant="secondary"
             size="icon"
-            className="bg-background/60 rounded-full"
+            className="bg-background/80 rounded-full"
           >
-            <PencilIcon className="h-4 w-4" />
+            <PencilIcon className="size-4" />
           </Button>
         }
       >

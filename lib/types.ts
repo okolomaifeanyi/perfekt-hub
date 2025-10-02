@@ -22,6 +22,15 @@ export interface UserProps {
   phoneNumber?: string;
   gender?: "male" | "female";
   dob?: string;
+  education?: string;
+  company?: string;
+  linkedin?: string;
+  github?: string;
+  twitter?: string;
+  work?: string;
+  instagram?: string;
+  relationship?: string;
+  country?: string;
 }
 
 export interface CommentProps {
@@ -159,3 +168,5 @@ export interface PixelCrop {
   width: number;
   height: number;
 }
+
+export type ViewerRole = "self" | "friend" | "public";

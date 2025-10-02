@@ -12,7 +12,7 @@ export function StatCard({
 }) {
   const content = (
     <Card className="hover:shadow-sm transition">
-      <CardContent className="p-4">
+      <CardContent className="">
         <div className="text-xs text-muted-foreground">{label}</div>
         <div className="text-xl font-semibold mt-1 tabular-nums">{value}</div>
       </CardContent>

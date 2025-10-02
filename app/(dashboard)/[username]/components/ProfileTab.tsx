@@ -1,8 +1,8 @@
 import UserFeed from "../[postId]/components/UserFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AboutBlock } from "./AboutBlock";
 import { UserProps } from "@/lib/types";
 import { MediaGrid } from "./MediaGrid";
+import { ProfileAboutWrapper } from "./ProfileAboutWrapper";
 
 const ProfileTab = ({
   profile,
@@ -33,7 +33,7 @@ const ProfileTab = ({
         </TabsContent>
 
         <TabsContent value="about" className="mt-4">
-          <AboutBlock profile={profile} />
+          <ProfileAboutWrapper profile={profile} />
         </TabsContent>
       </Tabs>
     </>

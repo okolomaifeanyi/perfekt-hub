@@ -6,7 +6,7 @@ import { UserProps } from "@/lib/types";
 
 const JustAvatar = ({
   user,
-  size = 48,
+  size,
   photoURL,
   username,
   fullName,
@@ -20,17 +20,25 @@ const JustAvatar = ({
   const altImage = userAltImageUrl({
     name: user?.fullName || user?.username || "User",
   });
+
   return (
     <Avatar
-      style={{ height: `${size}px`, width: `${size}px` }}
-      className="cursor-pointer"
+      className={`relative ${
+        size ? "" : "w-24 h-24 sm:w-28 sm:h-28"
+      }`}
+      style={size ? { width: size, height: size } : {}}
     >
       <Image
-        alt={fullName || username || `${user?.fullName || user?.username}'s avatar` || "User's avatar"}
-        width={500}
-        height={500}
-        className="object-cover"
+        alt={
+          fullName ||
+          username ||
+          `${user?.fullName || user?.username || "user"}'s avatar` ||
+          "User's avatar"
+        }
         src={photoURL || user?.photoURL || altImage}
+        fill
+        sizes={size ? `${size}px` : "(max-width: 768px) 80px, 120px"}
+        className="object-cover"
       />
     </Avatar>
   );

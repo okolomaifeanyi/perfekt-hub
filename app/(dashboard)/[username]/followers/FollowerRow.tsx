@@ -15,12 +15,6 @@ export default function FollowerRow({ user }: { user: UserProps }) {
           photoURL={user.photoURL}
           username={user.username}
           fullName={user.fullName}
-          createdAt={user.createdAt}
-          bio={user.bio}
-          uid={user.uid}
-          followersCount={user.followersCount}
-          followingCount={user.followingCount}
-          friendsCount={user.friendsCount}
         />
         <div>
           <div className="font-medium">{user.fullName}</div>

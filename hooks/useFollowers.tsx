@@ -19,7 +19,7 @@ export function useFollowers(
 ) {
   const [followers, setFollowers] = useState<UserProps[]>([]);
   const [loading, setLoading] = useState(true);
-//   const currentUser = useUserStore(state => state.user);
+  //   const currentUser = useUserStore(state => state.user);
 
   useEffect(() => {
     if (!userId || !type) return;
@@ -27,7 +27,14 @@ export function useFollowers(
     setLoading(true);
 
     const ref = collection(db, `users/${userId}/${type}`);
-    const q = query(ref, orderBy("followedAt", "desc"));
+
+    let q;
+    
+    if (type === "friends") {
+      q = query(ref, orderBy("since", "desc"));
+    } else {
+      q = query(ref, orderBy("followedAt", "desc"));
+    }
 
     const unsub = onSnapshot(q, async snap => {
       try {
@@ -47,10 +54,9 @@ export function useFollowers(
             //     doc(db, `users/${currentUser.uid}/following/${targetId}`)
             //   );
             //   isFollowing = rel.exists();
-              // }
-              
+            // }
+
             //   console.log(pdata);
-              
 
             return {
               uid: targetId,

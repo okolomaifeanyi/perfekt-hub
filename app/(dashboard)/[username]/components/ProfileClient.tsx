@@ -28,9 +28,24 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
         <Actions isMe={isMe} profile={profile} />
       </div>
 
-      {profile.bio && (
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed">{profile.bio}</p>
-      )}
+      <div className="space-y-1.5 mt-4">
+        {profile.bio && (
+          <p className="mt-4 max-w-2xl text-xs leading-relaxed">
+            {profile.bio}
+          </p>
+        )}
+
+        {profile.createdAt && (
+          <p className="text-xs leading-relaxed text-gray-400">
+            Joined{" "}
+            {profile.createdAt.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+        )}
+      </div>
 
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatCard

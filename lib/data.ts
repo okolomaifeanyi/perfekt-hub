@@ -29,8 +29,20 @@ export async function getUser(userId: string): Promise<UserProps | null> {
     followersCount: userDoc.data().followersCount || 0,
     followingCount: userDoc.data().followingCount || 0,
     friendsCount: userDoc.data().friendsCount || 0,
-  };
-}
+    relationship: userDoc.data().relationship || "",
+    country: userDoc.data().country || "",
+    location: userDoc.data().location || "",
+    education: userDoc.data().education || "",
+    company: userDoc.data().company || "",
+    linkedin: userDoc.data().linkedin || "",
+    github: userDoc.data().github || "",
+    twitter: userDoc.data().twitter || "",
+    work: userDoc.data().work || "",
+    phoneNumber: userDoc.data().phoneNumber || "",
+    instagram: userDoc.data().instagram || "",
+    postsCount: userDoc.data().postsCount || 0,
+  } as UserProps
+};
 
 // Fetch all posts
 export async function getInitialPosts(limit = 10) {

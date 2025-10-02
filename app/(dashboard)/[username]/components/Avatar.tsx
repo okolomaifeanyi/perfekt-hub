@@ -6,32 +6,43 @@ import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { P } from "@/components/Typography";
 
 const Avatar = ({ uid }: { uid: string }) => {
   const profile = useUserProfile(uid);
   const currentUser = useUserStore(s => s.user);
 
-  if (!profile) return null;
-  const isMe = currentUser?.uid === profile.uid;
+  const isMe = currentUser?.uid === profile?.uid;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="relative w-fit rounded-full ring-2 ring-background">
-        <JustAvatar size={70} user={profile} />
+        <JustAvatar user={profile} />
 
-        {isMe && (
+        {isMe && profile && (
           <EditImageButton
             onChange={async url => {
-              await updateDoc(doc(db, "users", profile.uid), { photoURL: url });
+              await updateDoc(doc(db, "users", profile?.uid), {
+                photoURL: url,
+              });
             }}
             uid={profile.uid}
             type="avatar"
           />
         )}
       </div>
+
+      <div>
+        {profile?.fullName && (
+          <h1 className="text-xl font-black">{profile.fullName}</h1>
+        )}
+
+        {profile && (
+          <P className="text-md text-gray-400 !mt-0">@{profile?.username}</P>
+        )}
+      </div>
     </div>
   );
 };
-
 
 export default Avatar;

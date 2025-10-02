@@ -5,6 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import UserCard from "@/components/UserCard";
 import { getCompactTimeAgo } from "@/components/utils";
 import { PostProps, UserProps } from "@/lib/types";
 import { Dot } from "lucide-react";
@@ -19,21 +20,24 @@ const PostIdDate = ({
 }) => {
   return (
     <div className="flex space-x-3 items-center">
-      <MyAvatar
-        photoURL={user?.photoURL || post?.userPhotoURL}
-        username={user?.username || post?.username}
-        fullName={user?.fullName || post?.userFullName}
-        createdAt={user?.createdAt}
-        uid={user?.uid || post?.userId}
-        bio={user?.bio}
-        followersCount={user?.followersCount}
-        followingCount={user?.followingCount}
-        friendsCount={user?.friendsCount}
-      />
+      {user && (
+        <UserCard user={user}>
+          <div className="flex space-x-2">
+            <MyAvatar
+              photoURL={user?.photoURL || post?.userPhotoURL}
+              username={user?.username || post?.username}
+              fullName={user?.fullName || post?.userFullName}
+            />
 
-      <Link href={`/${user?.username}`}>
-        <Name fullName={user?.fullName} username={user?.username || "user"} />
-      </Link>
+            <Link href={`/${user?.username}`}>
+              <Name
+                fullName={user?.fullName}
+                username={user?.username || "user"}
+              />
+            </Link>
+          </div>
+        </UserCard>
+      )}
 
       <Tooltip>
         <TooltipTrigger className="text-xs text-muted-foreground flex items-center">

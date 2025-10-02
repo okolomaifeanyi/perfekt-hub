@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,31 +12,20 @@ import { UserPen } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 import { ResponsiveSheet } from "@/components/ReponsiveSheet";
 
-const MAX_BIO_LENGTH = 160;
+// const MAX_BIO_LENGTH = 160;
 
-const profileSchema = z.object({
-  fullName: z.string().min(1, "Full name is required").max(80),
-  bio: z
-    .string()
-    .max(MAX_BIO_LENGTH, `Bio must be under ${MAX_BIO_LENGTH} characters`)
-    .optional(),
-  website: z
-    .string()
-    .trim()
-    .optional()
-    .refine(
-      val => {
-        if (!val) return true;
-        try {
-          new URL(val.startsWith("http") ? val : `https://${val}`);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "Please enter a valid website URL" }
-    ),
-  location: z.string().max(100).optional(),
+export const profileSchema = z.object({
+  fullName: z.string().min(1, "Full name is required"),
+  bio: z.string().optional(),
+  website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  location: z.string().optional(),
+  education: z.string().optional(),
+  company: z.string().optional(),
+  linkedin: z.string().url("Invalid URL").optional().or(z.literal("")),
+  github: z.string().url("Invalid URL").optional().or(z.literal("")),
+  twitter: z.string().url("Invalid URL").optional().or(z.literal("")),
+  work: z.string().optional(),
+  phoneNumber: z.string().optional(),
 });
 
 type ProfileForm = z.infer<typeof profileSchema>;
@@ -56,22 +44,28 @@ const EditProfile = ({
   const form = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      fullName: profile.fullName ?? "",
-      bio: profile.bio ?? "",
-      website: profile.website ?? "",
-      location: profile.location ?? "",
+      fullName: profile?.fullName || "",
+      bio: profile?.bio || "",
+      website: profile?.website || "",
+      location: profile?.location || "",
+      education: profile?.education || "",
+      company: profile?.company || "",
+      linkedin: profile?.linkedin || "",
+      github: profile?.github || "",
+      twitter: profile?.twitter || "",
+      work: profile?.work || "",
+      phoneNumber: profile?.phoneNumber || "",
     },
-    mode: "onChange",
   });
 
   async function onSubmit(values: ProfileForm) {
-    const formData = {
-      fullName: values.fullName,
-      bio: values.bio || "",
-      website: values.website || "",
-      location: values.location || "",
-    };
-    const success = await saveProfile(formData);
+    // strip out empty values so we don’t overwrite Firestore with ""
+    const cleaned = Object.fromEntries(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      Object.entries(values).filter(([_, v]) => v !== "" && v !== undefined)
+    );
+
+    const success = await saveProfile(cleaned);
     if (success) {
       setOpenEdit(false);
     }
@@ -89,7 +83,10 @@ const EditProfile = ({
         </Button>
       }
     >
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 p-2 overflow-y-auto">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-4 p-2 overflow-y-auto"
+      >
         {/* Full name */}
         <div className="grid gap-2">
           <label htmlFor="fullName" className="text-sm font-medium">
@@ -103,6 +100,24 @@ const EditProfile = ({
           {form.formState.errors.fullName && (
             <p className="text-xs text-red-500">
               {form.formState.errors.fullName.message}
+            </p>
+          )}
+        </div>
+
+        {/* Phone number */}
+        <div className="grid gap-2">
+          <label htmlFor="phoneNumber" className="text-sm font-medium">
+            Phone Number
+          </label>
+          <Input
+            id="phoneNumber"
+            type="tel"
+            placeholder="+2348012345678"
+            {...form.register("phoneNumber")}
+          />
+          {form.formState.errors.phoneNumber && (
+            <p className="text-xs text-red-500">
+              {form.formState.errors.phoneNumber.message}
             </p>
           )}
         </div>
@@ -138,7 +153,7 @@ const EditProfile = ({
           />
           {form.formState.errors.website && (
             <p className="text-xs text-red-500">
-              {form.formState.errors.website.message}
+              {form.formState.errors.website?.message?.toString()}
             </p>
           )}
         </div>
@@ -158,6 +173,60 @@ const EditProfile = ({
               {form.formState.errors.location.message}
             </p>
           )}
+        </div>
+
+        {/* Education */}
+        <div className="grid gap-2">
+          <label htmlFor="education" className="text-sm font-medium">
+            Education
+          </label>
+          <Input
+            id="education"
+            placeholder="School / University"
+            {...form.register("education")}
+          />
+        </div>
+
+        {/* Work */}
+        <div className="grid gap-2">
+          <label htmlFor="work" className="text-sm font-medium">
+            Work
+          </label>
+          <Input id="work" placeholder="Job title" {...form.register("work")} />
+        </div>
+
+        {/* Company */}
+        <div className="grid gap-2">
+          <label htmlFor="company" className="text-sm font-medium">
+            Company
+          </label>
+          <Input
+            id="company"
+            placeholder="Company name"
+            {...form.register("company")}
+          />
+        </div>
+
+        {/* Socials */}
+        <div className="grid gap-2">
+          <label htmlFor="linkedin" className="text-sm font-medium">
+            LinkedIn
+          </label>
+          <Input
+            id="linkedin"
+            placeholder="https://linkedin.com/in/..."
+            {...form.register("linkedin")}
+          />
+        </div>
+        <div className="grid gap-2">
+          <label htmlFor="github" className="text-sm font-medium">
+            GitHub
+          </label>
+          <Input
+            id="github"
+            placeholder="https://github.com/..."
+            {...form.register("github")}
+          />
         </div>
 
         {/* Footer */}

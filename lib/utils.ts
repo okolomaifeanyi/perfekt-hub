@@ -2,6 +2,7 @@ import { clsx, type ClassValue } from "clsx";
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   updateDoc,
@@ -9,7 +10,7 @@ import {
 } from "firebase/firestore";
 import { twMerge } from "tailwind-merge";
 import { db } from "./firebase";
-import { PixelCrop, UserProps } from "./types";
+import { PixelCrop, UserProps, ViewerRole } from "./types";
 import { uploadToCloudinary } from "@/components/post-composer/utils";
 // import { usePostCounts } from "@/lib/store/postCounts";
 
@@ -212,4 +213,60 @@ export default function getCroppedImg(
     };
     image.onerror = e => reject(e);
   });
+}
+
+export const dataImage =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAyklEQVR4AYTKq4oCYRjG8b/CzsrCwu6mSbsraPCAJqNJTCLYvACryaDVGzFZTHaLoKBBvQMRDSIexgM4g87pGw/liz7wwsvz/Pzei/i5x3Q9mvMrtfGJSndLY3TEcrz7Ak/QXpoMbB/1xAfVuI/O7ExrtJdgsrFwDAtN09ANA+EKhlNdAs+wuexM+geF3uYN5yIQtitBRlUoBwXFyBeFcIBS1Caf/JYgF/nEsQSLlcb6oBNQ3smnfiR4fOmYSuhXJRb+I5v6f1TPuwEAAP//IuVqRgAAAAZJREFUAwBLeGnx3hCf3gAAAABJRU5ErkJggg==";
+
+export function canView(field: keyof UserProps, viewerRole: ViewerRole): boolean {
+  const rules: Record<keyof UserProps, ViewerRole> = {
+    phoneNumber: "friend",
+    email: "friend",
+    dob: "friend",
+    relationship: "friend",
+    website: "public",
+    work: "public",
+    company: "friend",
+    gender: "public",
+    location: "friend",
+    education: "public",
+    linkedin: "public",
+    github: "public",
+    twitter: "public",
+    instagram: "public",
+    username: "public",
+    fullName: "public",
+    bio: "public",
+    createdAt: "public",
+    uid: "self",
+    photoURL: "public",
+    coverURL: "public",
+    followersCount: "public",
+    followingCount: "public",
+    friendsCount: "public",
+    postsCount: "public",
+    online: "friend",
+    lastSeen: "friend",
+    completedProfile: "self",
+    country: "public",
+  };
+
+  const requiredRole = rules[field] || "public";
+  if (requiredRole === "public") return true;
+
+  if (
+    requiredRole === "friend" &&
+    (viewerRole === "friend" || viewerRole === "self")
+  )
+    return true;
+  if (requiredRole === "self" && viewerRole === "self") return true;
+  return false;
+}
+
+
+export async function isFriend(currentUid: string, profileUid: string) {
+  const snap = await getDoc(
+    doc(db, "users", currentUid, "friends", profileUid)
+  );
+  return snap.exists();
 }

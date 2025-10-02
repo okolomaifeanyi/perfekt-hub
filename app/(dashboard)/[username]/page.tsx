@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import NavBar from "./components/NavBar";import ProfileClient from "./components/ProfileClient";
+import ProfileClient from "./components/ProfileClient";
 import Cover from "./components/Cover";
 
 export default async function Page({
@@ -45,12 +45,22 @@ export default async function Page({
       friendsCount: data.friendsCount ?? 0,
       postsCount: data.postsCount ?? 0,
       createdAt,
+      relationship: data.relationship ?? "",
+      country: data.country ?? "",
+      dob: data.dob ?? "",
+      education: data.education ?? "",
+      company: data.company ?? "",
+      linkedin: data.linkedin ?? "",
+      github: data.github ?? "",
+      twitter: data.twitter ?? "",
+      work: data.work ?? "",
+      phoneNumber: data.phoneNumber ?? "",
+      instagram: data.instagram ?? "",
+      email: data.email ?? "",
     };
 
     return (
       <div className="w-full">
-        <NavBar title={profile.fullName || profile.username} />
-
         <Cover uid={profile.uid} />
 
         <ProfileClient profile={profile} />

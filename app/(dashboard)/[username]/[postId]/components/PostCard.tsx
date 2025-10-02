@@ -23,6 +23,10 @@ import {
   ScrollPosition,
   LazyLoadComponent,
 } from "react-lazy-load-image-component";
+import { useParentPost } from "@/hooks/useParentPost";
+import UserCard from "@/components/UserCard";
+import Link from "next/link";
+import { useUser } from "@/hooks/useUser";
 
 const PostCard = ({
   post,
@@ -35,6 +39,8 @@ const PostCard = ({
   const { user: currentUser } = useUserStore(state => state);
   const { friends, following } = useUserConnections();
   const router = useRouter();
+  const parentPost = useParentPost(post.parentPostId);
+  const parentPostUser = useUser(parentPost?.userId || "")
 
   const isPinned = post?.isPinned;
   const isOwner = user ? currentUser?.uid === user.uid : false;
@@ -96,6 +102,22 @@ const PostCard = ({
               </div>
             </div>
           </div>
+
+          {parentPost && (
+            <div className="px-4 text-gray-500">
+              Replying to{" "}
+              {parentPostUser && (
+                <UserCard user={parentPostUser}>
+                  <Link
+                    className="text-primary"
+                    href={`/${parentPost.username}`}
+                  >
+                    @{parentPost.username}
+                  </Link>
+                </UserCard>
+              )}
+            </div>
+          )}
 
           {/* Text */}
           <div className="px-4">

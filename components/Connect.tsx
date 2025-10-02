@@ -32,8 +32,8 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
     none: "Connect",
     following: "Following",
     friends: "Friend",
-    pending: "Pending",
-    requested: "Sent",
+    pending: "Accept Request",
+    requested: "Sent Request",
   }[status];
 
   // 🔥 Real-time Firestore subscription

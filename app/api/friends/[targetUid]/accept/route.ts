@@ -1,7 +1,6 @@
 import { getCurrentUid } from "@/app/actions";
 import {
   acceptFriendRequest,
-  followUser,
 } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
@@ -16,12 +15,6 @@ export async function POST(
   const { targetUid: requesterUid } = await params;
 
   try {
-    // ensure mutual follows
-    await Promise.all([
-      followUser(currentUid, requesterUid), // acceptor → requester
-      followUser(requesterUid, currentUid), // requester → acceptor
-    ]);
-
     // mark request as accepted (move from pending → friends)
     await acceptFriendRequest(currentUid, requesterUid);
 
