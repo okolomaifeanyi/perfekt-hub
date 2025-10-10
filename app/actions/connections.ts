@@ -1,6 +1,7 @@
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { sendNotification, deleteNotification } from "./notifications";
 import { FieldValue } from "firebase-admin/firestore";
+import { onFollowAction, onUnfollowAction, prewarmFeeds } from "./feed";
 
 const usersRef = firestoreAdmin.collection("users");
 
@@ -31,6 +32,8 @@ export async function followUser(currentUid: string, targetUid: string) {
       });
     }
   });
+
+  await onFollowAction(currentUid, targetUid);
 
   // Notifications = non-critical → run outside transaction
   await sendNotification({
@@ -64,6 +67,8 @@ export async function unfollowUser(currentUid: string, targetUid: string) {
       });
     }
   });
+
+  await onUnfollowAction(currentUid, targetUid);
 
   await deleteNotification({
     recipientUid: targetUid,
@@ -102,6 +107,8 @@ export async function removeFollower(currentUid: string, followerUid: string) {
     actorUid: followerUid,
     type: "follow",
   });
+
+  await prewarmFeeds(currentUid, followerUid);
 
   return { status: "none" };
 }
@@ -210,7 +217,7 @@ export async function acceptFriendRequest(
     `${requesterUid}/friends/${currentUid}`
   );
 
-  // clean up any follow/follower relation
+  // cleanup potential follow/follower relations
   const followingRef = usersRef.doc(`${currentUid}/following/${requesterUid}`);
   const followerRef = usersRef.doc(`${requesterUid}/followers/${currentUid}`);
   const reverseFollowingRef = usersRef.doc(
@@ -223,27 +230,64 @@ export async function acceptFriendRequest(
   const since = Date.now();
 
   await firestoreAdmin.runTransaction(async tx => {
-    tx.set(currentFriendRef, { since, initiatedBy: requesterUid });
-    tx.set(requesterFriendRef, { since, initiatedBy: requesterUid });
+    const [
+      receivedDoc,
+      sentDoc,
+      followingDoc,
+      followerDoc,
+      revFollowingDoc,
+      revFollowerDoc,
+    ] = await Promise.all([
+      tx.get(receivedRef),
+      tx.get(sentRef),
+      tx.get(followingRef),
+      tx.get(followerRef),
+      tx.get(reverseFollowingRef),
+      tx.get(reverseFollowerRef),
+    ]);
 
-    tx.delete(receivedRef);
-    tx.delete(sentRef);
+    // ✅ Only accept if there was a valid pending request
+    if (receivedDoc.exists && sentDoc.exists) {
+      tx.set(currentFriendRef, { since, initiatedBy: requesterUid });
+      tx.set(requesterFriendRef, { since, initiatedBy: requesterUid });
 
-    tx.delete(followingRef);
-    tx.delete(followerRef);
-    tx.delete(reverseFollowingRef);
-    tx.delete(reverseFollowerRef);
+      tx.delete(receivedRef);
+      tx.delete(sentRef);
 
-    tx.update(usersRef.doc(currentUid), {
-      friendsCount: FieldValue.increment(1),
-      followersCount: FieldValue.increment(-1),
-      followingCount: FieldValue.increment(-1),
-    });
-    tx.update(usersRef.doc(requesterUid), {
-      friendsCount: FieldValue.increment(1),
-      followersCount: FieldValue.increment(-1),
-      followingCount: FieldValue.increment(-1),
-    });
+      // ✅ Remove follow relations if they exist, and decrement counts safely
+      if (followingDoc.exists) {
+        tx.delete(followingRef);
+        tx.update(usersRef.doc(currentUid), {
+          followingCount: FieldValue.increment(-1),
+        });
+      }
+      if (followerDoc.exists) {
+        tx.delete(followerRef);
+        tx.update(usersRef.doc(requesterUid), {
+          followersCount: FieldValue.increment(-1),
+        });
+      }
+      if (revFollowingDoc.exists) {
+        tx.delete(reverseFollowingRef);
+        tx.update(usersRef.doc(requesterUid), {
+          followingCount: FieldValue.increment(-1),
+        });
+      }
+      if (revFollowerDoc.exists) {
+        tx.delete(reverseFollowerRef);
+        tx.update(usersRef.doc(currentUid), {
+          followersCount: FieldValue.increment(-1),
+        });
+      }
+
+      // ✅ Always increment friends count
+      tx.update(usersRef.doc(currentUid), {
+        friendsCount: FieldValue.increment(1),
+      });
+      tx.update(usersRef.doc(requesterUid), {
+        friendsCount: FieldValue.increment(1),
+      });
+    }
   });
 
   await sendNotification({
@@ -251,6 +295,8 @@ export async function acceptFriendRequest(
     actorUid: currentUid,
     type: "acceptRequest",
   });
+
+  await prewarmFeeds(currentUid, requesterUid);
 
   return { status: "friends" };
 }
@@ -264,15 +310,21 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
   );
 
   await firestoreAdmin.runTransaction(async tx => {
-    tx.delete(currentUserFriendRef);
-    tx.delete(targetUserFriendRef);
+    const currentFriendDoc = await tx.get(currentUserFriendRef);
+    const targetFriendDoc = await tx.get(targetUserFriendRef);
 
-    tx.update(usersRef.doc(currentUid), {
-      friendsCount: FieldValue.increment(-1),
-    });
-    tx.update(usersRef.doc(targetUid), {
-      friendsCount: FieldValue.increment(-1),
-    });
+    if (currentFriendDoc.exists && targetFriendDoc.exists) {
+      // ✅ Only delete if they are actually friends
+      tx.delete(currentUserFriendRef);
+      tx.delete(targetUserFriendRef);
+
+      tx.update(usersRef.doc(currentUid), {
+        friendsCount: FieldValue.increment(-1),
+      });
+      tx.update(usersRef.doc(targetUid), {
+        friendsCount: FieldValue.increment(-1),
+      });
+    }
   });
 
   await deleteNotification({
@@ -280,6 +332,8 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
     actorUid: currentUid,
     type: "friendRequest",
   });
+
+  await prewarmFeeds(currentUid, targetUid);
 
   return { status: "none" };
 }

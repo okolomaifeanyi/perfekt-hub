@@ -88,6 +88,9 @@ export async function toggleLikeDislikeAdmin({
     }
   );
 
+  // ✅ Recalculate engagementScore after successful transaction
+  await scheduleEngagementScoreUpdate(postId);
+
   // 🔔 notifications outside txn
   if (recipientUid && action && recipientUid !== userId) {
     if (action === "delete" && oldType) {
@@ -116,7 +119,6 @@ export async function toggleLikeDislikeAdmin({
   return updatedCounts;
 }
 
-
 export async function addUniqueView(postId: string, userId: string) {
   if (!userId) return;
 
@@ -138,5 +140,100 @@ export async function addUniqueView(postId: string, userId: string) {
     await postRef.update({
       viewCount: FieldValue.increment(1),
     });
+
+    // ✅ Update engagement score
+    await scheduleEngagementScoreUpdate(postId);
   }
 }
+
+/**
+ * 🧮 Engagement score formula — consistent with your backfill script.
+ */
+function calculateEngagementScore(data: {
+  replyCount?: number;
+  quoteCount?: number;
+  reactionCounts?: {
+    like?: number;
+    dislike?: number;
+    view?: number;
+  };
+}) {
+  const replies = data.replyCount ?? 0;
+  const quotes = data.quoteCount ?? 0;
+  const likes = data.reactionCounts?.like ?? 0;
+  const dislikes = data.reactionCounts?.dislike ?? 0;
+  const views = data.reactionCounts?.view ?? 0;
+
+  // Tuned weights
+  const score = replies * 6 + quotes * 5 + likes * 4 + views * 1 - dislikes * 2;
+
+  return Math.round(score);
+}
+
+/**
+ * 🔁 Recalculate & update engagementScore for a given post.
+ */
+export async function updateEngagementScore(
+  postRef: FirebaseFirestore.DocumentReference
+) {
+  const snap = await postRef.get();
+  if (!snap.exists) return;
+
+  const data = snap.data()!;
+  const newScore = calculateEngagementScore({
+    replyCount: data.replyCount,
+    quoteCount: data.quoteCount,
+    reactionCounts: data.reactionCounts,
+  });
+
+  await postRef.update({
+    engagementScore: newScore,
+    engagementUpdatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return newScore;
+}
+
+/**
+ * In-memory debounce store for engagement updates.
+ * Key = postId, Value = timeout handle.
+ */
+const pendingUpdates = new Map<string, NodeJS.Timeout>();
+
+// same calculateEngagementScore function from before
+
+/**
+ * ⚡ Debounced engagementScore updater (memoized)
+ */
+export async function scheduleEngagementScoreUpdate(
+  postId: string,
+  delay = 2000 // 2s debounce window
+) {
+  // If already scheduled, clear the timer
+  if (pendingUpdates.has(postId)) {
+    clearTimeout(pendingUpdates.get(postId)!);
+  }
+
+  // Set a new timer
+  const timeout = setTimeout(async () => {
+    pendingUpdates.delete(postId);
+    const postRef = firestoreAdmin.collection("posts").doc(postId);
+    const snap = await postRef.get();
+
+    if (!snap.exists) return;
+    const data = snap.data()!;
+    const newScore = calculateEngagementScore({
+      replyCount: data.replyCount,
+      quoteCount: data.quoteCount,
+      reactionCounts: data.reactionCounts,
+    });
+
+    await postRef.update({
+      engagementScore: newScore,
+      engagementUpdatedAt: FieldValue.serverTimestamp(),
+    });
+  }, delay);
+
+  pendingUpdates.set(postId, timeout);
+}
+

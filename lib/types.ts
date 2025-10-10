@@ -65,6 +65,10 @@ export interface PostProps {
   isPinned?: boolean;
   quotePostId?: string | null;
   linkPreview: LinkPreviewType;
+  replyCount?: number;
+  quoteCount?: number;
+  __optimistic?: boolean;
+  engagementScore?: number;
 }
 
 export interface EmojiProps {

@@ -40,13 +40,13 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
         <div className="relative pl-4 border-l border-muted space-y-4">
           {parentChainWithUsers.map(item => {
             if (!item) return null;
-            return <PostCard key={item.parent.id} post={item.parent} />;
+            return <PostCard isPostPage key={item.parent.id} post={item.parent} />;
           })}
         </div>
 
         <div className="relative">
           <div className="absolute -top-4 left-0 h-4 w-px " />
-          <PostCard post={post} />
+          <PostCard isPostPage className="mt-4" post={post} />
         </div>
 
         <div className="px-2 mt-4">

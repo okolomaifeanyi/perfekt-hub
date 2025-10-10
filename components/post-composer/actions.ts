@@ -2,10 +2,17 @@
 "use server";
 
 import { sendNotification } from "@/app/actions/notifications";
+import { scheduleEngagementScoreUpdate } from "@/app/actions/reactions";
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
-import { extractLinks, fetchMetadata, isSafeLink, resolveNativePost } from "@/lib/links";
+import {
+  extractLinks,
+  fetchMetadata,
+  isSafeLink,
+  resolveNativePost,
+} from "@/lib/links";
 import { LinkPreviewType } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+
 
 export async function notifyChainUsers(
   parentPostId: string,
@@ -160,6 +167,15 @@ export async function sendPost({
   // Commit batched writes
   await batch.commit();
 
+  // ✅ Update engagement score of affected posts
+  if (parentPostId) {
+    await scheduleEngagementScoreUpdate(parentPostId);
+  }
+
+  if (quotePostId) {
+    await scheduleEngagementScoreUpdate(quotePostId);
+  }
+
   // 🔔 Notify participants in reply chain
   if (parentPostId) {
     await notifyChainUsers(parentPostId, {
@@ -191,4 +207,3 @@ export async function sendPost({
 
   return postRef.id;
 }
-

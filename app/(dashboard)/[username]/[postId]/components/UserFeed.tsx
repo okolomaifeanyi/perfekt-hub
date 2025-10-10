@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import Posts from "@/components/feed/post/Posts";
 import { Loader2 } from "lucide-react";
-import { useUserFeed } from "@/hooks/UseUserFeed";
-import { useParams } from "next/navigation";
+// import { useParams } from "next/navigation";
 import { ScrollPosition } from "react-lazy-load-image-component";
+import { useLiveFeed } from "@/hooks/useLiveFeed";
+import { useUserStore } from "@/lib/store/useUserStore";
 
 interface UserFeedProps {
   scrollPosition?: ScrollPosition;
@@ -15,15 +16,27 @@ interface UserFeedProps {
 const UserFeed = ({ scrollPosition }: UserFeedProps) => {
   const [loading, setLoading] = useState(false);
 
-  const { username } = useParams<{
-    username: string;
-  }>();
+  // const { username } = useParams<{
+  //   username: string;
+  // }>();
+  const currentUser = useUserStore(s => s.user);
+
+  const uid = currentUser?.uid
 
   const {
     posts,
     loadMorePosts: fetchMoreFromHook,
     hasMore,
-  } = useUserFeed(username);
+  } = useLiveFeed(uid, 10, "realtime", "", true);
+
+
+  // const {
+  //   posts,
+  //   loadMorePosts: fetchMoreFromHook,
+  //   hasMore,
+  // } = useUserFeed(username);
+
+  
 
   const { ref: loadMoreRef, inView } = useInView({
     triggerOnce: false,

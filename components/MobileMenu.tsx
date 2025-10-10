@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import MyAvatar from "./feed/post/MyAvatar";
@@ -23,12 +23,9 @@ export function MobileMenu() {
         </Button>
       </SheetTrigger>
       <SheetContent className="pt-12 px-2 pb-2 w-full flex flex-col justify-between">
-        {/* <SheetHeader>
-          <SheetTitle>Edit profile</SheetTitle>
-          <SheetDescription>
-            Make changes to your profile here. Click save when you&apos;re done.
-          </SheetDescription>
-        </SheetHeader> */}
+        <SheetHeader className="hidden">
+          <SheetTitle className="hidden">Mobile navigation</SheetTitle>
+        </SheetHeader>
         <Card className="py-2">
           <CardContent className="flex gap-x-2 items-center px-2">
             {currentUser?.username && (

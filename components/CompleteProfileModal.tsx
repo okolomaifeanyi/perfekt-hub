@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  // Dialog,
+  // DialogContent,
+  // DialogFooter,
+  // DialogHeader,
+  // DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { getAuth, updateProfile } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { ResponsiveSheet } from "./ReponsiveSheet";
 
 // ✅ Validation schema
 const schema = z.object({
@@ -212,233 +213,242 @@ export default function CompleteProfileModal({
   }
 
   return (
-    <Dialog open={show} onOpenChange={open => !open && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[calc(100vh-6rem)] overflow-y-auto">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <DialogHeader>
-            <DialogTitle>Complete Your Profile</DialogTitle>
-          </DialogHeader>
+    <ResponsiveSheet
+      open={show}
+      setOpen={open => !open && onClose()}
+      title={"Complete Your Profile"}
+    >
+      {/* <Dialog open={show} onOpenChange={open => !open && onClose()}>
+      <DialogContent className="sm:max-w-md max-h-[calc(100vh-6rem)] overflow-y-auto"> */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* <DialogHeader>
+          <DialogTitle>Complete Your Profile</DialogTitle>
+        </DialogHeader> */}
 
-          {/* Full Name */}
-          <div className="grid gap-3">
-            <Label htmlFor="fullName">Full Name</Label>
-            <Input
-              id="fullName"
-              placeholder="Enter your full name"
-              value={watch("fullName")}
-              onChange={e => setValue("fullName", e.target.value)}
-            />
-            {errors.fullName && (
-              <Alert variant="destructive">
-                <AlertCircle className="mt-1 h-5 w-5" />
-                <AlertDescription>
-                  <p className="text-sm">{errors.fullName.message}</p>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* Phone */}
-          <div className="grid gap-3">
-            <Label htmlFor="phone">Phone Number</Label>{" "}
-            <PhoneInput
-              country={"ng"}
-              value={watch("phoneNumber").replace("+", "")}
-              onChange={value => setValue("phoneNumber", `+${value}`)}
-              autoFormat
-              enableAreaCodes
-              enableTerritories
-              enableSearch
-              dropdownClass={cn(
-                "!bg-popover !text-popover-foreground border border-border rounded-md shadow-md max-h-60 overflow-y-auto z-50",
-                "[&_ul]:!bg-popover",
-                "[&_li]:!bg-popover [&_li]:!text-popover-foreground",
-                "[&_li:hover]:!bg-accent [&_li:hover]:!text-accent-foreground",
-                "[&_li.selected]:!bg-accent [&_li.selected]:!text-accent-foreground"
-              )}
-              searchClass="!bg-popover !text-popover-foreground"
-              buttonClass={cn(
-                "!bg-background dark:!bg-input/30 !text-foreground !border-border",
-                "hover:!bg-accent hover:!text-accent-foreground",
-                "focus:!bg-accent focus:!text-accent-foreground",
-                "rounded-l-md transition-colors"
-              )}
-              inputProps={{
-                name: "phone",
-                required: true,
-                className: cn(
-                  "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground",
-                  "bg-background dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border px-3 py-1 pl-14 text-base shadow-xs",
-                  "transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-                  "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-                  "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
-                ),
-              }}
-            />{" "}
-            {errors.phoneNumber && (
-              <Alert variant="destructive" className="mt-2">
-                {" "}
-                <AlertCircle className="mt-1 h-5 w-5" />{" "}
-                <AlertDescription>
-                  {" "}
-                  <p className="text-sm">{errors.phoneNumber.message}</p>{" "}
-                </AlertDescription>{" "}
-              </Alert>
-            )}{" "}
-          </div>
-
-          {/* Gender */}
-          <div className="grid gap-3">
-            <Label>Gender</Label>
-            <Select
-              value={watch("gender")}
-              onValueChange={value =>
-                setValue("gender", value as "male" | "female" | "other")
-              }
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.gender && (
-              <Alert variant="destructive">
-                <AlertCircle className="mt-1 h-5 w-5" />
-                <AlertDescription>
-                  <p className="text-sm">{errors.gender.message}</p>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* DOB */}
-          <div className="grid gap-3">
-            <Label htmlFor="dob">Date of Birth</Label>
-            <div className="relative flex gap-2">
-              <Input
-                id="dob"
-                value={watch("dob")}
-                placeholder="June 01, 2025"
-                className="bg-background dark:bg-input/30 pr-10"
-                onChange={e => {
-                  const raw = e.target.value;
-                  setValue("dob", raw);
-                  const parsedDate = parse(raw, "MMMM dd, yyyy", new Date());
-                  if (isValid(parsedDate)) {
-                    setDate(parsedDate);
-                    setMonth(parsedDate);
-                  }
-                }}
-              />
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
-                  >
-                    <CalendarIcon className="size-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" sideOffset={10}>
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    captionLayout="dropdown"
-                    month={month}
-                    onMonthChange={setMonth}
-                    onSelect={date => {
-                      if (date) {
-                        setDate(date);
-                        setValue("dob", formatDate(date));
-                        setOpen(false);
-                      }
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            {errors.dob && (
-              <Alert variant="destructive">
-                <AlertCircle className="mt-1 h-5 w-5" />
-                <AlertDescription>
-                  <p className="text-sm">{errors.dob.message}</p>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-
-          {/* Photo */}
-          <div className="grid gap-3">
-            <Label htmlFor="profile-pic">Profile Picture</Label>
-            <Input
-              id="profile-pic"
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setShowWebcam(true)}
-            >
-              Use Camera Instead
-            </Button>
-            {photoURL && (
-              <Image
-                src={photoURL}
-                alt="Profile picture preview"
-                width={80}
-                height={80}
-                className="rounded object-cover"
-              />
-            )}
-          </div>
-
-          {showWebcam && (
-            <div className="grid gap-3">
-              <Webcam
-                audio={false}
-                ref={webcamRef}
-                screenshotFormat="image/jpeg"
-                className="rounded w-full"
-              />
-              <div className="flex gap-2 mx-auto">
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onClick={captureAndUpload}
-                >
-                  Capture Photo
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => setShowWebcam(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
+        {/* Full Name */}
+        <div className="grid gap-3">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input
+            id="fullName"
+            placeholder="Enter your full name"
+            value={watch("fullName")}
+            onChange={e => setValue("fullName", e.target.value)}
+          />
+          {errors.fullName && (
+            <Alert variant="destructive">
+              <AlertCircle className="mt-1 h-5 w-5" />
+              <AlertDescription>
+                <p className="text-sm">{errors.fullName.message}</p>
+              </AlertDescription>
+            </Alert>
           )}
+        </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                </span>
-              ) : (
-                "Save Profile"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        {/* Phone */}
+        <div className="grid gap-3">
+          <Label htmlFor="phone">Phone Number</Label>{" "}
+          <PhoneInput
+            country={"ng"}
+            value={watch("phoneNumber").replace("+", "")}
+            onChange={value => setValue("phoneNumber", `+${value}`)}
+            autoFormat
+            enableAreaCodes
+            enableTerritories
+            enableSearch
+            dropdownClass={cn(
+              "!bg-popover !text-popover-foreground border border-border rounded-md shadow-md max-h-60 overflow-y-auto z-50",
+              "[&_ul]:!bg-popover",
+              "[&_li]:!bg-popover [&_li]:!text-popover-foreground",
+              "[&_li:hover]:!bg-accent [&_li:hover]:!text-accent-foreground",
+              "[&_li.selected]:!bg-accent [&_li.selected]:!text-accent-foreground"
+            )}
+            searchClass="!bg-popover !text-popover-foreground"
+            buttonClass={cn(
+              "!bg-background dark:!bg-input/30 !text-foreground !border-border",
+              "hover:!bg-accent hover:!text-accent-foreground",
+              "focus:!bg-accent focus:!text-accent-foreground",
+              "rounded-l-md transition-colors"
+            )}
+            inputProps={{
+              name: "phone",
+              required: true,
+              className: cn(
+                "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground",
+                "bg-background dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border px-3 py-1 pl-14 text-base shadow-xs",
+                "transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+                "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
+              ),
+            }}
+          />{" "}
+          {errors.phoneNumber && (
+            <Alert variant="destructive" className="mt-2">
+              {" "}
+              <AlertCircle className="mt-1 h-5 w-5" />{" "}
+              <AlertDescription>
+                {" "}
+                <p className="text-sm">{errors.phoneNumber.message}</p>{" "}
+              </AlertDescription>{" "}
+            </Alert>
+          )}{" "}
+        </div>
+
+        {/* Gender */}
+        <div className="grid gap-3">
+          <Label>Gender</Label>
+          <Select
+            value={watch("gender")}
+            onValueChange={value =>
+              setValue("gender", value as "male" | "female" | "other")
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select gender" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.gender && (
+            <Alert variant="destructive">
+              <AlertCircle className="mt-1 h-5 w-5" />
+              <AlertDescription>
+                <p className="text-sm">{errors.gender.message}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        {/* DOB */}
+        <div className="grid gap-3">
+          <Label htmlFor="dob">Date of Birth</Label>
+          <div className="relative flex gap-2">
+            <Input
+              id="dob"
+              value={watch("dob")}
+              placeholder="June 01, 2025"
+              className="bg-background dark:bg-input/30 pr-10"
+              onChange={e => {
+                const raw = e.target.value;
+                setValue("dob", raw);
+                const parsedDate = parse(raw, "MMMM dd, yyyy", new Date());
+                if (isValid(parsedDate)) {
+                  setDate(parsedDate);
+                  setMonth(parsedDate);
+                }
+              }}
+            />
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="absolute top-1/2 right-2 size-6 -translate-y-1/2"
+                >
+                  <CalendarIcon className="size-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={10}>
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  captionLayout="dropdown"
+                  month={month}
+                  onMonthChange={setMonth}
+                  onSelect={date => {
+                    if (date) {
+                      setDate(date);
+                      setValue("dob", formatDate(date));
+                      setOpen(false);
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          {errors.dob && (
+            <Alert variant="destructive">
+              <AlertCircle className="mt-1 h-5 w-5" />
+              <AlertDescription>
+                <p className="text-sm">{errors.dob.message}</p>
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        {/* Photo */}
+        <div className="grid gap-3">
+          <Label htmlFor="profile-pic">Profile Picture</Label>
+          <Input
+            id="profile-pic"
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowWebcam(true)}
+          >
+            Use Camera Instead
+          </Button>
+          {photoURL && (
+            <Image
+              src={photoURL}
+              alt="Profile picture preview"
+              width={80}
+              height={80}
+              className="rounded object-cover"
+            />
+          )}
+        </div>
+
+        {showWebcam && (
+          <div className="grid gap-3">
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              className="rounded w-full"
+            />
+            <div className="flex gap-2 mx-auto">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={captureAndUpload}
+              >
+                Capture Photo
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setShowWebcam(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* <DialogFooter> */}
+        <div className="mt-6 flex justify-end-safe">
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? (
+              <span className="flex items-center justify-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+              </span>
+            ) : (
+              "Save Profile"
+            )}
+          </Button>
+        </div>
+
+        {/* </DialogFooter> */}
+      </form>
+      {/* </DialogContent>
+      </Dialog> */}
+    </ResponsiveSheet>
   );
 }

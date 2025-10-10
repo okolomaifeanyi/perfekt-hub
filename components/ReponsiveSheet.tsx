@@ -25,7 +25,7 @@ type ResponsiveSheetProps = {
   children: ReactNode;
   title: string;
   desc?: string;
-  trigger: ReactNode;
+  trigger?: ReactNode;
 //   modal?: boolean;
 };
 
@@ -44,29 +44,33 @@ export const ResponsiveSheet = ({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="sm:max-w-md">
+        {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+        <DialogContent className="">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             {desc && <DialogDescription>{desc}</DialogDescription>}
           </DialogHeader>
-          {children}
+          <div className="overflow-y-auto max-h-[80vh] sm:max-w-md px-4">
+            {children}
+          </div>
         </DialogContent>
       </Dialog>
     );
   }
 
   return (
-      <Drawer open={open} onOpenChange={setOpen}
-        //   modal={modal}
-      >
+    <Drawer
+      open={open}
+      onOpenChange={setOpen}
+      //   modal={modal}
+    >
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-      <DrawerContent className="p-4">
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
           {desc && <DrawerDescription>{desc}</DrawerDescription>}
         </DrawerHeader>
-        {children}
+        <div className="overflow-y-auto p-4">{children}</div>
       </DrawerContent>
     </Drawer>
   );

@@ -31,16 +31,20 @@ import { useUser } from "@/hooks/useUser";
 const PostCard = ({
   post,
   scrollPosition,
+  className,
+  isPostPage
 }: {
   post: PostProps;
   scrollPosition?: ScrollPosition;
+    className?: string;
+  isPostPage?: boolean
 }) => {
   const { user, quotedPost, quotedUser } = usePostWithQuote(post);
   const { user: currentUser } = useUserStore(state => state);
   const { friends, following } = useUserConnections();
   const router = useRouter();
   const parentPost = useParentPost(post.parentPostId);
-  const parentPostUser = useUser(parentPost?.userId || "")
+  const parentPostUser = useUser(parentPost?.userId || "");
 
   const isPinned = post?.isPinned;
   const isOwner = user ? currentUser?.uid === user.uid : false;
@@ -58,9 +62,9 @@ const PostCard = ({
   return (
     <LazyLoadComponent scrollPosition={scrollPosition}>
       <Card
-        className="
+        className={`${className} 
         cursor-pointer
-        transition hover:bg-background/60 backdrop-blur-lg py-4"
+        transition hover:bg-background/60 backdrop-blur-lg py-4`}
         onClick={() => user && handleCardClick(`/${user.username}/${post.id}`)}
       >
         <CardContent className="space-y-4 px-0">
@@ -103,19 +107,14 @@ const PostCard = ({
             </div>
           </div>
 
-          {parentPost && (
+          {(!isPostPage && parentPost) && (
             <div className="px-4 text-gray-500">
               Replying to{" "}
-              {parentPostUser && (
-                <UserCard user={parentPostUser}>
-                  <Link
-                    className="text-primary"
-                    href={`/${parentPost.username}`}
-                  >
-                    @{parentPost.username}
-                  </Link>
-                </UserCard>
-              )}
+              <UserCard user={parentPostUser}>
+                <Link className="text-primary" href={`/${parentPost.username}`}>
+                  @{parentPost.username}
+                </Link>
+              </UserCard>
             </div>
           )}
 

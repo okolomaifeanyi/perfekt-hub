@@ -25,7 +25,7 @@ export default async function Page({
     if (typeof data.createdAt.toDate === "function") {
       createdAt = data.createdAt.toDate();
     } else if (typeof data.createdAt === "number") {
-      createdAt = new Date(data.createdAt); // stored as millis
+      createdAt = new Date(data.createdAt);
     } else if (typeof data.createdAt === "string") {
       createdAt = new Date(data.createdAt);
     }

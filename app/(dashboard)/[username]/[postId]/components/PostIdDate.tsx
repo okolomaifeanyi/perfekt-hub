@@ -20,7 +20,7 @@ const PostIdDate = ({
 }) => {
   return (
     <div className="flex space-x-3 items-center">
-      {user && (
+      
         <UserCard user={user}>
           <div className="flex space-x-2">
             <MyAvatar
@@ -37,7 +37,7 @@ const PostIdDate = ({
             </Link>
           </div>
         </UserCard>
-      )}
+
 
       <Tooltip>
         <TooltipTrigger className="text-xs text-muted-foreground flex items-center">

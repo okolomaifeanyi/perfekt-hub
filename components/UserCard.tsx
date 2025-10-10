@@ -9,37 +9,19 @@ import { UserProps } from "@/lib/types";
 import { ReactNode } from "react";
 
 const UserCard = ({
-  fullName,
-  username,
-  followerCount,
-  followingCount,
-  friendsCount,
-  bio,
-  createdAt,
-  photoURL,
-  uid,
   user,
   children,
 }: {
-  fullName?: string;
-  username?: string;
-  followerCount?: number;
-  followingCount?: number;
-  friendsCount?: number;
-  bio?: string;
-  createdAt?: Date | null;
-  photoURL?: string;
-  uid?: string;
-  user?: UserProps;
+  user?: UserProps | null;
   children: ReactNode;
 }) => {
   const { startDM, loading: dmLoading } = useDirectMessage();
   const currentUser = useUserStore(state => state.user);
 
-  const isMe = uid === currentUser?.uid;
-  const displayName = user?.fullName || fullName || username || "User";
-  const displayUsername = user?.username || username || "user";
-  const displayBio = user?.bio || bio || "";
+  const isMe = user?.uid === currentUser?.uid;
+  const displayName = user?.fullName || "User";
+  const displayUsername = user?.username || "user";
+  const displayBio = user?.bio || "";
 
   return (
     <HoverCard>
@@ -49,16 +31,16 @@ const UserCard = ({
           {/* Header: Avatar + Actions */}
           <div className="flex justify-between">
             <JustAvatar
-              fullName={user?.fullName || fullName}
-              photoURL={user?.photoURL || photoURL}
+              fullName={user?.fullName}
+              photoURL={user?.photoURL}
               username={displayUsername}
             />
 
             <div className="flex space-x-2">
-              {uid && !isMe && (
+              {user && !isMe && (
                 <Button
                   size="sm"
-                  onClick={() => startDM(user?.uid || uid)}
+                  onClick={() => startDM(user?.uid)}
                   disabled={dmLoading}
                   variant="secondary"
                   title="Send Direct Message"
@@ -71,7 +53,7 @@ const UserCard = ({
                 </Button>
               )}
 
-              {uid && !isMe && <ConnectDropdown targetUid={user?.uid || uid} />}
+              {user && !isMe && <ConnectDropdown targetUid={user?.uid} />}
             </div>
           </div>
 
@@ -94,38 +76,38 @@ const UserCard = ({
             <div className="flex space-x-2 text-xs text-muted-foreground">
               <span>
                 <strong className="text-white">
-                  {user?.followersCount ?? followerCount ?? 0}
+                  {user?.followersCount ?? 0}
                 </strong>{" "}
                 Followers
               </span>
 
               <span>
                 <strong className="text-white">
-                  {user?.followingCount ?? followingCount ?? 0}
+                  {user?.followingCount ?? 0}
                 </strong>{" "}
                 Following
               </span>
 
               <span>
                 <strong className="text-white">
-                  {user?.friendsCount ?? friendsCount ?? 0}
+                  {user?.friendsCount ?? 0}
                 </strong>{" "}
                 Friends
               </span>
             </div>
 
-            {createdAt && (
+            {/* {user && (
               <div className="text-muted-foreground text-xs">
                 Joined{" "}
                 <strong className="text-white">
-                  {createdAt.toLocaleDateString("en-GB", {
+                  {user?.createdAt?.toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
                   })}
                 </strong>
               </div>
-            )}
+            )} */}
           </div>
         </div>
       </HoverCardContent>

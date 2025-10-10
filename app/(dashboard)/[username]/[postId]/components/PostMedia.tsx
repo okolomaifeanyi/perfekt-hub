@@ -1,56 +1,114 @@
+"use client";
+
+import { useState } from "react";
 import { PostProps } from "@/lib/types";
 import Image from "next/image";
+import Lightbox, { Slide, SlideVideo } from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Video from "yet-another-react-lightbox/plugins/video";
+import ReactPlayer from "react-player";
 
 const PostMedia = ({ post }: { post: PostProps }) => {
   const mediaCount = post?.media?.length || 0;
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const slides: Slide[] = (post?.media || []).map(media => {
+    if (media.type === "video") {
+      return {
+        type: "video",
+        sources: [
+          {
+            src: media.src,
+            type: "video/mp4",
+          },
+        ],
+      } as SlideVideo;
+    } else {
+      return {
+        src: media.src,
+      };
+    }
+  });
 
   return (
-    <div
-      className={`grid gap-[4px] max-h-[250px] overflow-hidden ${
-        mediaCount === 2
-          ? "grid-cols-2"
-          : mediaCount === 3
-          ? "grid-cols-2 grid-rows-2 h-[300px]"
-          : mediaCount === 4
-          ? "grid-cols-2 grid-rows-2"
-          : ""
-      }`}
-    >
-      {post?.media?.map((media, index) => {
-        const isThree = mediaCount === 3;
-        const isFirst = index === 0;
+    <>
+      {/* Collapsed grid view */}
+      <div
+        className={`grid gap-[4px] max-h-[250px] overflow-hidden ${
+          mediaCount === 2
+            ? "grid-cols-2"
+            : mediaCount === 3
+            ? "grid-cols-2 grid-rows-2 h-[300px]"
+            : mediaCount === 4
+            ? "grid-cols-2 grid-rows-2"
+            : ""
+        }`}
+      >
+        {post?.media?.map((media, idx) => {
+          const isThree = mediaCount === 3;
+          const isFirst = idx === 0;
 
-        let containerClass = `relative w-full overflow-hidden`;
+          let containerClass = `relative w-full overflow-hidden cursor-pointer`;
 
-        if (mediaCount === 1) {
-          containerClass += " aspect-video"; // full-width video/image
-        } else if (isThree && isFirst) {
-          containerClass += " row-span-2 h-full"; // first item tall
-        } else {
-          containerClass += " aspect-square h-full"; // uniform squares
-        }
+          if (mediaCount === 1) {
+            containerClass += " aspect-video";
+          } else if (isThree && isFirst) {
+            containerClass += " row-span-2 h-full";
+          } else {
+            containerClass += " aspect-square h-full";
+          }
 
-        return (
-          <div key={index} className={containerClass}>
-            {media.type === "video" ? (
-              <video
-                src={media.src}
-                controls
-                className="absolute top-0 left-0 w-full h-full object-cover"
-              />
-            ) : (
-              <Image
-                src={media.src}
-                alt={`Post media ${index + 1}`}
-                fill
-                unoptimized={media.src.includes("giphy")}
-                className="object-cover"
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
+          return (
+            <div
+              key={idx}
+              className={containerClass}
+              onClick={() => {
+                setIndex(idx);
+                setOpen(true);
+              }}
+              onMouseEnter={() => setHoverIndex(idx)}
+              onMouseLeave={() => setHoverIndex(null)}
+            >
+              {media.type === "video" ? (
+                <ReactPlayer
+                  src={media.src}
+                  width="100%"
+                  height="100%"
+                  playing={hoverIndex === idx} // autoplay on hover
+                  muted // avoid noisy previews
+                  loop
+                  controls={false} // hide controls in collapsed view
+                  style={{ position: "absolute", top: 0, left: 0 }}
+                />
+              ) : (
+                <Image
+                  src={media.src}
+                  alt={`Post media ${idx + 1}`}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Lightbox with Video plugin */}
+      <Lightbox
+        open={open}
+        close={() => setOpen(false)}
+        index={index}
+        slides={slides}
+        plugins={[Video]}
+        video={{
+          controls: true,
+          playsInline: true,
+        }}
+      />
+    </>
   );
 };
 

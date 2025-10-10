@@ -1,7 +1,7 @@
 // app/api/friends/[uid]/disconnect/route.ts
 
 import { getCurrentUid } from "@/app/actions";
-import { unfriendUser, unfollowUser } from "@/app/actions/connections";
+import { unfollowUser, unfriendUser } from "@/app/actions/connections";
 import { NextResponse } from "next/server";
 
 export async function POST(
@@ -15,12 +15,8 @@ export async function POST(
   const { targetUid: otherUid } = await params;
 
   try {
-    // remove mutual friendship if it exists
     await unfriendUser(currentUid, otherUid);
-
-    // also remove follow relationship both ways
     await unfollowUser(currentUid, otherUid);
-    await unfollowUser(otherUid, currentUid);
 
     return NextResponse.json({ success: true, status: "none" });
   } catch (err) {

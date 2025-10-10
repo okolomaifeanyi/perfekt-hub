@@ -1,9 +1,13 @@
 "use client";
 
-import { useLiveComments } from "@/hooks/CommentsLiveFeed";
 import Posts from "./Posts";
-import { ScrollPosition, trackWindowScroll } from "react-lazy-load-image-component";
+import {
+  ScrollPosition,
+  trackWindowScroll,
+} from "react-lazy-load-image-component";
 import { useParams } from "next/navigation";
+import { useLiveFeed } from "@/hooks/useLiveFeed";
+import { useUserStore } from "@/lib/store/useUserStore";
 
 const CommentFeed = ({
   scrollPosition,
@@ -15,9 +19,14 @@ const CommentFeed = ({
     postId: string;
   }>();
 
-  const comments = useLiveComments(postId);
+  const currentUser = useUserStore(s => s.user);
 
-  return <Posts posts={comments} scrollPosition={scrollPosition} />;
+  const uid = currentUser?.uid;
+
+  // const comments = useLiveComments(postId);
+  const { posts } = useLiveFeed(uid, 10, "poll", postId);
+
+  return <Posts posts={posts} scrollPosition={scrollPosition} />;
 };
 
 export default trackWindowScroll(CommentFeed);
