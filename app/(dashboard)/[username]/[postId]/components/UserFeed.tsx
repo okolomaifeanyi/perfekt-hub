@@ -21,22 +21,19 @@ const UserFeed = ({ scrollPosition }: UserFeedProps) => {
   // }>();
   const currentUser = useUserStore(s => s.user);
 
-  const uid = currentUser?.uid
+  const uid = currentUser?.uid;
 
   const {
     posts,
     loadMorePosts: fetchMoreFromHook,
     hasMore,
-  } = useLiveFeed(uid, 10, "realtime", "", true);
-
+  } = useLiveFeed(uid, 10, null, true, "latest");
 
   // const {
   //   posts,
   //   loadMorePosts: fetchMoreFromHook,
   //   hasMore,
   // } = useUserFeed(username);
-
-  
 
   const { ref: loadMoreRef, inView } = useInView({
     triggerOnce: false,

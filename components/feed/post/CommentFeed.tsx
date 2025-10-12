@@ -24,9 +24,9 @@ const CommentFeed = ({
   const uid = currentUser?.uid;
 
   // const comments = useLiveComments(postId);
-  const { posts } = useLiveFeed(uid, 10, "poll", postId);
+  const { posts } = useLiveFeed(uid, 10, postId);
 
-  return <Posts posts={posts} scrollPosition={scrollPosition} />;
+  return <Posts isPage posts={posts} scrollPosition={scrollPosition} />;
 };
 
 export default trackWindowScroll(CommentFeed);

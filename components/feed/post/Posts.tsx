@@ -6,17 +6,22 @@ import { ScrollPosition } from "react-lazy-load-image-component";
 const Posts = ({
   posts,
   scrollPosition,
+  isPage,
 }: {
   posts: PostProps[];
   scrollPosition?: ScrollPosition;
+  isPage?: boolean;
 }) => {
   return (
     <List className="space-y-4 list-none !m-0 !p-0">
       {posts.map(post => {
-        
         return (
           <li key={post.id}>
-            <PostCard post={post} scrollPosition={scrollPosition} />
+            <PostCard
+              isPostPage={isPage}
+              post={post}
+              scrollPosition={scrollPosition}
+            />
           </li>
         );
       })}
