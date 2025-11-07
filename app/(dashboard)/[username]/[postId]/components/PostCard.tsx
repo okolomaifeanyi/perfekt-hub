@@ -27,17 +27,20 @@ import { useParentPost } from "@/hooks/useParentPost";
 import UserCard from "@/components/UserCard";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
+import { safeGetHostname } from "@/components/post-composer/utils";
 
 const PostCard = ({
   post,
   scrollPosition,
   className,
-  isPostPage
+  isPostPage,
+  deleteOptimisticPost,
 }: {
   post: PostProps;
   scrollPosition?: ScrollPosition;
-    className?: string;
-  isPostPage?: boolean
+  className?: string;
+  isPostPage?: boolean;
+  deleteOptimisticPost?: (postId: string) => void;
 }) => {
   const { user, quotedPost, quotedUser } = usePostWithQuote(post);
   const { user: currentUser } = useUserStore(state => state);
@@ -81,7 +84,13 @@ const PostCard = ({
                   isFriend={isFriend}
                   isFollowing={isFollowing}
                   isPinned={isPinned}
-                  onDelete={async () => await deletePost(post.id)}
+                  onDelete={async () => {
+                    // 1. Optimistic delete — instant UI
+                    deleteOptimisticPost?.(post.id);
+
+                    await deletePost(post.id);
+                    // toast.success("Post deleted");
+                  }}
                   onBlock={async () => {
                     if (user && currentUser?.uid && user.uid) {
                       await blockUser(currentUser.uid, user.uid);
@@ -107,7 +116,7 @@ const PostCard = ({
             </div>
           </div>
 
-          {(!isPostPage && parentPost) && (
+          {!isPostPage && parentPost && (
             <div className="px-4 text-gray-500">
               Replying to{" "}
               <UserCard user={parentPostUser}>
@@ -159,7 +168,7 @@ const PostCard = ({
             )}
           </div>
 
-          {post.linkPreview && !quotedPost && (
+          {post.linkPreview?.url && !quotedPost && (
             <a
               // className="mx-4"
               href={post.linkPreview.url}
@@ -182,24 +191,25 @@ const PostCard = ({
                     </div>
                   )}
 
-                  <div className="px-4">
-                    {post.linkPreview.title && (
-                      <h4 className="font-semibold text-sm line-clamp-1 mb-1">
-                        {post.linkPreview.title}
-                      </h4>
-                    )}
-                    {post.linkPreview.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-                        {post.linkPreview.description}
-                      </p>
-                    )}
-                    <p className="text-[11px] text-primary">
-                      {new URL(post.linkPreview.url).hostname.replace(
-                        "www.",
-                        ""
+                  {post.linkPreview.url && (
+                    <div className="px-4">
+                      {post.linkPreview.title && (
+                        <h4 className="font-semibold text-sm line-clamp-1 mb-1">
+                          {post.linkPreview.title}
+                        </h4>
                       )}
-                    </p>
-                  </div>
+                      {post.linkPreview.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          {post.linkPreview.description}
+                        </p>
+                      )}
+                      {post.linkPreview.url && (
+                        <p className="text-[11px] text-primary">
+                          {safeGetHostname(post.linkPreview.url)}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </Card>
             </a>

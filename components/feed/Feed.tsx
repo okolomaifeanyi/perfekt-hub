@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { P } from "../Typography";
 import {
   ScrollPosition,
   trackWindowScroll,
@@ -13,6 +12,7 @@ import Posts from "./post/Posts";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useLiveFeed } from "@/hooks/useLiveFeed";
 import PostComposer from "../post-composer/PostComposer";
+import { Button } from "../ui/button";
 
 interface FeedProps {
   scrollPosition?: ScrollPosition;
@@ -68,20 +68,23 @@ const Feed = ({ scrollPosition }: FeedProps) => {
   const NewPostsButton = ({
     count,
     onClick,
+    hasRealNewPosts,
   }: {
     count: number;
     onClick: () => void;
+    hasRealNewPosts: boolean;
   }) => {
-    if (count === 0) return null;
+    if (count === 0 || !hasRealNewPosts) return null;
+
     return (
-      <div
+      <Button
         onClick={onClick}
         className="flex justify-center py-2 bg-muted/10 hover:bg-muted/20 cursor-pointer"
       >
-        <P className="!m-0 font-medium">
+        <span className="!m-0 font-medium">
           Show {count} new post{count > 1 ? "s" : ""}
-        </P>
-      </div>
+        </span>
+      </Button>
     );
   };
 
@@ -111,14 +114,20 @@ const Feed = ({ scrollPosition }: FeedProps) => {
           replaceOptimisticPost: latestFeed.replaceOptimisticPost,
           removeOptimisticPost: latestFeed.removeOptimisticPost,
         }}
+        isSubmitting={latestFeed.isSubmitting}
       />
 
       <TabsContent value="latest" className="px-4">
         <NewPostsButton
           count={latestFeed.addedPosts.length}
           onClick={latestFeed.mergeAddedPosts}
+          hasRealNewPosts={latestFeed.hasRealNewPosts}
         />
-        <Posts posts={latestFeed.posts} scrollPosition={scrollPosition} />
+        <Posts
+          posts={latestFeed.posts}
+          scrollPosition={scrollPosition}
+          deleteOptimisticPost={latestFeed.deleteOptimisticPost}
+        />
         <div ref={latestLoadMoreRef} className="flex justify-center py-4 h-10">
           {latestFeed.loadingMore ? (
             <Loader2 className="animate-spin w-4 h-4 text-muted-foreground" />
@@ -134,10 +143,15 @@ const Feed = ({ scrollPosition }: FeedProps) => {
 
       <TabsContent value="trending" className="px-4">
         <NewPostsButton
-          count={trendingFeed.addedPosts.length}
-          onClick={trendingFeed.mergeAddedPosts}
+          count={latestFeed.addedPosts.length}
+          onClick={latestFeed.mergeAddedPosts}
+          hasRealNewPosts={latestFeed.hasRealNewPosts}
         />
-        <Posts posts={trendingFeed.posts} scrollPosition={scrollPosition} />
+        <Posts
+          posts={trendingFeed.posts}
+          scrollPosition={scrollPosition}
+          deleteOptimisticPost={trendingFeed.deleteOptimisticPost}
+        />
         <div
           ref={trendingLoadMoreRef}
           className="flex justify-center py-4 h-10"

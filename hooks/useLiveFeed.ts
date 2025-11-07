@@ -41,12 +41,6 @@ function makeTempId(): string {
     .slice(2, 9)}`;
 }
 
-/**
- * Hook: useLiveFeed
- * - Supports polling, realtime updates, and infinite scroll pagination
- * - Now includes mergeAddedPosts()
- * - ✅ Now supports sortMode ("latest" | "trending")
- */
 export function useLiveFeed(
   userId: string | null | undefined,
   pageSize = INITIAL_LIMIT,
@@ -54,6 +48,8 @@ export function useLiveFeed(
   onlyUser = false,
   sortMode: "latest" | "trending" = "latest"
 ) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingTempId, setPendingTempId] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostProps[]>([]);
   const [addedPosts, setAddedPosts] = useState<PostProps[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -92,7 +88,7 @@ export function useLiveFeed(
         const result = await getFeedAction(
           userId,
           pageSize,
-          null, // No cursor for initial load
+          null,
           parentPostId,
           onlyUser,
           sortMode
@@ -117,7 +113,7 @@ export function useLiveFeed(
     };
   }, [userId, pageSize, parentPostId, onlyUser, sortMode]);
 
-  // Polling mode
+  // Polling mode — NEVER include own posts
   useEffect(() => {
     if (!userId) return;
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -127,7 +123,7 @@ export function useLiveFeed(
         const recent = await getFeedAction(
           userId,
           POLL_LIMIT,
-          null, // Polling always gets the newest, so no cursor
+          null,
           null,
           onlyUser,
           sortMode
@@ -140,14 +136,22 @@ export function useLiveFeed(
 
         const fresh = normalized.filter(p => {
           const ts = p.createdAt?.getTime() ?? 0;
-          return ts > newestLocal && !localIds.has(p.id) && !addedIds.has(p.id);
+          const isOwnPost = p.userId === userId;
+
+          return (
+            ts > newestLocal &&
+            !localIds.has(p.id) &&
+            !addedIds.has(p.id) &&
+            !isOwnPost && // ← BLOCK YOUR OWN POSTS
+            !p.id.startsWith("temp-")
+          );
         });
 
         if (fresh.length > 0) {
           setAddedPosts(prev => {
             const existingIds = new Set(prev.map(x => x.id));
             const uniqueNew = fresh.filter(x => !existingIds.has(x.id));
-            return [...uniqueNew, ...prev]; // Already sorted by server
+            return [...uniqueNew, ...prev];
           });
         }
       } catch (err) {
@@ -167,15 +171,12 @@ export function useLiveFeed(
   const loadMorePosts = useCallback(async () => {
     const { loadingMore, hasMore, cursor } = stateRef.current;
 
-    if (!userId || loadingMore || !hasMore || !cursor) {
-      return;
-    }
+    if (!userId || loadingMore || !hasMore || !cursor) return;
 
     setLoadingMore(true);
 
     try {
       const nextCursor = cursor.createdAt.getTime();
-
       const result = await getFeedAction(
         userId,
         pageSize,
@@ -193,9 +194,7 @@ export function useLiveFeed(
         setCursor(last ?? null);
       }
 
-      if (normalized.length < pageSize) {
-        setHasMore(false);
-      }
+      if (normalized.length < pageSize) setHasMore(false);
     } catch (err) {
       console.error("loadMorePosts error:", err);
     } finally {
@@ -203,7 +202,6 @@ export function useLiveFeed(
     }
   }, [userId, pageSize, onlyUser, sortMode]);
 
-  // ✅ FIX: Correct client-side sorting for merging new posts and optimistic updates
   const sortPosts = useCallback(
     (postsToSort: PostProps[]) => {
       return postsToSort.sort((a, b) => {
@@ -217,7 +215,6 @@ export function useLiveFeed(
     [sortMode]
   );
 
-  // Merge added posts
   const mergeAddedPosts = useCallback((): void => {
     setPosts(prev => {
       const merged = [...addedRef.current, ...prev];
@@ -228,7 +225,7 @@ export function useLiveFeed(
     setAddedPosts([]);
   }, [sortPosts]);
 
-  // Optimistic helpers
+  // Optimistic: Add to feed only
   const addOptimisticPost = useCallback(
     (partial: Partial<PostProps>): string => {
       const tempId = makeTempId();
@@ -243,47 +240,90 @@ export function useLiveFeed(
         media: partial.media ?? [],
         parentPostId: partial.parentPostId ?? "",
         quotePostId: partial.quotePostId ?? null,
-        replyCount: partial.replyCount ?? 0,
-        quoteCount: partial.quoteCount ?? 0,
-        createdAt: partial.createdAt || new Date(),
+        replyCount: 0,
+        quoteCount: 0,
+        createdAt: new Date(),
         engagementScore: 0,
         __optimistic: true,
-        linkPreview: partial.linkPreview ?? {
-          url: "",
-          title: "",
-          description: "",
-          image: "",
-        },
+        linkPreview: partial.linkPreview ?? {},
       };
 
       setPosts(prev => sortPosts([tempPost, ...prev]));
+      setIsSubmitting(true);
+      setPendingTempId(tempId);
 
       return tempId;
     },
     [sortPosts]
   );
 
+  // Replace in feed only — never touch addedPosts
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  replaceOptimisticPost – FIXED
+  // ─────────────────────────────────────────────────────────────────────────────
   const replaceOptimisticPost = useCallback(
-    (tempId: string, serverPost: PostProps): void => {
+    (tempId: string, serverPost: PostProps | null): void => {
+      // Guard: if server gave us nothing, keep the optimistic version
+      if (!serverPost) {
+        setPendingTempId(prev => (prev === tempId ? null : prev));
+        setIsSubmitting(false);
+        return;
+      }
+
       const norm = normalizePost(serverPost);
 
+      // Replace ONLY in the main feed
       setPosts(prev => {
+        const index = prev.findIndex(p => p.id === tempId);
+        if (index === -1) {
+          // Temp post already gone? Just prepend the real one.
+          return sortPosts([norm, ...prev]);
+        }
         const filtered = prev.filter(p => p.id !== tempId);
         return sortPosts([norm, ...filtered]);
       });
 
-      setAddedPosts(prev =>
-        prev.filter(p => p.id !== tempId && p.id !== norm.id)
-      );
+      // Unlock button
+      setPendingTempId(prev => {
+        if (prev === tempId) {
+          setIsSubmitting(false);
+          return null;
+        }
+        return prev;
+      });
     },
     [sortPosts]
   );
 
-  const removeOptimisticPost = useCallback((tempId: string): void => {
-    setPosts(prev => prev.filter(p => p.id !== tempId));
+  // ─────────────────────────────────────────────────────────────────────────────
+  //  removeOptimisticPost – also safer (optional but recommended)
+  // ─────────────────────────────────────────────────────────────────────────────
+  const removeOptimisticPost = useCallback(
+    (tempId: string): void => {
+      setPosts(prev => prev.filter(p => p.id !== tempId));
+      setAddedPosts(prev => prev.filter(p => p.id !== tempId));
 
-    setAddedPosts(prev => prev.filter(p => p.id !== tempId));
+      setPendingTempId(prev => (prev === tempId ? null : prev));
+      setIsSubmitting(prev =>
+        prev && pendingTempId === tempId ? false : prev
+      );
+    },
+    [pendingTempId]
+  );
+
+  // Inside useLiveFeed hook
+  const deleteOptimisticPost = useCallback((postId: string): void => {
+    // Remove from main feed
+    setPosts(prev => prev.filter(p => p.id !== postId));
+
+    // Remove from "New posts" if it was there
+    setAddedPosts(prev => prev.filter(p => p.id !== postId));
   }, []);
+
+  // Disable "New posts" if only optimistic (yours)
+  const hasRealNewPosts =
+    addedPosts.length > 0 &&
+    addedPosts.every(p => !p.id.startsWith("temp-")) === false;
 
   return {
     posts,
@@ -296,5 +336,9 @@ export function useLiveFeed(
     mergeAddedPosts,
     loadMorePosts,
     sortMode,
+    isSubmitting,
+    pendingTempId,
+    hasRealNewPosts, // ← use in NewPostsButton
+    deleteOptimisticPost,
   } as const;
 }

@@ -17,7 +17,7 @@ export interface UserProps {
   postsCount?: number;
   createdAt?: Date | null;
   online?: boolean;
-  lastSeen?: Timestamp;
+  lastSeen?: Date;
   completedProfile?: boolean;
   phoneNumber?: string;
   gender?: "male" | "female";
@@ -111,12 +111,19 @@ export interface NotificationInput {
   extra?: Record<string, any>;
 }
 
-export type LinkPreviewType = {
-  url: string;
-  title: string;
-  description: string;
-  image: string;
-} | null;
+export type LinkPreviewType =
+  | {
+      url: string;
+      title: string;
+      description: string;
+      image: string;
+    }
+  | {
+      url?: never;
+      title?: never;
+      description?: never;
+      image?: never;
+    };
 
 export interface Notification {
   id: string;
@@ -174,3 +181,5 @@ export interface PixelCrop {
 }
 
 export type ViewerRole = "self" | "friend" | "public";
+
+// system designs and architecture

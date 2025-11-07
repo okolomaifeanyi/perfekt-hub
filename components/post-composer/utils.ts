@@ -1,4 +1,4 @@
-import { MediaProps, UserProps } from "@/lib/types";
+import { MediaProps, PostProps, UserProps } from "@/lib/types";
 import { toast } from "sonner";
 import { sendPost } from "./actions";
 
@@ -30,7 +30,7 @@ export async function handlePost({
   onSuccess?: () => void;
   parentPostId?: string | null;
   quotePostId?: string | null;
-}) {
+}): Promise<PostProps | null> {
   try {
     const uploadedMedia: MediaProps[] = await Promise.all(
       media.map(async item => {
@@ -42,23 +42,37 @@ export async function handlePost({
       })
     );
 
-    // 📝 Ask server to do link handling + post saving
-    const postId = await sendPost({
+    const post = await sendPost({
       text,
       media: uploadedMedia,
-      user,
+      user: {
+        uid: user.uid,
+        username: user.username,
+        photoURL: user.photoURL || "",
+        fullName: user.fullName || "",
+      },
       parentPostId,
       quotePostId,
     });
 
     toast.success("Post published");
     onSuccess?.();
-    return postId;
+    return post; // ← now returns PostProps
   } catch (err: unknown) {
     console.error("Post failed", err);
     toast.error("Post failed", {
       description: err instanceof Error ? err.message : "Something went wrong",
     });
     return null;
+  }
+}
+
+// Safe hostname extraction function
+export function safeGetHostname(url?: string): string {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return "";
   }
 }

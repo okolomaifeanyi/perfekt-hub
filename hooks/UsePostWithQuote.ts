@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getPost, getUser} from "@/lib/data";
+import { getPost, getUser } from "@/lib/data";
 import { PostProps, UserProps } from "@/lib/types";
 import { usePostCounts } from "@/lib/store/postCounts";
 import { useRealtimePostCounts } from "./usePostCount";
@@ -14,23 +14,26 @@ export function usePostWithQuote(post: PostProps) {
   const postCounts = counts[post.id];
 
   useEffect(() => {
-  async function fetchData() {
-    const mainUser = await getUser(post.userId);
-    setUser(mainUser);
+    async function fetchData() {
+      // 🚧 guard against missing IDs (prevents Firestore errors)
+      if (!post?.userId || post.userId.trim() === "") return;
 
-    if (post.quotePostId) {
-      const quoted = await getPost(post.quotePostId);
-      setQuotedPost(quoted);
-      if (quoted) {
-        const qUser = await getUser(quoted.userId);
-        setQuotedUser(qUser);
+      const mainUser = await getUser(post.userId);
+      setUser(mainUser);
+
+      if (post.quotePostId && post.quotePostId.trim() !== "") {
+        const quoted = await getPost(post.quotePostId);
+        setQuotedPost(quoted);
+
+        if (quoted?.userId && quoted.userId.trim() !== "") {
+          const qUser = await getUser(quoted.userId);
+          setQuotedUser(qUser);
+        }
       }
     }
-  }
 
-  fetchData();
-}, [post]);
-
+    fetchData();
+  }, [post]);
 
   return { user, quotedPost, quotedUser, counts: postCounts };
 }

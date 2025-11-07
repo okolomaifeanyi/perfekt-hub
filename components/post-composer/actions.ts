@@ -10,7 +10,7 @@ import {
   isSafeLink,
   resolveNativePost,
 } from "@/lib/links";
-import { LinkPreviewType } from "@/lib/types";
+import { LinkPreviewType, PostProps } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 
@@ -66,17 +66,18 @@ export async function sendPost({
   quotePostId = null,
 }: {
   text: string;
-  media: { src: string; type: string }[];
+  media: { src: string; type: "video" | "image" }[];
   user: { uid: string; username: string; photoURL?: string; fullName?: string };
   parentPostId?: string | null;
   quotePostId?: string | null;
   linkPreview?: LinkPreviewType;
-}): Promise<string> {
-  if (!user || !text.trim()) throw new Error("User or text is missing");
+}): Promise<PostProps> {
+  if (!user || (!text.trim() && media.length === 0))
+    throw new Error("User or content is missing");
 
   // 🔍 Extract and validate links
   const links = extractLinks(text);
-  let linkPreview: LinkPreviewType = null;
+  let linkPreview: LinkPreviewType | null = null;
 
   if (links.length > 0) {
     for (const link of links) {
@@ -108,7 +109,9 @@ export async function sendPost({
   }));
 
   const postRef = firestoreAdmin.collection("posts").doc();
-  const postData = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const postData: any = {
+    id: postRef.id, // ← ADD THIS
     userId: user.uid,
     username: user.username,
     content: text.trim(),
@@ -120,8 +123,12 @@ export async function sendPost({
     quotePostId: quotePostId || "",
     replyCount: 0,
     quoteCount: 0,
-    linkPreview,
+    linkPreview: linkPreview || {},
   };
+
+  if (linkPreview) {
+    postData.linkPreview = linkPreview;
+  }
 
   const batch = firestoreAdmin.batch();
 
@@ -205,5 +212,9 @@ export async function sendPost({
     }
   }
 
-  return postRef.id;
+  return {
+    ...postData,
+    createdAt: postData.createdAt.toDate(), // Convert Timestamp → Date
+    linkPreview: postData.linkPreview || {},
+  } as PostProps;
 }

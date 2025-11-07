@@ -7,6 +7,23 @@ import { Timestamp } from "firebase-admin/firestore";
 // --- Types for cursor ---
 type Cursor = number | null;
 
+function normalizePost(
+  doc: FirebaseFirestore.QueryDocumentSnapshot
+): PostProps {
+  const data = doc.data();
+  const id =
+    typeof doc.id === "string" && doc.id.trim() !== ""
+      ? doc.id
+      : `fallback-${Math.random().toString(36).slice(2, 11)}`;
+
+  return {
+    id,
+    ...data,
+    createdAt: (data.createdAt as Timestamp)?.toDate?.() ?? new Date(),
+    engagementScore: data.engagementScore ?? 0,
+  } as PostProps;
+}
+
 /** ✅ Prewarm both users’ feed caches after relationship changes */
 export async function prewarmFeeds(userA: string, userB: string) {
   await Promise.allSettled([
@@ -57,15 +74,40 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
 
   if (metaSnap.exists) {
     const data = metaSnap.data();
-    if (data?.feedAuthorIds && Array.isArray(data.feedAuthorIds)) {
-      return data.feedAuthorIds;
+    if (Array.isArray(data?.feedAuthorIds)) {
+      // ✅ Filter out empty, null, undefined, whitespace-only, duplicates
+      const clean = Array.from(
+        new Set(
+          data.feedAuthorIds.filter(
+            (id: unknown): id is string =>
+              typeof id === "string" && id.trim() !== ""
+          )
+        )
+      );
+
+      // Optional: Write back cleaned array to Firestore to fix it permanently
+      if (clean.length !== data.feedAuthorIds.length) {
+        await metaRef.update({ feedAuthorIds: clean });
+      }
+
+      return clean;
     }
   }
 
-  // Build fresh & cache if not found
+  // 🔁 Build fresh cache if not found
   const ids = await refreshFeedCacheForUser(userId);
-  return ids;
+
+  // ✅ Apply same cleaning logic before returning
+  return Array.from(
+    new Set(
+      ids.filter(
+        (id: unknown): id is string =>
+          typeof id === "string" && id.trim() !== ""
+      )
+    )
+  );
 }
+
 
 /** 🧩 Main feed loader */
 export async function getFeedForUser(
@@ -120,15 +162,7 @@ export async function getFeedForUser(
 
     q = q.limit(queryLimit);
     const snap = await q.get();
-    const results = snap.docs.map(
-      doc =>
-        ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: (doc.data().createdAt as Timestamp).toDate(),
-          engagementScore: doc.data().engagementScore ?? 0,
-        } as PostProps)
-    );
+    const results = snap.docs.map(normalizePost);
 
     if (sortMode === "trending") {
       results.sort((a, b) => {
@@ -170,13 +204,8 @@ export async function getFeedForUser(
 
       const snap = await q.get();
       for (const doc of snap.docs) {
-        const data = doc.data();
-        posts.push({
-          id: doc.id,
-          ...data,
-          createdAt: (data.createdAt as Timestamp).toDate(),
-          engagementScore: data.engagementScore ?? 0,
-        } as PostProps);
+        // const data = doc.data();
+        posts.push(normalizePost(doc));
       }
     })
   );

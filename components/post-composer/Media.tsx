@@ -69,9 +69,10 @@ export default function Media({
         htmlFor="picture"
         className={`${buttonVariants({
           variant: "secondary",
+          size: "icon",
         })} cursor-pointer`}
       >
-        <PhotoIcon className="text-primary" />
+        <PhotoIcon className="text-primary size-4" />
       </Label>
 
       <Input

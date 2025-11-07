@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { appInfo } from "./appInfo";
 import { decode } from 'html-entities';
+import { LinkPreviewType } from "./types";
 
 const APP_DOMAIN = process.env.APP_URL || "https://perfektmart.com.ng";
 
@@ -145,7 +146,7 @@ async function fetchWithLinkPreview(url: string) {
 }
 
 
-export async function fetchMetadata(rawUrl: string) {
+export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | null> {
   try {
     const normalized = normalizeUrl(rawUrl);
     const { hostname } = new URL(normalized);
@@ -241,10 +242,14 @@ export async function fetchMetadata(rawUrl: string) {
       image = `https://www.google.com/s2/favicons?sz=128&domain=${hostname}`;
     }
 
+    if (!title && !description && !image) {
+      return null;
+    }
+
     return { url: normalized, title, description, image };
   } catch (err) {
     console.error("Metadata fetch failed:", err);
-    return { url: rawUrl, title: "", description: "", image: "" };
+    return null;
   }
 }
 

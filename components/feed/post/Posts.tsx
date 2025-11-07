@@ -7,10 +7,12 @@ const Posts = ({
   posts,
   scrollPosition,
   isPage,
+  deleteOptimisticPost,
 }: {
   posts: PostProps[];
   scrollPosition?: ScrollPosition;
   isPage?: boolean;
+  deleteOptimisticPost?: (postId: string) => void;
 }) => {
   return (
     <List className="space-y-4 list-none !m-0 !p-0">
@@ -21,6 +23,7 @@ const Posts = ({
               isPostPage={isPage}
               post={post}
               scrollPosition={scrollPosition}
+              deleteOptimisticPost={deleteOptimisticPost}
             />
           </li>
         );

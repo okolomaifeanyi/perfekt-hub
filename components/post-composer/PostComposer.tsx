@@ -9,7 +9,6 @@ import MediaGallery from "./MediaGallery";
 import Buttons from "./Buttons";
 import MyAvatar from "../feed/post/MyAvatar";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { Loader2 } from "lucide-react";
 import { handlePost } from "./utils";
 
 interface OptimisticCallbacks {
@@ -29,15 +28,17 @@ const PostComposer = ({
   quotePostId,
   onSuccess,
   optimistic,
-  className
+  className,
+  isSubmitting,
 }: {
   sendButton?: string;
   placeholder?: string;
   parentPostId?: string | "";
   quotePostId?: string | "";
   onSuccess?: () => void;
-    optimistic?: OptimisticCallbacks;
-    className?: string;
+  optimistic?: OptimisticCallbacks;
+  className?: string;
+  isSubmitting?: boolean;
 }) => {
   const [text, setText] = useState("");
   const [media, setMedia] = useState<MediaProps[]>([]);
@@ -69,19 +70,17 @@ const PostComposer = ({
   if (!user) return null;
 
   const handleSend = async () => {
-    if (loading) return;
-    if (!canSend) return;
-    if (text.length > MAX_TEXT) {
-      // show toast or error
+    if (
+      loading ||
+      isSubmitting ||
+      !canSend ||
+      text.length > MAX_TEXT ||
+      media.length > MAX_MEDIA
+    )
       return;
-    }
-    if (media.length > MAX_MEDIA) {
-      // show toast
-      return;
-    }
 
     setLoading(true);
-    // Build partial optimistic post
+
     const partial = {
       userId: user.uid,
       username: user.username,
@@ -89,42 +88,37 @@ const PostComposer = ({
       userFullName: user.fullName || "",
       content: text,
       media: media.map(m => ({ src: m.src || "", type: m.type })),
-      parentPostId: parentPostId || null,
-      quotePostId: quotePostId || null,
+      parentPostId: parentPostId || "",
+      quotePostId: quotePostId || "",
       replyCount: 0,
       quoteCount: 0,
     } as Partial<PostProps>;
 
-    // add optimistic post (if available)
-    const tempId = optimistic?.addOptimisticPost ? optimistic.addOptimisticPost(partial) : null;
+    const tempId = optimistic?.addOptimisticPost?.(partial) ?? null;
+
+    setText("");
+    setMedia([]);
+    setGifDialogOpen(false);
+    onSuccess?.();
 
     try {
       const serverPost = await handlePost({
         text,
         media,
         user,
-        parentPostId: parentPostId || null,
-        quotePostId: quotePostId || null,
-        onSuccess: () => {},
+        parentPostId,
+        quotePostId,
       });
 
-      // reconcile optimistic
-      if (tempId && optimistic?.replaceOptimisticPost) {
-        optimistic.replaceOptimisticPost(tempId, serverPost);
+      if (tempId && serverPost) {
+        optimistic?.replaceOptimisticPost?.(tempId, serverPost);
+      } else if (tempId) {
+        optimistic?.replaceOptimisticPost?.(tempId, null);
       }
-
-      // clear composer
-      setText("");
-      setMedia([]);
-      setGifDialogOpen(false);
-      onSuccess?.();
-    } catch (err) {
-      // remove optimistic placeholder if any
-      if (tempId && optimistic?.removeOptimisticPost) {
-        optimistic.removeOptimisticPost(tempId);
-      }
-      console.error("Error sending post:", err);
-      // toast already handled in handlePost
+    } catch {
+      if (tempId) optimistic?.replaceOptimisticPost?.(tempId, null);
+      setText(text);
+      setMedia(media);
     } finally {
       setLoading(false);
     }
@@ -133,7 +127,11 @@ const PostComposer = ({
   return (
     <div className={`${className} space-y-2`}>
       <div className="flex space-x-2 items-start">
-        <MyAvatar username={user.username} photoURL={user.photoURL} fullName={user.fullName} />
+        <MyAvatar
+          username={user.username}
+          photoURL={user.photoURL}
+          fullName={user.fullName}
+        />
 
         <div className="space-y-2 w-full">
           <Textarea
@@ -150,7 +148,7 @@ const PostComposer = ({
             maxLength={MAX_TEXT}
           />
 
-          <div className="flex justify-between items-center flex-wrap gap-2">
+          <div className="flex justify-between items-center flex-wrap">
             <Buttons
               setText={setText}
               setMedia={setMedia}
@@ -160,11 +158,19 @@ const PostComposer = ({
             />
 
             {text.length > 0 && (
-              <p className="text-xs text-muted-foreground">{text.length}/{MAX_TEXT}</p>
+              <p className="text-xs text-muted-foreground">
+                {text.length}/{MAX_TEXT}
+              </p>
             )}
 
-            <Button size="sm" onClick={handleSend} disabled={loading || !canSend || text.length > MAX_TEXT}>
-              {loading ? <Loader2 className="animate-spin w-4 h-4" /> : sendButton || "Share"}
+            <Button
+              size="sm"
+              onClick={handleSend}
+              disabled={
+                loading || !canSend || isSubmitting || text.length > MAX_TEXT
+              }
+            >
+              {loading || isSubmitting ? "Wait..." : sendButton || "Share"}
             </Button>
           </div>
         </div>

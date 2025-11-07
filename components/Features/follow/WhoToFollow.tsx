@@ -7,39 +7,56 @@ import { H2 } from "@/components/Typography";
 import { useEffect } from "react";
 import Name from "@/components/feed/post/Name";
 import ConnectDropdown from "@/components/Connect";
-// import { FollowButton } from "@/components/FollowButton";
-// import { isFollowing } from "@/components/utils";
-// import { ConnectDropdown } from "@/components/Connect";
+import { RotateCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function WhoToFollow() {
-  const { visibleSuggestions, rotateVisibleSuggestions } = useUserStore();
+  const {
+    visibleSuggestions,
+    rotateVisibleSuggestions,
+    fetchSmartSuggestions,
+  } = useUserStore();
   const { user: currentUser } = useUserStore(state => state);
-  // const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    rotateVisibleSuggestions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (currentUser?.uid && visibleSuggestions.length === 0) {
+      fetchSmartSuggestions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid]);
 
-  if (!currentUser) return null;
+  if (!currentUser || visibleSuggestions.length === 0) return null;
 
   return (
-    <Card className="p-2 w-full">
-      <H2 className="text-xl">New Connections</H2>
+    <Card className="p-2 space-y-1">
+      <div className="flex justify-between items-center px-4">
+        <H2 className="text-xl font-bold">Connect</H2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            rotateVisibleSuggestions();
+            if (visibleSuggestions.length < 3) fetchSmartSuggestions();
+          }}
+        >
+          <RotateCw className="w-4 h-4" />
+        </Button>
+      </div>
+
       <ul className="space-y-3">
         {visibleSuggestions.map(u => (
-          <li key={u.uid} className="flex items-center justify-between">
+          <li key={u.uid} className="flex items-center justify-between gap-x-2">
             <div className="flex items-center gap-2">
               <MyAvatar
                 username={u.username}
                 fullName={u.fullName}
                 photoURL={u.photoURL}
               />
+
               <Name username={u.username} fullName={u.fullName} />
             </div>
-            <div>
-              <ConnectDropdown targetUid={u.uid} />
-            </div>
+
+            <ConnectDropdown targetUid={u.uid} />
           </li>
         ))}
       </ul>
