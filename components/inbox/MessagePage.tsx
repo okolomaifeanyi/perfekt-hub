@@ -144,9 +144,7 @@ export default function MessagePage({
               {targetUser?.online ? (
                 <span className="text-green-500">Online</span>
               ) : targetUser?.lastSeen ? (
-                <span className="text-muted">{`Last seen ${targetUser?.lastSeen
-                  ?.toDate()
-                  .toLocaleString()}`}</span>
+                <span className="text-muted">{`Last seen ${targetUser.lastSeen instanceof Date ? targetUser.lastSeen.toLocaleString() : targetUser.lastSeen && 'toDate' in targetUser.lastSeen ? targetUser.lastSeen.toDate().toLocaleString() : 'Unknown'}`}</span>
               ) : (
                 <span className="text-muted">Offline</span>
               )}

@@ -11,16 +11,43 @@ function normalizePost(
   doc: FirebaseFirestore.QueryDocumentSnapshot
 ): PostProps {
   const data = doc.data();
-  const id =
-    typeof doc.id === "string" && doc.id.trim() !== ""
-      ? doc.id
-      : `fallback-${Math.random().toString(36).slice(2, 11)}`;
+  const id = doc.id;
+
+  // Convert ALL Timestamps to Date
+  const toDate = (ts: unknown): Date => {
+    if (!ts) return new Date(0);
+    if (ts instanceof Timestamp) return ts.toDate();
+    if (typeof ts === "object" && ts && "toDate" in ts)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (ts as any).toDate();
+    if (typeof ts === "number") return new Date(ts);
+    if (typeof ts === "string") {
+      const d = new Date(ts);
+      return isNaN(d.getTime()) ? new Date(0) : d;
+    }
+    return new Date(0);
+  };
 
   return {
     id,
-    ...data,
-    createdAt: (data.createdAt as Timestamp)?.toDate?.() ?? new Date(),
+    userId: data.userId ?? "",
+    username: data.username ?? "",
+    content: data.content ?? "",
+    media: data.media ?? [],
+    createdAt: toDate(data.createdAt),
+    userPhotoURL: data.userPhotoURL ?? "",
+    userFullName: data.userFullName ?? "",
+    parentPostId: data.parentPostId ?? "",
+    quotePostId: data.quotePostId ?? null,
+    replyCount: data.replyCount ?? 0,
+    quoteCount: data.quoteCount ?? 0,
+    linkPreview: data.linkPreview ?? {},
+    viewCount: data.viewCount ?? 0,
     engagementScore: data.engagementScore ?? 0,
+    engagementUpdatedAt: toDate(data.engagementUpdatedAt),
+    // Add any other fields you use:
+    lastSeen: toDate(data.lastSeen),
+    // ... add more if needed
   } as PostProps;
 }
 
@@ -137,15 +164,7 @@ export async function getFeedForUser(
     q = q.limit(limit);
 
     const snap = await q.get();
-    return snap.docs.map(
-      doc =>
-        ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: (doc.data().createdAt as Timestamp).toDate(),
-          engagementScore: doc.data().engagementScore ?? 0,
-        } as PostProps)
-    );
+    return snap.docs.map(normalizePost);
   }
 
   // --- 2️⃣ User-only feed

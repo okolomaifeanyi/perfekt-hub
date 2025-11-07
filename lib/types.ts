@@ -17,7 +17,7 @@ export interface UserProps {
   postsCount?: number;
   createdAt?: Date | null;
   online?: boolean;
-  lastSeen?: Date;
+  lastSeen?: Date | Timestamp | null;
   completedProfile?: boolean;
   phoneNumber?: string;
   gender?: "male" | "female";
