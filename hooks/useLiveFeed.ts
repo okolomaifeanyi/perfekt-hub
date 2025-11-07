@@ -200,6 +200,7 @@ export function useLiveFeed(
     } finally {
       setLoadingMore(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, pageSize, onlyUser, sortMode]);
 
   const sortPosts = useCallback(
