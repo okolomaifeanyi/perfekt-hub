@@ -5,7 +5,7 @@ import WhoToFollow from "@/components/Features/follow/WhoToFollow";
 import { List } from "@/components/Typography";
 import { PostProps } from "@/lib/types";
 import { ScrollPosition } from "react-lazy-load-image-component";
-const SUGGESTIONS_EVERY = 10;
+const SUGGESTIONS_EVERY = 5;
 
 const Posts = ({
   posts,
@@ -25,7 +25,7 @@ const Posts = ({
         <p className="text-muted-foreground mb-6">
           No posts yet. Follow people to see their updates!
         </p>
-        <WhoToFollow fullPage /> {/* Full suggestions when empty */}
+        <WhoToFollow fullPage />
       </div>
     );
   }
