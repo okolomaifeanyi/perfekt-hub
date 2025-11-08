@@ -1,3 +1,5 @@
+"use client";
+
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { Loader2, X } from "lucide-react";
 import { Textarea } from "../ui/textarea";
@@ -30,14 +32,11 @@ const Composer = ({
 }) => {
   const [sending, setSending] = useState(false);
 
-  // 📨 send message
   const sendMessage = async (
     text?: string,
     media?: { url: string; type: string }
   ) => {
-    if (!user) return;
-    if (!text && !media) return;
-
+    if (!user || (!text && !media)) return;
     setSending(true);
     try {
       await addDoc(
@@ -54,16 +53,15 @@ const Composer = ({
       );
 
       await updateDoc(doc(db, "conversations", conversationId), {
-        lastMessage: text || (media ? "📎 Attachment" : ""),
+        lastMessage: text || (media ? "Attachment" : ""),
         lastMessageAt: serverTimestamp(),
-        [`unreadCount.${user.uid}`]: 0, // sender
-        [`unreadCount.${targetUid}`]: increment(1), // recipient
+        [`unreadCount.${user.uid}`]: 0,
+        [`unreadCount.${targetUid}`]: increment(1),
       });
 
-      // reset draft
       setNewMsg({ text: "" });
-    } catch (err) {
-      console.error("sendMessage error:", err);
+    } catch (e) {
+      console.error(e);
     } finally {
       setSending(false);
     }
@@ -71,7 +69,6 @@ const Composer = ({
 
   return (
     <div className="border-t p-2 flex flex-col gap-2 bg-card">
-      {/* Reply banner */}
       {newMsg.replyTo && (
         <div className="flex items-center justify-between bg-muted px-3 py-2 rounded-lg text-sm">
           <div className="truncate">
@@ -79,7 +76,7 @@ const Composer = ({
             <span className="font-medium">{newMsg.replyTo.text}</span>
           </div>
           <Button
-            onClick={() => setNewMsg(prev => ({ ...prev, replyTo: undefined }))}
+            onClick={() => setNewMsg(p => ({ ...p, replyTo: undefined }))}
           >
             <X className="w-4 h-4 text-muted-foreground" />
           </Button>
@@ -88,9 +85,7 @@ const Composer = ({
 
       <div className="flex items-center gap-2">
         <Emoji
-          onSelect={emoji =>
-            setNewMsg(m => ({ ...m, text: m.text + emoji.native }))
-          }
+          onSelect={e => setNewMsg(m => ({ ...m, text: m.text + e.native }))}
         />
 
         <Textarea
@@ -98,19 +93,17 @@ const Composer = ({
           placeholder="Type a message..."
           value={newMsg.text}
           rows={1}
-          onChange={e => setNewMsg(prev => ({ ...prev, text: e.target.value }))}
+          onChange={e => setNewMsg(p => ({ ...p, text: e.target.value }))}
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (newMsg.text.trim()) {
-                sendMessage(newMsg.text.trim());
-              }
+              if (newMsg.text.trim()) sendMessage(newMsg.text.trim());
             }
           }}
           onInput={e => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = "auto";
-            target.style.height = `${target.scrollHeight}px`;
+            const t = e.target as HTMLTextAreaElement;
+            t.style.height = "auto";
+            t.style.height = `${t.scrollHeight}px`;
           }}
         />
 

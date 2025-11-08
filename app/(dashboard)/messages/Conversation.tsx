@@ -18,7 +18,7 @@ const Conversation = ({
       href={`/messages/${conv.id}`}
       className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition"
     >
-      {otherUser && <JustAvatar user={otherUser} />}
+      {otherUser && <JustAvatar size={45} user={otherUser} />}
       <div className="flex-1">
         <div className="font-medium">
           {otherUser?.fullName || otherUser?.username}

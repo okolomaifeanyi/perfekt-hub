@@ -1,11 +1,13 @@
 import {
   MoreHorizontal,
   Forward,
-  Pin,
+  // Pin,
   Copy,
   Trash2,
   ReplyIcon,
   SmileIcon,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -22,23 +24,28 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  setDoc,
+  collection,
+  getDocs,
+  query,
+  where,
 } from "firebase/firestore";
 import { MessageProps } from "@/lib/types";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
-
 import { getCompactTimeAgo } from "../utils";
+import { useUser } from "@/hooks/useUser";
+// import Link from "next/link";
 
 interface MessagesProps {
   messages: MessageProps[];
   conversationId: string;
   onReply: (msg: MessageProps) => void;
   onForward: (msg: MessageProps) => void;
-  onPin: (msg: MessageProps) => void;
 }
 
 const Messages = forwardRef<HTMLDivElement, MessagesProps>(
-  ({ messages, conversationId, onReply, onForward, onPin }, ref) => {
+  ({ messages, conversationId, onReply, onForward }, ref) => {
     const { user } = useUserStore();
     const [pickerFor, setPickerFor] = useState<string | null>(null);
     const pickerRef = useRef<HTMLDivElement | null>(null);
@@ -94,9 +101,28 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       );
     };
 
-    // ✅ Delete for everyone
-    const handleDeleteForEveryone = async (id: string) => {
-      await deleteDoc(doc(db, "conversations", conversationId, "messages", id));
+    // ✅ Delete for user (move to deletedMessages)
+    const handleDeleteForEveryone = async (msg: MessageProps) => {
+      if (!user?.uid) return;
+
+      const messageRef = doc(
+        db,
+        "conversations",
+        conversationId,
+        "messages",
+        msg.id
+      );
+      const deletedRef = doc(db, "users", user.uid, "deletedMessages", msg.id);
+
+      // Save a copy for user
+      await setDoc(deletedRef, {
+        ...msg,
+        deletedAt: new Date(),
+        conversationId,
+      });
+
+      // Remove from active chat
+      await deleteDoc(messageRef);
     };
 
     // ✅ React
@@ -117,22 +143,76 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       setPickerFor(null);
     };
 
-    return (
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 sticky w-full bottom-0">
-        {messages.map(msg => {
+    // ✅ Handle Pin (only one at a time)
+    const handlePin = async (msg: MessageProps) => {
+      const messagesRef = collection(
+        db,
+        "conversations",
+        conversationId,
+        "messages"
+      );
 
+      // 1️⃣ Find currently pinned message(s)
+      const pinnedSnap = await getDocs(
+        query(messagesRef, where("isPinned", "==", true))
+      );
+
+      // 2️⃣ Determine if the clicked one is already pinned
+      const isAlreadyPinned = pinnedSnap.docs.some(d => d.id === msg.id);
+
+      // 3️⃣ Unpin others
+      const unpinTasks = pinnedSnap.docs
+        .filter(d => d.id !== msg.id)
+        .map(d => updateDoc(d.ref, { isPinned: false }));
+
+      await Promise.all(unpinTasks);
+
+      // 4️⃣ Toggle this one
+      const thisRef = doc(messagesRef, msg.id);
+      await updateDoc(thisRef, { isPinned: !isAlreadyPinned });
+    };
+
+    const pinnedMessage = messages.find(m => m.isPinned);
+    // const normalMessages = messages.filter(m => !m.isPinned);
+    // const allMessages = [...pinnedMessages, ...normalMessages];
+
+    const pinnedUser = useUser(pinnedMessage?.senderId ?? null);
+
+    return (
+      <div className="flex-1 overflow-y-auto space-y-2 sticky w-full bottom-0">
+        <a href={`#${pinnedMessage?.id}`} className="!bg-secondary !mb-2 block">
+          {pinnedMessage && (
+            <div className="px-3 py-2 flex items-center gap-2 text-sm">
+              <Pin className="w-4 h-4" />
+              <span className="truncate">
+                <strong className="text-primary">
+                  {pinnedMessage.senderId === user?.uid
+                    ? "You"
+                    : `@${pinnedUser?.username}`}
+                  :
+                </strong>{" "}
+                {pinnedMessage.text}
+              </span>
+            </div>
+          )}
+        </a>
+
+        {messages.map(msg => {
           const isMe = msg.senderId === user?.uid;
           const isHidden = msg.hiddenFor?.includes(user?.uid || "");
           if (isHidden) return null; // don’t render hidden msgs
 
           return (
             <div
+              id={msg.id}
               key={msg.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+              className={`flex ${
+                isMe ? "justify-end mr-2" : "justify-start ml-2"
+              }`}
             >
               <div
-                className={`relative group w-full bg-gray-100 border-gray-200 max-w-[250px] p-4 rounded-2xl shadow-sm leading-1.5 rounded-e-xl rounded-es-xl dark:bg-gray-700 ${
-                  isMe ? "bg-primary text-white" : "bg-secondary"
+                className={`relative group w-full bg-gray-100 border-gray-200 max-w-[250px] p-4 rounded-2xl shadow-sm leading-relaxed rounded-e-xl rounded-es-xl ${
+                  isMe ? "!bg-primary text-white" : "bg-secondary"
                 }`}
                 // long-press support for touch
                 onTouchStart={() => {
@@ -203,6 +283,12 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     : "just now"}
                 </span>
 
+                {msg.isPinned && (
+                  <div className="absolute top-2 right-2 text-xs text-yellow-500 flex items-center gap-1 z-10">
+                    <Pin className="h-3 w-3" />
+                  </div>
+                )}
+
                 {Object.entries(msg.reactions || {})
                   .filter(([, uids]) => (uids as string[]).length > 0)
                   .map(([emoji, uids]) => (
@@ -212,7 +298,11 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   ))}
 
                 {/* Actions */}
-                <div className="absolute top-1 -left-32 opacity-0 group-hover:opacity-100 transition flex gap-x-1.5 items-center">
+                <div
+                  className={`absolute top-1 opacity-0 group-hover:opacity-100 transition flex gap-x-1.5 items-center ${
+                    isMe ? "-left-32" : "-right-32"
+                  }`}
+                >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="secondary" size="icon">
@@ -223,9 +313,19 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                       <DropdownMenuItem onClick={() => onForward(msg)}>
                         <Forward className="h-4 w-4 mr-2" /> Forward
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onPin(msg)}>
-                        <Pin className="h-4 w-4 mr-2" /> Pin
-                      </DropdownMenuItem>
+                      {isMe && (
+                        <DropdownMenuItem onClick={() => handlePin(msg)}>
+                          {msg.isPinned ? (
+                            <span className="flex gap-x-4">
+                              <PinOff className="h-4 w-4" /> Unpin
+                            </span>
+                          ) : (
+                            <span className="flex gap-x-4">
+                              <Pin className="h-4 w-4" /> Pin
+                            </span>
+                          )}
+                        </DropdownMenuItem>
+                      )}
                       {msg.text && (
                         <DropdownMenuItem onClick={() => handleCopy(msg.text!)}>
                           <Copy className="h-4 w-4 mr-2" /> Copy
@@ -233,7 +333,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                       )}
                       {isMe ? (
                         <DropdownMenuItem
-                          onClick={() => handleDeleteForEveryone(msg.id)}
+                          onClick={() => handleDeleteForEveryone(msg)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" /> Delete for
                           everyone

@@ -29,23 +29,19 @@ export default function MessagePage({
 }) {
   const { user } = useUserStore();
   const [messages, setMessages] = useState<MessageProps[]>([]);
-  const [newMsg, setNewMsg] = useState<DraftMessage>({
-    text: "",
-  });
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [newMsg, setNewMsg] = useState<DraftMessage>({ text: "" });
+  const bottomRef = useRef<HTMLDivElement>(null);
   const [forwardMsg, setForwardMsg] = useState<MessageProps | null>(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
 
-  // 🔎 figure out the other participant
   const [uidA, uidB] = conversationId.split("_");
   const targetUid = uidA === user?.uid ? uidB : uidA;
   const targetUser = useUser(targetUid);
 
-  // ✅ ensure conversation exists
+  /* ---- ensure conversation doc ---- */
   useEffect(() => {
     if (!user) return;
     const ref = doc(db, "conversations", conversationId);
-
     (async () => {
       const snap = await getDoc(ref);
       if (!snap.exists()) {
@@ -56,19 +52,15 @@ export default function MessagePage({
           createdAt: serverTimestamp(),
           lastMessage: "",
           lastMessageAt: serverTimestamp(),
-          unreadCount: {
-            [user.uid]: 0,
-            [targetUid]: 0,
-          },
+          unreadCount: { [user.uid]: 0, [targetUid]: 0 },
         });
       }
     })();
   }, [conversationId, user, targetUid]);
 
-  // 🔥 listen to messages
+  /* ---- listen to messages ---- */
   useEffect(() => {
     if (!conversationId) return;
-
     const q = query(
       collection(db, "conversations", conversationId, "messages"),
       orderBy("createdAt", "asc")
@@ -80,49 +72,29 @@ export default function MessagePage({
       setMessages(list);
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     });
-
     return () => unsub();
   }, [conversationId]);
 
-  // 👀 mark as read
+  /* ---- mark as read ---- */
   useEffect(() => {
     if (!conversationId || !user) return;
-
     const ref = doc(db, "conversations", conversationId);
-
-    const markAsRead = async () => {
-      try {
-        await updateDoc(ref, {
-          [`unreadCount.${user.uid}`]: 0,
-        });
-      } catch (err) {
-        console.error("markAsRead error:", err);
-      }
+    const mark = async () => {
+      await updateDoc(ref, { [`unreadCount.${user.uid}`]: 0 });
     };
-
-    let timer: NodeJS.Timeout;
-    const debouncedMarkAsRead = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        markAsRead();
-      }, 500);
+    const debounced = () => {
+      const t = setTimeout(mark, 500);
+      return () => clearTimeout(t);
     };
-
-    debouncedMarkAsRead();
-    const onFocus = () => debouncedMarkAsRead();
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        debouncedMarkAsRead();
-      }
-    };
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
+    const handler = debounced();
+    const focus = () => debounced();
+    const vis = () => document.visibilityState === "visible" && debounced();
+    window.addEventListener("focus", focus);
+    document.addEventListener("visibilitychange", vis);
     return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      clearTimeout(timer);
+      window.removeEventListener("focus", focus);
+      document.removeEventListener("visibilitychange", vis);
+      handler();
     };
   }, [conversationId, user]);
 
@@ -139,21 +111,21 @@ export default function MessagePage({
           }
           title={targetUser?.fullName || targetUser?.username || "Someone"}
           extra={
-            <>
-              {targetUser?.online ? (
-                <span className="text-green-500">Online</span>
-              ) : targetUser?.lastSeen ? (
-                <span className="text-muted">{`Last seen ${
-                  targetUser.lastSeen instanceof Date
-                    ? targetUser.lastSeen.toLocaleString()
-                    : targetUser.lastSeen && "toDate" in targetUser.lastSeen
-                    ? targetUser.lastSeen.toDate().toLocaleString()
-                    : "Unknown"
-                }`}</span>
-              ) : (
-                <span className="text-muted">Offline</span>
-              )}
-            </>
+            targetUser?.online ? (
+              <span className="text-green-500">Online</span>
+            ) : targetUser?.lastSeen ? (
+              <span className="text-muted">
+                Last seen{" "}
+                {(targetUser.lastSeen instanceof Date
+                  ? targetUser.lastSeen
+                  : "toDate" in targetUser.lastSeen
+                  ? targetUser.lastSeen.toDate()
+                  : null
+                )?.toLocaleString() ?? "Unknown"}
+              </span>
+            ) : (
+              <span className="text-muted">Offline</span>
+            )
           }
         />
 
@@ -162,11 +134,11 @@ export default function MessagePage({
           messages={messages}
           conversationId={conversationId}
           onReply={msg =>
-            setNewMsg(prev => ({
-              ...prev,
+            setNewMsg(p => ({
+              ...p,
               replyTo: {
                 id: msg.id,
-                text: msg.text || "",
+                text: msg.text ?? "",
                 senderId: msg.senderId,
               },
             }))
@@ -175,14 +147,13 @@ export default function MessagePage({
             setForwardMsg(msg);
             setShowForwardModal(true);
           }}
-          onPin={async msg => {
-            await updateDoc(doc(db, "conversations", conversationId), {
-              pinned: msg.id,
-            });
-          }}
+          // onPin={async msg => {
+          //   await updateDoc(doc(db, "conversations", conversationId), {
+          //     pinned: msg.id,
+          //   });
+          // }}
         />
 
-        {/* COMPOSER */}
         <Composer
           newMsg={newMsg}
           setNewMsg={setNewMsg}
@@ -191,6 +162,7 @@ export default function MessagePage({
           targetUid={targetUid}
         />
       </div>
+
       {showForwardModal && forwardMsg && (
         <ForwardModal
           message={forwardMsg}

@@ -154,6 +154,7 @@ export interface MessageProps {
     text: string;
     senderId: string;
   };
+  isPinned?: boolean;
 }
 
 export interface DraftMessage {
