@@ -1,3 +1,4 @@
+// app/(dashboard)/feed/Feed.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -44,7 +45,7 @@ const Feed = ({ scrollPosition }: FeedProps) => {
 
   useEffect(() => {
     const inView = activeTab === "latest" ? latestInView : trendingInView;
-    if (inView) {
+    if (inView && !activeFeed.loadingMore && activeFeed.hasMore) {
       const timer = setTimeout(() => {
         activeFeed.loadMorePosts();
       }, 300);
@@ -69,32 +70,52 @@ const Feed = ({ scrollPosition }: FeedProps) => {
     count,
     onClick,
     hasRealNewPosts,
+    isMerging,
   }: {
     count: number;
     onClick: () => void;
     hasRealNewPosts: boolean;
+    isMerging: boolean;
   }) => {
     if (count === 0 || !hasRealNewPosts) return null;
 
     return (
       <Button
         onClick={onClick}
-        className="flex justify-center py-2 bg-muted/10 hover:bg-muted/20 cursor-pointer"
+        disabled={isMerging}
+        className="flex justify-center items-center gap-2 py-2 w-full"
       >
-        <span className="!m-0 font-medium">
-          Show {count} new post{count > 1 ? "s" : ""}
-        </span>
+        {isMerging ? (
+          <>
+            <Loader2 className="animate-spin w-4 h-4" />
+            <span>Merging...</span>
+          </>
+        ) : (
+          <span className="!m-0 font-medium">
+            Show {count} new post{count > 1 ? "s" : ""}
+          </span>
+        )}
       </Button>
     );
   };
 
+  // USER NOT LOGGED IN
   if (!uid) {
     return (
-      <div className="flex justify-center py-6">
-        <Loader2 className="animate-spin h-4 w-4 text-muted-foreground" />
+      <div className="flex justify-center py-12">
+        <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
       </div>
     );
   }
+
+  // INITIAL LOADING FOR POSTS ONLY
+  const isPostsLoading =
+    (activeTab === "latest" &&
+      latestFeed.loading &&
+      latestFeed.posts.length === 0) ||
+    (activeTab === "trending" &&
+      trendingFeed.loading &&
+      trendingFeed.posts.length === 0);
 
   return (
     <Tabs
@@ -103,10 +124,21 @@ const Feed = ({ scrollPosition }: FeedProps) => {
       className="w-full rounded-none"
     >
       <TabsList className="flex w-full justify-center gap-2 mb-4 sticky top-0 bg-background/80 backdrop-blur-sm z-20">
-        <TabsTrigger value="latest">Latest</TabsTrigger>
-        <TabsTrigger value="trending">Trending</TabsTrigger>
+        <TabsTrigger
+          value="latest"
+          disabled={latestFeed.loading && latestFeed.posts.length === 0}
+        >
+          Latest
+        </TabsTrigger>
+        <TabsTrigger
+          value="trending"
+          disabled={trendingFeed.loading && trendingFeed.posts.length === 0}
+        >
+          Trending
+        </TabsTrigger>
       </TabsList>
 
+      {/* POST COMPOSER – ALWAYS VISIBLE */}
       <PostComposer
         className="px-4"
         optimistic={{
@@ -117,55 +149,78 @@ const Feed = ({ scrollPosition }: FeedProps) => {
         isSubmitting={latestFeed.isSubmitting}
       />
 
-      <TabsContent value="latest" className="px-4">
+      {/* LATEST TAB */}
+      <TabsContent value="latest" className="px-4 space-y-4">
         <NewPostsButton
           count={latestFeed.addedPosts.length}
           onClick={latestFeed.mergeAddedPosts}
           hasRealNewPosts={latestFeed.hasRealNewPosts}
+          isMerging={latestFeed.isMergingAdded}
         />
-        <Posts
-          posts={latestFeed.posts}
-          scrollPosition={scrollPosition}
-          deleteOptimisticPost={latestFeed.deleteOptimisticPost}
-        />
-        <div ref={latestLoadMoreRef} className="flex justify-center py-4 h-10">
-          {latestFeed.loadingMore ? (
-            <Loader2 className="animate-spin w-4 h-4 text-muted-foreground" />
-          ) : (
-            !latestFeed.hasMore && (
-              <span className="text-sm text-muted-foreground">
-                No more posts
-              </span>
-            )
-          )}
-        </div>
+
+        {/* POSTS LIST WITH LOADING SPINNER */}
+        {isPostsLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <Posts
+              posts={latestFeed.posts}
+              scrollPosition={scrollPosition}
+              deleteOptimisticPost={latestFeed.deleteOptimisticPost}
+            />
+            <div
+              ref={latestLoadMoreRef}
+              className="flex justify-center py-4 h-10"
+            >
+              {latestFeed.loadingMore ? (
+                <Loader2 className="animate-spin w-4 h-4 text-muted-foreground" />
+              ) : !latestFeed.hasMore && latestFeed.posts.length > 0 ? (
+                <span className="text-sm text-muted-foreground">
+                  No more posts
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
       </TabsContent>
 
-      <TabsContent value="trending" className="px-4">
+      {/* TRENDING TAB */}
+      <TabsContent value="trending" className="px-4 space-y-4">
         <NewPostsButton
-          count={latestFeed.addedPosts.length}
-          onClick={latestFeed.mergeAddedPosts}
-          hasRealNewPosts={latestFeed.hasRealNewPosts}
+          count={trendingFeed.addedPosts.length}
+          onClick={trendingFeed.mergeAddedPosts}
+          hasRealNewPosts={trendingFeed.hasRealNewPosts}
+          isMerging={trendingFeed.isMergingAdded}
         />
-        <Posts
-          posts={trendingFeed.posts}
-          scrollPosition={scrollPosition}
-          deleteOptimisticPost={trendingFeed.deleteOptimisticPost}
-        />
-        <div
-          ref={trendingLoadMoreRef}
-          className="flex justify-center py-4 h-10"
-        >
-          {trendingFeed.loadingMore ? (
-            <Loader2 className="animate-spin w-4 h-4 text-muted-foreground" />
-          ) : (
-            !trendingFeed.hasMore && (
-              <span className="text-sm text-muted-foreground">
-                No more posts
-              </span>
-            )
-          )}
-        </div>
+
+        {/* POSTS LIST WITH LOADING SPINNER */}
+        {isPostsLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <Posts
+              posts={trendingFeed.posts}
+              scrollPosition={scrollPosition}
+              deleteOptimisticPost={trendingFeed.deleteOptimisticPost}
+            />
+            <div
+              ref={trendingLoadMoreRef}
+              className="flex justify-center py-4 h-10"
+            >
+              {trendingFeed.loadingMore ? (
+                <Loader2 className="animate-spin w-4 h-4 text-muted-foreground" />
+              ) : !trendingFeed.hasMore && trendingFeed.posts.length > 0 ? (
+                <span className="text-sm text-muted-foreground">
+                  No more posts
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
       </TabsContent>
     </Tabs>
   );

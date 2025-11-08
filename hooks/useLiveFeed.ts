@@ -1,3 +1,4 @@
+// hooks/useLiveFeed.ts
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -14,7 +15,7 @@ function normalizeCreatedAt(raw: unknown): Date {
   if (!raw) return new Date(0);
   if (raw instanceof Date) return raw;
   if (raw instanceof Timestamp) return raw.toDate();
-  if (typeof raw === "object" && raw && "toDate" in raw)
+  if (raw instanceof Object && "toDate" in raw)
     return (raw as { toDate: () => Date }).toDate();
   if (typeof raw === "number") return new Date(raw);
   if (typeof raw === "string") {
@@ -52,9 +53,11 @@ export function useLiveFeed(
   const [pendingTempId, setPendingTempId] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostProps[]>([]);
   const [addedPosts, setAddedPosts] = useState<PostProps[]>([]);
+  const [loading, setLoading] = useState(true); // ← NEW: Initial loading
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [cursor, setCursor] = useState<PostProps | null>(null);
+  const [isMergingAdded, setIsMergingAdded] = useState(false);
 
   const postsRef = useRef<PostProps[]>([]);
   const addedRef = useRef<PostProps[]>([]);
@@ -73,15 +76,19 @@ export function useLiveFeed(
     addedRef.current = addedPosts;
   }, [addedPosts]);
 
-  // Initial load
+  // ────── INITIAL LOAD ──────
   useEffect(() => {
     let active = true;
     setPosts([]);
     setAddedPosts([]);
     setHasMore(true);
     setCursor(null);
+    setLoading(true); // ← Start loading
 
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     (async () => {
       try {
@@ -104,6 +111,8 @@ export function useLiveFeed(
         if (normalized.length < pageSize) setHasMore(false);
       } catch (err) {
         console.error("useLiveFeed initial load error:", err);
+      } finally {
+        if (active) setLoading(false); // ← End loading
       }
     })();
 
@@ -113,7 +122,7 @@ export function useLiveFeed(
     };
   }, [userId, pageSize, parentPostId, onlyUser, sortMode]);
 
-  // Polling mode — NEVER include own posts
+  // ────── POLLING FOR NEW POSTS ──────
   useEffect(() => {
     if (!userId) return;
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -142,7 +151,7 @@ export function useLiveFeed(
             ts > newestLocal &&
             !localIds.has(p.id) &&
             !addedIds.has(p.id) &&
-            !isOwnPost && // ← BLOCK YOUR OWN POSTS
+            !isOwnPost &&
             !p.id.startsWith("temp-")
           );
         });
@@ -167,7 +176,7 @@ export function useLiveFeed(
     };
   }, [userId, onlyUser, sortMode]);
 
-  // Infinite scroll
+  // ────── INFINITE SCROLL ──────
   const loadMorePosts = useCallback(async () => {
     const { loadingMore, hasMore, cursor } = stateRef.current;
 
@@ -200,7 +209,7 @@ export function useLiveFeed(
     } finally {
       setLoadingMore(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, pageSize, onlyUser, sortMode]);
 
   const sortPosts = useCallback(
@@ -217,6 +226,8 @@ export function useLiveFeed(
   );
 
   const mergeAddedPosts = useCallback((): void => {
+    setIsMergingAdded(true);
+
     setPosts(prev => {
       const merged = [...addedRef.current, ...prev];
       const uniqueMap = new Map<string, PostProps>();
@@ -224,9 +235,11 @@ export function useLiveFeed(
       return sortPosts(Array.from(uniqueMap.values()));
     });
     setAddedPosts([]);
+
+    setIsMergingAdded(false);
   }, [sortPosts]);
 
-  // Optimistic: Add to feed only
+  // ────── OPTIMISTIC POSTS ──────
   const addOptimisticPost = useCallback(
     (partial: Partial<PostProps>): string => {
       const tempId = makeTempId();
@@ -258,13 +271,8 @@ export function useLiveFeed(
     [sortPosts]
   );
 
-  // Replace in feed only — never touch addedPosts
-  // ─────────────────────────────────────────────────────────────────────────────
-  //  replaceOptimisticPost – FIXED
-  // ─────────────────────────────────────────────────────────────────────────────
   const replaceOptimisticPost = useCallback(
     (tempId: string, serverPost: PostProps | null): void => {
-      // Guard: if server gave us nothing, keep the optimistic version
       if (!serverPost) {
         setPendingTempId(prev => (prev === tempId ? null : prev));
         setIsSubmitting(false);
@@ -273,18 +281,15 @@ export function useLiveFeed(
 
       const norm = normalizePost(serverPost);
 
-      // Replace ONLY in the main feed
       setPosts(prev => {
         const index = prev.findIndex(p => p.id === tempId);
         if (index === -1) {
-          // Temp post already gone? Just prepend the real one.
           return sortPosts([norm, ...prev]);
         }
         const filtered = prev.filter(p => p.id !== tempId);
         return sortPosts([norm, ...filtered]);
       });
 
-      // Unlock button
       setPendingTempId(prev => {
         if (prev === tempId) {
           setIsSubmitting(false);
@@ -296,9 +301,6 @@ export function useLiveFeed(
     [sortPosts]
   );
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  //  removeOptimisticPost – also safer (optional but recommended)
-  // ─────────────────────────────────────────────────────────────────────────────
   const removeOptimisticPost = useCallback(
     (tempId: string): void => {
       setPosts(prev => prev.filter(p => p.id !== tempId));
@@ -312,24 +314,19 @@ export function useLiveFeed(
     [pendingTempId]
   );
 
-  // Inside useLiveFeed hook
   const deleteOptimisticPost = useCallback((postId: string): void => {
-    // Remove from main feed
     setPosts(prev => prev.filter(p => p.id !== postId));
-
-    // Remove from "New posts" if it was there
     setAddedPosts(prev => prev.filter(p => p.id !== postId));
   }, []);
 
-  // Disable "New posts" if only optimistic (yours)
   const hasRealNewPosts =
-    addedPosts.length > 0 &&
-    addedPosts.every(p => !p.id.startsWith("temp-")) === false;
+    addedPosts.length > 0 && addedPosts.some(p => !p.id.startsWith("temp-"));
 
   return {
     posts,
     addedPosts,
     hasMore,
+    loading, // ← NOW RETURNED
     loadingMore,
     addOptimisticPost,
     replaceOptimisticPost,
@@ -339,7 +336,8 @@ export function useLiveFeed(
     sortMode,
     isSubmitting,
     pendingTempId,
-    hasRealNewPosts, // ← use in NewPostsButton
+    hasRealNewPosts,
     deleteOptimisticPost,
+    isMergingAdded,
   } as const;
 }

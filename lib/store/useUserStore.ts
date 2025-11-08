@@ -1,3 +1,4 @@
+// lib/store/useUserStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { UserProps } from "../types";
@@ -9,35 +10,37 @@ type UserState = {
   user: UserProps | null;
   suggestions: UserProps[];
   visibleSuggestions: UserProps[];
+  seenSuggestionUids: Set<string>;
   globalLoading: boolean;
 
-  // 🔹 Badges
+  // Badges
   messageBadge: number;
   notificationBadge: number;
 
-  // 🔹 Profile completion modal state
+  // Profile modal
   dismissedProfileModal: boolean;
   setDismissedProfileModal: (value: boolean) => void;
 
-  // 🔹 Core actions
+  // Core
   setUser: (user: UserProps) => void;
   clearUser: () => void;
   setGlobalLoading: (globalLoading: boolean) => void;
 
-  // 🔹 Suggestions
+  // Suggestions
   setSuggestions: (suggestions: UserProps[]) => void;
   clearSuggestions: () => void;
   rotateVisibleSuggestions: () => void;
   fetchSmartSuggestions: () => Promise<void>;
+  markSuggestionSeen: (uid: string) => void;
+  autoRefreshIfEmpty: () => Promise<void>;
 
-  // 🔹 Realtime listeners
+  // Listeners
   startUserListener: (uid: string) => void;
   startMessageListener: (uid: string) => void;
   startNotificationListener: (uid: string) => void;
   stopListeners: () => void;
 };
 
-// Keep unsub references outside the store
 let unsubUser: (() => void) | null = null;
 let unsubMessages: (() => void) | null = null;
 let unsubNotifications: (() => void) | null = null;
@@ -48,61 +51,90 @@ export const useUserStore = create<UserState>()(
       user: null,
       suggestions: [],
       visibleSuggestions: [],
+      seenSuggestionUids: new Set<string>(),
       globalLoading: false,
       messageBadge: 0,
       notificationBadge: 0,
-
-      // 🔹 Persisted modal dismissal flag
       dismissedProfileModal: false,
+
       setDismissedProfileModal: value => set({ dismissedProfileModal: value }),
 
-      // In setUser
       setUser: user => {
-        set({ user, dismissedProfileModal: false });
-        // Only fetch if logged in
-        if (user?.uid) {
-          get().fetchSmartSuggestions();
-        }
+        set({
+          user,
+          dismissedProfileModal: false,
+          seenSuggestionUids: new Set(),
+          suggestions: [],
+          visibleSuggestions: [],
+        });
+        if (user?.uid) get().fetchSmartSuggestions();
       },
+
       clearUser: () => {
         set({
           user: null,
           messageBadge: 0,
           notificationBadge: 0,
           dismissedProfileModal: false,
+          suggestions: [],
+          visibleSuggestions: [],
+          seenSuggestionUids: new Set(),
         });
         get().stopListeners();
       },
+
       setGlobalLoading: globalLoading => set({ globalLoading }),
 
-      // 🔹 Suggestions helpers
       setSuggestions: suggestions => set({ suggestions }),
-      clearSuggestions: () => set({ suggestions: [] }),
+      clearSuggestions: () => set({ suggestions: [], visibleSuggestions: [] }),
 
-      // In fetchSmartSuggestions
+      markSuggestionSeen: uid =>
+        set(state => ({
+          seenSuggestionUids: new Set([...state.seenSuggestionUids, uid]),
+        })),
+
       fetchSmartSuggestions: async () => {
         const user = get().user;
-        if (!user?.uid) {
-          console.log("No UID → skip suggestions");
-          return;
-        }
-        console.log("Fetching suggestions for", user.uid);
+        if (!user?.uid) return;
+
         try {
-          const suggestions = await getSmartSuggestions(user.uid);
-          console.log("Got suggestions:", suggestions.length);
-          set({ suggestions, visibleSuggestions: suggestions.slice(0, 3) });
+          const raw = await getSmartSuggestions(user.uid);
+          const seen = get().seenSuggestionUids;
+          const filtered = raw.filter(u => !seen.has(u.uid));
+
+          set({
+            suggestions: filtered,
+            visibleSuggestions: filtered.slice(0, 3),
+          });
+
+          // Auto-refresh if still empty after filtering
+          if (filtered.length === 0) {
+            await get().autoRefreshIfEmpty();
+          }
         } catch (err) {
           console.error("Failed to load suggestions", err);
         }
       },
+
+      /** Called when no new suggestions → reset seen + fetch fresh */
+      autoRefreshIfEmpty: async () => {
+        set({ seenSuggestionUids: new Set() });
+        await get().fetchSmartSuggestions();
+      },
+
       rotateVisibleSuggestions: () => {
-        const shuffled = [...get().suggestions].sort(() => 0.5 - Math.random());
+        const { suggestions } = get();
+        if (suggestions.length === 0) {
+          get().autoRefreshIfEmpty();
+          return;
+        }
+        const shuffled = [...suggestions].sort(() => 0.5 - Math.random());
         set({ visibleSuggestions: shuffled.slice(0, 3) });
       },
 
-      // 🔹 User doc listener
+      // ────── LISTENERS ──────
       startUserListener: uid => {
-        if (unsubUser) return; // already active
+        if (unsubUser) return;
         const ref = doc(db, "users", uid);
         unsubUser = onSnapshot(ref, snap => {
           if (snap.exists()) {
@@ -126,13 +158,12 @@ export const useUserStore = create<UserState>()(
           let total = 0;
           snap.forEach(doc => {
             const data = doc.data();
-            total += data.unreadCount?.[uid] || 0;
+            total += data.unreadCount?.[uid] ?? 0;
           });
           set({ messageBadge: total });
         });
       },
 
-      // 🔹 Notifications badge listener
       startNotificationListener: uid => {
         if (unsubNotifications) return;
         const q = query(
@@ -149,20 +180,13 @@ export const useUserStore = create<UserState>()(
         });
       },
 
-      // 🔹 Cleanup all listeners
       stopListeners: () => {
-        if (unsubUser) {
-          unsubUser();
-          unsubUser = null;
-        }
-        if (unsubMessages) {
-          unsubMessages();
-          unsubMessages = null;
-        }
-        if (unsubNotifications) {
-          unsubNotifications();
-          unsubNotifications = null;
-        }
+        unsubUser?.();
+        unsubUser = null;
+        unsubMessages?.();
+        unsubMessages = null;
+        unsubNotifications?.();
+        unsubNotifications = null;
       },
     }),
     {
@@ -170,7 +194,18 @@ export const useUserStore = create<UserState>()(
       partialize: state => ({
         user: state.user,
         dismissedProfileModal: state.dismissedProfileModal,
+        seenSuggestionUids: Array.from(state.seenSuggestionUids),
       }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<UserState> & {
+          seenSuggestionUids?: string[];
+        };
+        return {
+          ...current,
+          ...p,
+          seenSuggestionUids: new Set(p.seenSuggestionUids ?? []),
+        };
+      },
     }
   )
 );

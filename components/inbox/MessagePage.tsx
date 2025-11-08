@@ -16,7 +16,6 @@ import {
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUser } from "@/hooks/useUser";
 import NavBar from "@/app/(dashboard)/[username]/components/NavBar";
-
 import MyAvatar from "../feed/post/MyAvatar";
 import Messages from "./Messages";
 import { DraftMessage, MessageProps } from "@/lib/types";
@@ -144,7 +143,13 @@ export default function MessagePage({
               {targetUser?.online ? (
                 <span className="text-green-500">Online</span>
               ) : targetUser?.lastSeen ? (
-                <span className="text-muted">{`Last seen ${targetUser.lastSeen instanceof Date ? targetUser.lastSeen.toLocaleString() : targetUser.lastSeen && 'toDate' in targetUser.lastSeen ? targetUser.lastSeen.toDate().toLocaleString() : 'Unknown'}`}</span>
+                <span className="text-muted">{`Last seen ${
+                  targetUser.lastSeen instanceof Date
+                    ? targetUser.lastSeen.toLocaleString()
+                    : targetUser.lastSeen && "toDate" in targetUser.lastSeen
+                    ? targetUser.lastSeen.toDate().toLocaleString()
+                    : "Unknown"
+                }`}</span>
               ) : (
                 <span className="text-muted">Offline</span>
               )}
