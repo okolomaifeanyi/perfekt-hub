@@ -1,7 +1,6 @@
 import {
   MoreHorizontal,
   Forward,
-  // Pin,
   Copy,
   Trash2,
   ReplyIcon,
@@ -35,7 +34,6 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { getCompactTimeAgo } from "../utils";
 import { useUser } from "@/hooks/useUser";
-// import Link from "next/link";
 
 interface MessagesProps {
   messages: MessageProps[];
@@ -49,7 +47,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
     const { user } = useUserStore();
     const [pickerFor, setPickerFor] = useState<string | null>(null);
     const pickerRef = useRef<HTMLDivElement | null>(null);
-    const longPressTimer = useRef<number | null>(null);
     const [pickerPosition, setPickerPosition] = useState<"top" | "bottom">(
       "top"
     );
@@ -63,7 +60,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       const spaceAbove = rect.top;
       const spaceBelow = window.innerHeight - rect.bottom;
 
-      // use 60px as approx picker height
       setPickerPosition(
         spaceAbove > 60 ? "top" : spaceBelow > 60 ? "bottom" : "top"
       );
@@ -78,20 +74,13 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       };
 
       document.addEventListener("mousedown", handleDocClick);
-      document.addEventListener("touchstart", handleDocClick);
-
-      return () => {
-        document.removeEventListener("mousedown", handleDocClick);
-        document.removeEventListener("touchstart", handleDocClick);
-      };
+      return () => document.removeEventListener("mousedown", handleDocClick);
     }, []);
 
-    // ✅ Copy
     const handleCopy = (text: string) => {
       navigator.clipboard.writeText(text);
     };
 
-    // ✅ Remove for me (soft delete → mark hidden for this uid)
     const handleRemoveForMe = async (id: string) => {
       await updateDoc(
         doc(db, "conversations", conversationId, "messages", id),
@@ -101,7 +90,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       );
     };
 
-    // ✅ Delete for user (move to deletedMessages)
     const handleDeleteForEveryone = async (msg: MessageProps) => {
       if (!user?.uid) return;
 
@@ -114,22 +102,18 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
       );
       const deletedRef = doc(db, "users", user.uid, "deletedMessages", msg.id);
 
-      // Save a copy for user
       await setDoc(deletedRef, {
         ...msg,
         deletedAt: new Date(),
         conversationId,
       });
 
-      // Remove from active chat
       await deleteDoc(messageRef);
     };
 
-    // ✅ React
     const handleReact = async (msg: MessageProps, emoji: string) => {
-      const ref = doc(db, "conversations", conversationId, "messages", msg.id);
       if (!user?.uid) return;
-
+      const ref = doc(db, "conversations", conversationId, "messages", msg.id);
       const currentReactions = msg.reactions ?? {};
       const hasReacted = currentReactions[emoji]?.includes(user.uid) ?? false;
 
@@ -138,12 +122,9 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
           ? arrayRemove(user.uid)
           : arrayUnion(user.uid),
       });
-
-      // close picker after reacting (optional)
       setPickerFor(null);
     };
 
-    // ✅ Handle Pin (only one at a time)
     const handlePin = async (msg: MessageProps) => {
       const messagesRef = collection(
         db,
@@ -151,32 +132,23 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
         conversationId,
         "messages"
       );
-
-      // 1️⃣ Find currently pinned message(s)
       const pinnedSnap = await getDocs(
         query(messagesRef, where("isPinned", "==", true))
       );
-
-      // 2️⃣ Determine if the clicked one is already pinned
       const isAlreadyPinned = pinnedSnap.docs.some(d => d.id === msg.id);
 
-      // 3️⃣ Unpin others
       const unpinTasks = pinnedSnap.docs
         .filter(d => d.id !== msg.id)
         .map(d => updateDoc(d.ref, { isPinned: false }));
 
       await Promise.all(unpinTasks);
-
-      // 4️⃣ Toggle this one
-      const thisRef = doc(messagesRef, msg.id);
-      await updateDoc(thisRef, { isPinned: !isAlreadyPinned });
+      await updateDoc(doc(messagesRef, msg.id), { isPinned: !isAlreadyPinned });
     };
 
     const pinnedMessage = messages.find(m => m.isPinned);
-    // const normalMessages = messages.filter(m => !m.isPinned);
-    // const allMessages = [...pinnedMessages, ...normalMessages];
-
     const pinnedUser = useUser(pinnedMessage?.senderId ?? null);
+
+    const [chatTouched, setChatTouched] = useState("");
 
     return (
       <div className="flex-1 overflow-y-auto space-y-2 sticky w-full bottom-0">
@@ -200,7 +172,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
         {messages.map(msg => {
           const isMe = msg.senderId === user?.uid;
           const isHidden = msg.hiddenFor?.includes(user?.uid || "");
-          if (isHidden) return null; // don’t render hidden msgs
+          if (isHidden) return null;
 
           return (
             <div
@@ -209,32 +181,16 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
               className={`flex ${
                 isMe ? "justify-end mr-2" : "justify-start ml-2"
               }`}
+              onTouchEnd={() => {
+                setChatTouched(msg.id);
+                setTimeout(() => setChatTouched(""), 3000);
+              }}
             >
               <div
-                className={`relative group w-full bg-gray-100 border-gray-200 max-w-[250px] p-4 rounded-2xl shadow-sm leading-relaxed rounded-e-xl rounded-es-xl ${
-                  isMe ? "!bg-primary text-white" : "bg-secondary"
+                className={`relative group w-full max-w-[250px] p-4 rounded-2xl shadow-sm leading-normal ${
+                  isMe ? "!bg-primary text-primary-foreground font-semibold" : "bg-secondary"
                 }`}
-                // long-press support for touch
-                onTouchStart={() => {
-                  // 600ms long press
-                  longPressTimer.current = window.setTimeout(() => {
-                    setPickerFor(msg.id);
-                  }, 600);
-                }}
-                onTouchEnd={() => {
-                  if (longPressTimer.current) {
-                    clearTimeout(longPressTimer.current);
-                    longPressTimer.current = null;
-                  }
-                }}
-                onTouchMove={() => {
-                  if (longPressTimer.current) {
-                    clearTimeout(longPressTimer.current);
-                    longPressTimer.current = null;
-                  }
-                }}
               >
-                {/* Reply preview */}
                 {msg.replyTo && (
                   <div
                     className={`border-l-4 pl-2 mb-1 text-xs ${
@@ -250,7 +206,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   </div>
                 )}
 
-                {/* Media */}
                 {msg.media && (
                   <div className="mb-2">
                     {msg.media.type.startsWith("image") ? (
@@ -273,10 +228,8 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   </div>
                 )}
 
-                {/* Text */}
                 {msg.text}
 
-                {/* Timestamp */}
                 <span className="block text-[10px] opacity-70 mt-1 text-right">
                   {msg.createdAt?.toDate
                     ? getCompactTimeAgo(msg.createdAt.toDate())
@@ -284,7 +237,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                 </span>
 
                 {msg.isPinned && (
-                  <div className="absolute top-2 right-2 text-xs text-yellow-500 flex items-center gap-1 z-10">
+                  <div className="absolute top-2 right-2 text-xs text-foreground flex items-center gap-1 z-10">
                     <Pin className="h-3 w-3" />
                   </div>
                 )}
@@ -297,11 +250,11 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     </span>
                   ))}
 
-                {/* Actions */}
+                {/* Desktop Actions */}
                 <div
                   className={`absolute top-1 opacity-0 group-hover:opacity-100 transition flex gap-x-1.5 items-center ${
                     isMe ? "-left-32" : "-right-32"
-                  }`}
+                  } ${chatTouched === msg.id ? "opacity-100" : ""}`}
                 >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -369,8 +322,11 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   {pickerFor === msg.id && (
                     <div
                       ref={pickerRef}
-                      className={`absolute z-auto left-1/2 -translate-x-1/2 flex flex-row gap-1 p-2 rounded-xl shadow-lg bg-white
-      ${pickerPosition === "top" ? "bottom-full mb-2" : "top-full mt-2"}`}
+                      className={`absolute z-auto left-1/2 -translate-x-1/2 flex flex-row gap-1 p-2 rounded-xl shadow-lg bg-white ${
+                        pickerPosition === "top"
+                          ? "bottom-full mb-2"
+                          : "top-full mt-2"
+                      }`}
                     >
                       {["👍", "❤️", "😂", "😮", "😢", "👏"].map(emoji => (
                         <button
