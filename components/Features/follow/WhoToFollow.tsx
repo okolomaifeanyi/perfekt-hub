@@ -3,14 +3,15 @@
 
 import { useUserStore } from "@/lib/store/useUserStore";
 import MyAvatar from "@/components/feed/post/MyAvatar";
-import { Card } from "@/components/ui/card";
-import { H2 } from "@/components/Typography";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// import { H2 } from "@/components/Typography";
 import { useEffect, useState } from "react";
-import Name from "@/components/feed/post/Name";
+// import Name from "@/components/feed/post/Name";
 import ConnectDropdown from "@/components/Connect";
 import { RotateCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LinkIcon } from "@heroicons/react/24/solid";
 
 interface WhoToFollowProps {
   fullPage?: boolean;
@@ -28,7 +29,6 @@ export default function WhoToFollow({
     suggestions,
     rotateVisibleSuggestions,
     fetchSmartSuggestions,
-    markSuggestionSeen,
   } = useUserStore();
 
   const [page, setPage] = useState(1);
@@ -52,11 +52,6 @@ export default function WhoToFollow({
   const end = fullPage ? page * ITEMS_PER_PAGE : ITEMS_PER_PAGE;
   const displayed = suggestions.slice(start, end);
   const hasMore = end < suggestions.length;
-
-  // Mark displayed users as seen
-  useEffect(() => {
-    displayed.forEach(u => markSuggestionSeen(u.uid));
-  }, [displayed.map(u => u.uid).join(","), markSuggestionSeen]);
 
   if (!currentUser) return null;
 
@@ -88,13 +83,14 @@ export default function WhoToFollow({
   }
 
   return (
-    <Card className={`space-y-3 ${compact ? "p-2" : "p-4"} ${className}`}>
-      {/* Header */}
-      {!compact && (
-        <div className="flex justify-between items-center">
-          <H2 className={fullPage ? "text-2xl font-bold" : "text-xl font-bold"}>
-            {fullPage ? "People You May Know" : "Connect"}
-          </H2>
+    <Card className={`space-y-2 ${compact ? "!py-3" : "py-4"} ${className}`}>
+      
+        <CardHeader className="flex justify-between items-center !my-0">
+          <CardTitle
+            className={"text-2xl font-bold flex items-center gap-x-2"}
+          >
+            <LinkIcon className="size-5" /> {fullPage ? "Connect with people" : "Connect"}
+          </CardTitle>
           {showRotate && (
             <Button
               variant="ghost"
@@ -104,42 +100,44 @@ export default function WhoToFollow({
               <RotateCw className="w-4 h-4" />
             </Button>
           )}
-        </div>
-      )}
+        </CardHeader>
+    
+      <CardContent className={`${compact ? "px-1" : ""}`}>
+        {/* Users */}
+        <ul className={`space-y-5 ${compact ? "px-2" : ""}`}>
+          {displayed.map(u => (
+            <li key={u.uid} className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <MyAvatar
+                  username={u.username}
+                  fullName={u.fullName}
+                  photoURL={u.photoURL}
+                  size={compact ? 35 : 45}
+                />
 
-      {/* Users */}
-      <ul className={`space-y-3 ${compact ? "px-2" : ""}`}>
-        {displayed.map(u => (
-          <li key={u.uid} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <MyAvatar
-                username={u.username}
-                fullName={u.fullName}
-                photoURL={u.photoURL}
-                size={compact ? 45 : 65}
-              />
-              <div className="min-w-0">
-                <Name username={u.username} fullName={u.fullName} />
-                <p className="text-xs text-muted-foreground truncate">
-                  {u.work || u.company || u.location || "Member"}
-                </p>
+                <div className="flex flex-col items-start">
+                  {u.fullName && <strong className={compact ? "text-xs" : "text-sm"}>{u.fullName}</strong>}
+                  <strong className="text-gray-500 font-normal text-xs">
+                    @{u.username}
+                  </strong>
+                </div>
               </div>
-            </div>
-            <ConnectDropdown targetUid={u.uid} />
-          </li>
-        ))}
-      </ul>
+              <ConnectDropdown targetUid={u.uid} />
+            </li>
+          ))}
+        </ul>
 
-      {/* Show More */}
-      {fullPage && hasMore && (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setPage(p => p + 1)}
-        >
-          Show More ({suggestions.length - end} left)
-        </Button>
-      )}
+        {/* Show More */}
+        {fullPage && hasMore && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setPage(p => p + 1)}
+          >
+            Show More ({suggestions.length - end} left)
+          </Button>
+        )}
+      </CardContent>
     </Card>
   );
 }

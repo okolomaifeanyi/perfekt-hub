@@ -1,4 +1,3 @@
-// lib/store/useUserStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { UserProps } from "../types";
@@ -9,8 +8,9 @@ import { getSmartSuggestions } from "@/components/Features/follow/actions";
 type UserState = {
   user: UserProps | null;
   suggestions: UserProps[];
-  visibleSuggestions: UserProps[];
-  seenSuggestionUids: Set<string>;
+  visibleSuggestions: UserProps[]; // Always top 3 or rotated
+  currentIndex: number; // For rotation
+
   globalLoading: boolean;
 
   // Badges
@@ -31,8 +31,7 @@ type UserState = {
   clearSuggestions: () => void;
   rotateVisibleSuggestions: () => void;
   fetchSmartSuggestions: () => Promise<void>;
-  markSuggestionSeen: (uid: string) => void;
-  autoRefreshIfEmpty: () => Promise<void>;
+  refreshSuggestions: () => Promise<void>; // Manual refresh
 
   // Listeners
   startUserListener: (uid: string) => void;
@@ -45,13 +44,15 @@ let unsubUser: (() => void) | null = null;
 let unsubMessages: (() => void) | null = null;
 let unsubNotifications: (() => void) | null = null;
 
+const ITEMS_TO_SHOW = 3;
+
 export const useUserStore = create<UserState>()(
   persist(
     (set, get) => ({
       user: null,
       suggestions: [],
       visibleSuggestions: [],
-      seenSuggestionUids: new Set<string>(),
+      currentIndex: 0,
       globalLoading: false,
       messageBadge: 0,
       notificationBadge: 0,
@@ -63,11 +64,13 @@ export const useUserStore = create<UserState>()(
         set({
           user,
           dismissedProfileModal: false,
-          seenSuggestionUids: new Set(),
           suggestions: [],
           visibleSuggestions: [],
+          currentIndex: 0,
         });
-        if (user?.uid) get().fetchSmartSuggestions();
+        if (user?.uid) {
+          get().fetchSmartSuggestions();
+        }
       },
 
       clearUser: () => {
@@ -78,20 +81,24 @@ export const useUserStore = create<UserState>()(
           dismissedProfileModal: false,
           suggestions: [],
           visibleSuggestions: [],
-          seenSuggestionUids: new Set(),
+          currentIndex: 0,
         });
         get().stopListeners();
       },
 
       setGlobalLoading: globalLoading => set({ globalLoading }),
 
-      setSuggestions: suggestions => set({ suggestions }),
-      clearSuggestions: () => set({ suggestions: [], visibleSuggestions: [] }),
+      setSuggestions: suggestions => {
+        const top = suggestions.slice(0, 12); // Always keep top 12
+        set({
+          suggestions: top,
+          visibleSuggestions: top.slice(0, ITEMS_TO_SHOW),
+          currentIndex: 0,
+        });
+      },
 
-      markSuggestionSeen: uid =>
-        set(state => ({
-          seenSuggestionUids: new Set([...state.seenSuggestionUids, uid]),
-        })),
+      clearSuggestions: () =>
+        set({ suggestions: [], visibleSuggestions: [], currentIndex: 0 }),
 
       fetchSmartSuggestions: async () => {
         const user = get().user;
@@ -99,37 +106,43 @@ export const useUserStore = create<UserState>()(
 
         try {
           const raw = await getSmartSuggestions(user.uid);
-          const seen = get().seenSuggestionUids;
-          const filtered = raw.filter(u => !seen.has(u.uid));
-
-          set({
-            suggestions: filtered,
-            visibleSuggestions: filtered.slice(0, 3),
-          });
-
-          // Auto-refresh if still empty after filtering
-          if (filtered.length === 0) {
-            await get().autoRefreshIfEmpty();
-          }
+          get().setSuggestions(raw);
         } catch (err) {
           console.error("Failed to load suggestions", err);
         }
       },
 
-      /** Called when no new suggestions → reset seen + fetch fresh */
-      autoRefreshIfEmpty: async () => {
-        set({ seenSuggestionUids: new Set() });
-        await get().fetchSmartSuggestions();
-      },
-
+      /** Rotate: show next 3 in list */
       rotateVisibleSuggestions: () => {
-        const { suggestions } = get();
+        const { suggestions, currentIndex } = get();
         if (suggestions.length === 0) {
-          get().autoRefreshIfEmpty();
+          get().refreshSuggestions();
           return;
         }
-        const shuffled = [...suggestions].sort(() => 0.5 - Math.random());
-        set({ visibleSuggestions: shuffled.slice(0, 3) });
+
+        const nextIndex = (currentIndex + ITEMS_TO_SHOW) % suggestions.length;
+        const nextThree = suggestions.slice(
+          nextIndex,
+          nextIndex + ITEMS_TO_SHOW
+        );
+        const wrapped =
+          nextThree.length < ITEMS_TO_SHOW
+            ? [
+                ...nextThree,
+                ...suggestions.slice(0, ITEMS_TO_SHOW - nextThree.length),
+              ]
+            : nextThree;
+
+        set({
+          visibleSuggestions: wrapped,
+          currentIndex: nextIndex,
+        });
+      },
+
+      /** Force refresh suggestions (e.g. when exhausted) */
+      refreshSuggestions: async () => {
+        set({ suggestions: [], visibleSuggestions: [], currentIndex: 0 });
+        await get().fetchSmartSuggestions();
       },
 
       // ────── LISTENERS ──────
@@ -194,18 +207,8 @@ export const useUserStore = create<UserState>()(
       partialize: state => ({
         user: state.user,
         dismissedProfileModal: state.dismissedProfileModal,
-        seenSuggestionUids: Array.from(state.seenSuggestionUids),
+        // DO NOT persist suggestions or index
       }),
-      merge: (persisted, current) => {
-        const p = persisted as Partial<UserState> & {
-          seenSuggestionUids?: string[];
-        };
-        return {
-          ...current,
-          ...p,
-          seenSuggestionUids: new Set(p.seenSuggestionUids ?? []),
-        };
-      },
     }
   )
 );

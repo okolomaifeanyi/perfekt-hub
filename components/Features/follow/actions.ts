@@ -1,14 +1,21 @@
-// app/actions/getSmartSuggestions.ts
 "use server";
 
 import { firestoreAdmin } from "@/lib/firebaseAdmin";
 import { UserProps } from "@/lib/types";
 
 function fuzzyMatch(a: string, b: string): number {
-  a = a.toLowerCase();
-  b = b.toLowerCase();
+  a = a.toLowerCase().trim();
+  b = b.toLowerCase().trim();
   if (a === b) return 1;
   if (a.includes(b) || b.includes(a)) return 0.8;
+  // Partial word match
+  const wordsA = a.split(" ");
+  const wordsB = b.split(" ");
+  for (const wa of wordsA) {
+    for (const wb of wordsB) {
+      if (wa && wb && (wa.includes(wb) || wb.includes(wa))) return 0.6;
+    }
+  }
   return 0;
 }
 
@@ -47,7 +54,7 @@ export async function getSmartSuggestions(
 
   const myAge = me.dob ? calculateAge(me.dob) : null;
   const myGender = me.gender;
-  const myName = me.fullName || me.username || "";
+  const myName = (me.fullName || me.username || "").toLowerCase();
   const myProfession = (me.work || me.company || "").toLowerCase();
   const myLocation = (me.location || me.country || "").toLowerCase();
 
@@ -79,11 +86,13 @@ export async function getSmartSuggestions(
   // 4. Fetch 2nd-degree users + big pool
   const candidates: (UserProps & { score: number; source: string })[] = [];
 
-  // Fetch 2nd-degree first
+  // Fetch 2nd-degree in chunks of 10 (Firestore 'in' limit)
   if (secondDegree.size > 0) {
     const chunks: string[][] = [];
     const arr = Array.from(secondDegree);
-    for (let i = 0; i < arr.length; i += 10) chunks.push(arr.slice(i, i + 10));
+    for (let i = 0; i < arr.length; i += 10) {
+      chunks.push(arr.slice(i, i + 10));
+    }
 
     await Promise.all(
       chunks.map(async chunk => {
@@ -91,6 +100,7 @@ export async function getSmartSuggestions(
           .collection("users")
           .where("uid", "in", chunk)
           .get();
+
         snap.forEach(doc => {
           const data = doc.data();
           const uid = doc.id;
@@ -101,28 +111,37 @@ export async function getSmartSuggestions(
           // Boost for mutual connections
           if (friends.has(uid) || following.has(uid)) score += 20;
 
-          // Name, age, etc.
+          // Name match
           const nameScore = fuzzyMatch(
             myName,
-            data.fullName || data.username || ""
+            (data.fullName || data.username || "").toLowerCase()
           );
-          if (nameScore > 0.7) score += 9;
+          if (nameScore > 0.5) score += nameScore > 0.7 ? 12 : 8;
+
+          // Age match (±10 years)
           if (myAge && data.dob) {
             const theirAge = calculateAge(data.dob);
-            if (theirAge && Math.abs(myAge - theirAge) <= 5) score += 8;
+            if (theirAge) {
+              const ageDiff = Math.abs(myAge - theirAge);
+              if (ageDiff <= 5) score += 10;
+              else if (ageDiff <= 10) score += 5;
+            }
           }
+
+          // Gender preference
           if (myGender && data.gender && data.gender !== myGender) score += 7;
+
+          // Profession match
           const theirWork = (data.work || data.company || "").toLowerCase();
-          if (myProfession && theirWork.includes(myProfession)) score += 6;
+          if (myProfession && theirWork && theirWork.includes(myProfession)) score += 7;
+
+          // Location match
           const theirLoc = (data.location || data.country || "").toLowerCase();
-          if (myLocation && theirLoc.includes(myLocation)) score += 5;
-          // if (data.lastSeen) {
-          //   const daysAgo =
-          //     (Date.now() - data.lastSeen.toDate().getTime()) / 864e5;
-          //   if (daysAgo < 7) score += 4;
-          // }
-          if (data.photoURL) score += 3;
-          if (data.completedProfile) score += 2;
+          if (myLocation && theirLoc && theirLoc.includes(myLocation)) score += 6;
+
+          // Profile quality
+          if (data.photoURL) score += 4;
+          if (data.completedProfile) score += 3;
 
           candidates.push({
             uid,
@@ -149,39 +168,69 @@ export async function getSmartSuggestions(
     );
   }
 
-  // 5. Fallback: 150 active users (if not enough 2nd-degree)
-  if (candidates.length < 12) {
+  // 5. Fallback: 300 pseudo-random users (requires randomScore on users)
+  if (candidates.length < 6) {
+    const randomSeed = Math.random();
     const poolSnap = await firestoreAdmin
       .collection("users")
-      .limit(150)
+      .where("randomKey", ">=", randomSeed)
+      .limit(300)
       .get();
+  
+    // Prepare a docs array; if not enough results, fetch from below seed and merge & shuffle
+    let poolDocs = poolSnap.docs;
+  
+    // If not enough, get from below seed and merge
+    if (poolDocs.length < 100) {
+      const belowSnap = await firestoreAdmin
+        .collection("users")
+        .where("randomKey", "<", randomSeed)
+        .limit(300)
+        .get();
+      const allDocs = [...poolDocs, ...belowSnap.docs];
+      // Shuffle and take up to 300
+      for (let i = allDocs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allDocs[i], allDocs[j]] = [allDocs[j], allDocs[i]];
+      }
+      poolDocs = allDocs.slice(0, 300);
+    }
 
-    poolSnap.forEach(doc => {
+    const seenUids = new Set(candidates.map(c => c.uid));
+
+    poolDocs.forEach(doc => {
       const data = doc.data();
       const uid = doc.id;
-      if (exclude.has(uid) || secondDegree.has(uid)) return;
+      if (exclude.has(uid) || seenUids.has(uid) || secondDegree.has(uid)) return;
+      seenUids.add(uid);
 
-      let score = 10;
+      let score = 35; // Higher base for fallback visibility
+
       const nameScore = fuzzyMatch(
         myName,
-        data.fullName || data.username || ""
+        (data.fullName || data.username || "").toLowerCase()
       );
-      if (nameScore > 0.7) score += 9;
+      if (nameScore > 0.5) score += nameScore > 0.7 ? 12 : 8;
+
       if (myAge && data.dob) {
         const theirAge = calculateAge(data.dob);
-        if (theirAge && Math.abs(myAge - theirAge) <= 5) score += 8;
+        if (theirAge) {
+          const ageDiff = Math.abs(myAge - theirAge);
+          if (ageDiff <= 5) score += 10;
+          else if (ageDiff <= 10) score += 5;
+        }
       }
-      if (myGender && data.gender && data.gender !== myGender) score += 7;
+
+      if (myGender && data.gender && data.gender !== myGender) score += 6;
+
       const theirWork = (data.work || data.company || "").toLowerCase();
-      if (myProfession && theirWork.includes(myProfession)) score += 6;
+      if (myProfession && theirWork && theirWork.includes(myProfession)) score += 7;
+
       const theirLoc = (data.location || data.country || "").toLowerCase();
-      if (myLocation && theirLoc.includes(myLocation)) score += 5;
-      // if (data.lastSeen) {
-      //   const daysAgo = (Date.now() - data.lastSeen.toDate().getTime()) / 864e5;
-      //   if (daysAgo < 7) score += 4;
-      // }
-      if (data.photoURL) score += 3;
-      if (data.completedProfile) score += 2;
+      if (myLocation && theirLoc && theirLoc.includes(myLocation)) score += 6;
+
+      if (data.photoURL) score += 4;
+      if (data.completedProfile) score += 3;
 
       candidates.push({
         uid,
@@ -206,18 +255,16 @@ export async function getSmartSuggestions(
     });
   }
 
-  // 6. Return top 12, deduped, no repeats
+  // 6. Return top 12, deduped
   const seen = new Set<string>();
-  return (
-    candidates
-      .sort((a, b) => b.score - a.score)
-      .filter(u => {
-        if (seen.has(u.uid)) return false;
-        seen.add(u.uid);
-        return true;
-      })
-      .slice(0, 12)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      .map(({ score, source, ...u }) => u)
-  );
+  return candidates
+    .sort((a, b) => b.score - a.score)
+    .filter(u => {
+      if (seen.has(u.uid)) return false;
+      seen.add(u.uid);
+      return true;
+    })
+    .slice(0, 12)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    .map(({ score, source, ...u }) => u);
 }
