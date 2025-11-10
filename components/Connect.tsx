@@ -80,7 +80,7 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   }, [user?.uid, targetUid, setStatus]);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={isLoading}>
           {isLoading ? (

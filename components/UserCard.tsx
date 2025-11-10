@@ -26,7 +26,7 @@ const UserCard = ({
   return (
     <HoverCard>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
-      <HoverCardContent className="w-64 sm:w-72">
+      <HoverCardContent className="w-64 sm:w-72 ">
         <div className="flex flex-col space-y-2">
           {/* Header: Avatar + Actions */}
           <div className="flex justify-between">
