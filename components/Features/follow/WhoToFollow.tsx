@@ -12,6 +12,7 @@ import { RotateCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LinkIcon } from "@heroicons/react/24/solid";
+import UserCard from "@/components/UserCard";
 
 interface WhoToFollowProps {
   fullPage?: boolean;
@@ -107,6 +108,7 @@ export default function WhoToFollow({
         <ul className={`space-y-5 ${compact ? "px-2" : ""}`}>
           {displayed.map(u => (
             <li key={u.uid} className="flex justify-between items-center">
+              <UserCard user={u}>
               <div className="flex items-center gap-2">
                 <MyAvatar
                   username={u.username}
@@ -121,7 +123,8 @@ export default function WhoToFollow({
                     @{u.username}
                   </strong>
                 </div>
-              </div>
+                </div>
+                </UserCard>
               <ConnectDropdown targetUid={u.uid} />
             </li>
           ))}
