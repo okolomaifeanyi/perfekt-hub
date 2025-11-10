@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   useUnreadNotificationsCount,
   useNotifications,
@@ -26,6 +27,7 @@ import { Avatar } from "./ui/avatar";
 import Image from "next/image";
 import { userAltImageUrl } from "./UserAltImageUrl";
 import Back from "@/app/(dashboard)/[username]/components/Back";
+import { PenIcon } from "lucide-react";
 
 const getNotificationMeta = (n: Notification) => {
   switch (n.type) {
@@ -71,6 +73,12 @@ const getNotificationMeta = (n: Notification) => {
         link: `/${n.actor.username}`,
         message: "accepted your friend request",
       };
+    case "quote":
+      return {
+        icon: <PenIcon className="w-4 h-4 text-green-500" />,
+        link: `/${n.actor.username}/${n.postId}`,
+        message: "quoted your post",
+      };
     default:
       return {
         icon: <BellIcon className="w-4 h-4" />,
@@ -87,7 +95,7 @@ const NotificationPage = () => {
 
   const [filter, setFilter] = useState<"all" | "mentions" | "unread">("all");
 
-   // ✅ Auto mark all as read once the page loads
+  // ✅ Auto mark all as read once the page loads
   useEffect(() => {
     if (notifications.length > 0) {
       markAllAsRead();
@@ -155,7 +163,7 @@ const NotificationPage = () => {
         >
           Mentions
         </Button>
-        
+
         <Button
           size="sm"
           variant={filter === "unread" ? "secondary" : "ghost"}
