@@ -12,7 +12,7 @@ const NavBar = ({
   avatar?: ReactNode;
 }) => {
   return (
-    <div className="py-2 sticky top-0 flex justify-between items-center z-10 bg-background px-2">
+    <div className="py-2 sticky top-0 flex justify-between items-center z-10 bg-background px-2 gap-x-2">
       <div className="flex items-center space-x-2">
         <Back />
 

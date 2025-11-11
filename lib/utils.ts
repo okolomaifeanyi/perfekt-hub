@@ -218,7 +218,10 @@ export default function getCroppedImg(
 export const dataImage =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAyklEQVR4AYTKq4oCYRjG8b/CzsrCwu6mSbsraPCAJqNJTCLYvACryaDVGzFZTHaLoKBBvQMRDSIexgM4g87pGw/liz7wwsvz/Pzei/i5x3Q9mvMrtfGJSndLY3TEcrz7Ak/QXpoMbB/1xAfVuI/O7ExrtJdgsrFwDAtN09ANA+EKhlNdAs+wuexM+geF3uYN5yIQtitBRlUoBwXFyBeFcIBS1Caf/JYgF/nEsQSLlcb6oBNQ3smnfiR4fOmYSuhXJRb+I5v6f1TPuwEAAP//IuVqRgAAAAZJREFUAwBLeGnx3hCf3gAAAABJRU5ErkJggg==";
 
-export function canView(field: keyof UserProps, viewerRole: ViewerRole): boolean {
+export function canView(
+  field: keyof UserProps,
+  viewerRole: ViewerRole
+): boolean {
   const rules: Record<keyof UserProps, ViewerRole> = {
     phoneNumber: "friend",
     email: "friend",
@@ -249,6 +252,7 @@ export function canView(field: keyof UserProps, viewerRole: ViewerRole): boolean
     lastSeen: "friend",
     completedProfile: "self",
     country: "public",
+    fullName_lowercase: "self",
   };
 
   const requiredRole = rules[field] || "public";
@@ -262,7 +266,6 @@ export function canView(field: keyof UserProps, viewerRole: ViewerRole): boolean
   if (requiredRole === "self" && viewerRole === "self") return true;
   return false;
 }
-
 
 export async function isFriend(currentUid: string, profileUid: string) {
   const snap = await getDoc(

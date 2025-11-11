@@ -31,6 +31,7 @@ export interface UserProps {
   instagram?: string;
   relationship?: string;
   country?: string;
+  fullName_lowercase?: string;
 }
 
 export interface CommentProps {
@@ -69,6 +70,7 @@ export interface PostProps {
   quoteCount?: number;
   __optimistic?: boolean;
   engagementScore?: number;
+  content_lowercase?: string;
 }
 
 export interface EmojiProps {

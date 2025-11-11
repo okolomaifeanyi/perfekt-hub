@@ -1,13 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  // Dialog,
-  // DialogContent,
-  // DialogFooter,
-  // DialogHeader,
-  // DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -64,6 +57,21 @@ const schema = z.object({
         return isValid(parsed);
       },
       { message: "Invalid date format" }
+    )
+    .refine(
+      val => {
+        const parsed = parse(val, "MMMM dd, yyyy", new Date());
+        if (!isValid(parsed)) return false;
+        const today = new Date();
+        const age = today.getFullYear() - parsed.getFullYear();
+        const hasHadBirthdayThisYear =
+          today.getMonth() > parsed.getMonth() ||
+          (today.getMonth() === parsed.getMonth() &&
+            today.getDate() >= parsed.getDate());
+        const actualAge = hasHadBirthdayThisYear ? age : age - 1;
+        return actualAge >= 18;
+      },
+      { message: "You must be at least 18 years old" }
     ),
   photoURL: z.string().url("Profile picture is required"),
 });
@@ -182,6 +190,7 @@ export default function CompleteProfileModal({
         dob: form.dob,
         photoURL: form.photoURL,
         completedProfile: true,
+        fullName_lowercase: form.fullName.trim().toLowerCase(),
       });
 
       // Sync Firebase Auth profile
@@ -205,12 +214,12 @@ export default function CompleteProfileModal({
 
   function formatDate(date: Date | undefined) {
     if (!date || !isValid(date)) return "";
-    return date.toLocaleDateString("en-US", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
+    const month = date.toLocaleString("en-US", { month: "long" });
+    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
   }
+
 
   return (
     <ResponsiveSheet
@@ -328,18 +337,12 @@ export default function CompleteProfileModal({
             <Input
               id="dob"
               value={watch("dob")}
-              placeholder="June 01, 2025"
-              className="bg-background dark:bg-input/30 pr-10"
-              onChange={e => {
-                const raw = e.target.value;
-                setValue("dob", raw);
-                const parsedDate = parse(raw, "MMMM dd, yyyy", new Date());
-                if (isValid(parsedDate)) {
-                  setDate(parsedDate);
-                  setMonth(parsedDate);
-                }
-              }}
+              readOnly
+              placeholder="Select your date of birth"
+              className="bg-background dark:bg-input/30 pr-10 cursor-pointer"
+              onClick={() => setOpen(true)}
             />
+
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -350,6 +353,7 @@ export default function CompleteProfileModal({
                   <CalendarIcon className="size-3.5" />
                 </Button>
               </PopoverTrigger>
+
               <PopoverContent align="end" sideOffset={10}>
                 <Calendar
                   mode="single"
@@ -360,6 +364,7 @@ export default function CompleteProfileModal({
                   onSelect={date => {
                     if (date) {
                       setDate(date);
+                      setMonth(date);
                       setValue("dob", formatDate(date));
                       setOpen(false);
                     }
@@ -368,6 +373,7 @@ export default function CompleteProfileModal({
               </PopoverContent>
             </Popover>
           </div>
+
           {errors.dob && (
             <Alert variant="destructive">
               <AlertCircle className="mt-1 h-5 w-5" />

@@ -111,10 +111,11 @@ export async function sendPost({
   const postRef = firestoreAdmin.collection("posts").doc();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const postData: any = {
-    id: postRef.id, // ← ADD THIS
+    id: postRef.id,
     userId: user.uid,
     username: user.username,
     content: text.trim(),
+    content_lowercase: text.trim().toLowerCase(), // ← ADD THIS
     media: mediaPayload,
     createdAt: Timestamp.now(),
     userPhotoURL: user.photoURL || "",

@@ -1,8 +1,7 @@
 "use client";
 
 import { appInfo } from "@/lib/appInfo";
-import { Button, buttonVariants } from "./ui/button";
-import { Search } from "lucide-react";
+import { buttonVariants } from "./ui/button";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { RefObject } from "react";
@@ -10,6 +9,7 @@ import { useHideOnScroll } from "@/hooks/useHideOnScroll";
 import {
   // HomeIcon as HomeSolid,
   BellIcon as BellSolid,
+  MagnifyingGlassIcon as SearchSolid,
   EnvelopeIcon as MailSolid,
   // UserGroupIcon as UsersSolid,
 } from "@heroicons/react/24/solid";
@@ -17,6 +17,7 @@ import {
   // HomeIcon as HomeOutline,
   BellIcon as BellOutline,
   EnvelopeIcon as MailOutline,
+  MagnifyingGlassIcon as SearchOutline,
   // UserGroupIcon as UsersOutline,
 } from "@heroicons/react/24/outline";
 import { Badge } from "./ui/badge";
@@ -45,8 +46,10 @@ const NavItem = ({
   return (
     <Link
       href={href}
-      className={
-        `${buttonVariants({ variant: "secondary", size: "icon" })} py-1 px-2.5 relative`}
+      className={`${buttonVariants({
+        variant: "secondary",
+        size: "icon",
+      })} py-1 px-2.5 relative`}
     >
       {isActive ? (
         <SolidIcon className="size-5 text-foreground relative" />
@@ -100,9 +103,13 @@ const TopNav = ({
           OutlineIcon={MailOutline}
           badgeCount={msgBadge}
         />
-        <Button variant="secondary" size="icon">
-          <Search className="h-5 w-5" />
-        </Button>
+        <NavItem
+          href="/search"
+          label="Search"
+          SolidIcon={SearchSolid}
+          OutlineIcon={SearchOutline}
+        />
+
         <MobileMenu />
       </div>
     </motion.nav>

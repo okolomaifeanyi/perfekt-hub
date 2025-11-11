@@ -1,15 +1,12 @@
-import MyAvatar from "@/components/feed/post/MyAvatar";
-import Name from "@/components/feed/post/Name";
+import AvatarHoverCard from "@/components/AvatarHoverCard";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import UserCard from "@/components/UserCard";
 import { getCompactTimeAgo } from "@/components/utils";
 import { PostProps, UserProps } from "@/lib/types";
 import { Dot } from "lucide-react";
-import Link from "next/link";
 
 const PostIdDate = ({
   user,
@@ -20,24 +17,7 @@ const PostIdDate = ({
 }) => {
   return (
     <div className="flex space-x-3 items-center">
-      
-        <UserCard user={user}>
-          <div className="flex space-x-2">
-            <MyAvatar
-              photoURL={user?.photoURL || post?.userPhotoURL}
-              username={user?.username || post?.username}
-              fullName={user?.fullName || post?.userFullName}
-            />
-
-            <Link href={`/${user?.username}`}>
-              <Name
-                fullName={user?.fullName}
-                username={user?.username || "user"}
-              />
-            </Link>
-          </div>
-        </UserCard>
-
+      <AvatarHoverCard user={user!} />
 
       <Tooltip>
         <TooltipTrigger className="text-xs text-muted-foreground flex items-center">
