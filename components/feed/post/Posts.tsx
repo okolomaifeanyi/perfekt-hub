@@ -12,11 +12,18 @@ const Posts = ({
   scrollPosition,
   isPage,
   deleteOptimisticPost,
+  optimistic,
 }: {
   posts: PostProps[];
   scrollPosition?: ScrollPosition;
   isPage?: boolean;
   deleteOptimisticPost?: (postId: string) => void;
+  optimistic?: {
+    addOptimisticPost: (p: Partial<PostProps>) => string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    replaceOptimisticPost: (id: string, p: any) => void;
+    removeOptimisticPost: (id: string) => void;
+  };
 }) => {
   // ─── EMPTY STATE ───────────────────────────────────────────────────────
   if (posts.length === 0) {
@@ -42,6 +49,7 @@ const Posts = ({
           post={post}
           scrollPosition={scrollPosition}
           deleteOptimisticPost={deleteOptimisticPost}
+          optimistic={optimistic}
         />
       </li>
     );

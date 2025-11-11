@@ -27,6 +27,7 @@ const UserFeed = ({ scrollPosition }: UserFeedProps) => {
     posts,
     loadMorePosts: fetchMoreFromHook,
     hasMore,
+    deleteOptimisticPost,
   } = useLiveFeed(uid, 10, null, true, "latest");
 
   // const {
@@ -55,7 +56,11 @@ const UserFeed = ({ scrollPosition }: UserFeedProps) => {
 
   return (
     <div>
-      <Posts posts={posts} scrollPosition={scrollPosition} />
+      <Posts
+        posts={posts}
+        scrollPosition={scrollPosition}
+        deleteOptimisticPost={deleteOptimisticPost}
+      />
 
       <div ref={loadMoreRef} className="flex justify-center py-4">
         {!hasMore && <span className="text-sm text-muted">No more posts</span>}

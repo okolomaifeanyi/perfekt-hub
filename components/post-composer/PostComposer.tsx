@@ -4,19 +4,14 @@
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState } from "react";
-import type { MediaProps, PostProps } from "@/lib/types";
+import type { MediaProps, OptimisticCallbacks, PostProps } from "@/lib/types";
 import MediaGallery from "./MediaGallery";
 import Buttons from "./Buttons";
 import MyAvatar from "../feed/post/MyAvatar";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { handlePost } from "./utils";
 
-interface OptimisticCallbacks {
-  addOptimisticPost?: (partialPost: Partial<PostProps>) => string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  replaceOptimisticPost?: (tempId: string, serverPost: any) => void;
-  removeOptimisticPost?: (tempId: string) => void;
-}
+
 
 const MAX_TEXT = 280;
 const MAX_MEDIA = 4;

@@ -1,4 +1,3 @@
-import PostComposer from "@/components/post-composer/PostComposer";
 import PostCard from "./components/PostCard";
 import { getPost, getUser } from "@/lib/data";
 import NavBar from "../components/NavBar";
@@ -40,7 +39,9 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
         <div className="relative pl-4 border-l border-muted space-y-4">
           {parentChainWithUsers.map(item => {
             if (!item) return null;
-            return <PostCard isPostPage key={item.parent.id} post={item.parent} />;
+            return (
+              <PostCard isPostPage key={item.parent.id} post={item.parent} />
+            );
           })}
         </div>
 
@@ -50,12 +51,6 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
         </div>
 
         <div className="px-2 mt-4">
-          <PostComposer
-            sendButton="Reply"
-            placeholder="Reply this post"
-            parentPostId={post.id}
-          />
-
           <CommentFeed />
           <ViewTracker postId={postId} />
         </div>

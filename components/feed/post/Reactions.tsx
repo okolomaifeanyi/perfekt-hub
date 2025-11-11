@@ -4,11 +4,19 @@ import { QuotePostDialog } from "@/components/post-composer/QuotePostDialog";
 import { Button } from "@/components/ui/button";
 import { usePostCounts } from "@/lib/store/postCounts";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { PostProps, UserProps } from "@/lib/types";
+import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
 import { toggleReaction } from "@/lib/utils";
 import { Heart, View, ThumbsDown } from "lucide-react";
 
-const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
+const Reactions = ({
+  post,
+  user,
+  optimistic,
+}: {
+  user: UserProps;
+  post: PostProps;
+  optimistic?: OptimisticCallbacks;
+}) => {
   const postCounts = usePostCounts(state => state.counts[post.id]);
   const { user: currentUser } = useUserStore(state => state);
   if (!currentUser) return null;
@@ -119,7 +127,7 @@ const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
       {/* Reply / Quote */}
       <div className="flex space-x-2">
         <PostReplyDialog user={user} post={post} />
-        <QuotePostDialog user={user} post={post} />
+        <QuotePostDialog user={user} post={post} optimistic={optimistic} />
       </div>
 
       {/* Views / Share */}
@@ -144,7 +152,11 @@ const Reactions = ({ post, user }: { user: UserProps; post: PostProps }) => {
           )}
         </Button>
 
-        <SharePostDialog username={user.username} postId={post.id} title={"Share"} />
+        <SharePostDialog
+          username={user.username}
+          postId={post.id}
+          title={"Share"}
+        />
       </div>
     </div>
   );

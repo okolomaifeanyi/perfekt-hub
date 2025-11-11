@@ -9,7 +9,7 @@ import {
 import PostComposer from "./PostComposer";
 import { Quote } from "lucide-react";
 import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdDate";
-import { PostProps, UserProps } from "@/lib/types";
+import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
 import Text from "../feed/post/Text";
 import { Card } from "../ui/card";
 import { usePostCounts } from "@/lib/store/postCounts";
@@ -18,16 +18,20 @@ import { useState } from "react";
 export function QuotePostDialog({
   user,
   post,
+  optimistic,
 }: {
   user: UserProps;
   post: PostProps;
+  optimistic?: OptimisticCallbacks;
 }) {
   const [open, setOpen] = useState(false);
 
   const mediaSummary = (() => {
     if (!post.media || post.media.length === 0) return null;
 
-    let imageCount = 0, gifCount = 0, videoCount = 0;
+    let imageCount = 0,
+      gifCount = 0,
+      videoCount = 0;
     for (const medium of post.media) {
       if (medium.type === "image" && medium.src.includes("giphy")) gifCount++;
       else if (medium.type === "image") imageCount++;
@@ -35,9 +39,11 @@ export function QuotePostDialog({
     }
 
     const parts: string[] = [];
-    if (imageCount > 0) parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
+    if (imageCount > 0)
+      parts.push(`${imageCount} image${imageCount > 1 ? "s" : ""}`);
     if (gifCount > 0) parts.push(`${gifCount} gif${gifCount > 1 ? "s" : ""}`);
-    if (videoCount > 0) parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
+    if (videoCount > 0)
+      parts.push(`${videoCount} video${videoCount > 1 ? "s" : ""}`);
 
     return `Contains ${parts.join(", ")}`;
   })();
@@ -82,12 +88,15 @@ export function QuotePostDialog({
           placeholder="Write your quote"
           sendButton="Quote"
           onSuccess={() => setOpen(false)}
+          optimistic={optimistic}
         />
 
         <Card className="p-2 rounded-lg">
           <PostIdDate user={user} post={post} />
           <Text text={post.content} />
-          {mediaSummary && <div className="text-secondary mt-2">{mediaSummary}</div>}
+          {mediaSummary && (
+            <div className="text-secondary mt-2">{mediaSummary}</div>
+          )}
         </Card>
       </DialogContent>
     </Dialog>

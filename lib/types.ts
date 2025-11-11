@@ -185,4 +185,11 @@ export interface PixelCrop {
 
 export type ViewerRole = "self" | "friend" | "public";
 
+export interface OptimisticCallbacks {
+  addOptimisticPost?: (partialPost: Partial<PostProps>) => string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  replaceOptimisticPost?: (tempId: string, serverPost: any) => void;
+  removeOptimisticPost?: (tempId: string) => void;
+}
+
 // system designs and architecture

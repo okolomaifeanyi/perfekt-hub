@@ -5,11 +5,11 @@ import Text from "@/components/feed/post/Text";
 import PostMedia from "./PostMedia";
 import PostMenu from "./PostMenu";
 import { Card, CardContent } from "@/components/ui/card";
-import { PostProps } from "@/lib/types";
+import { OptimisticCallbacks, PostProps } from "@/lib/types";
 import { useUserStore } from "@/lib/store/useUserStore";
 import {
   blockUser,
-  deletePost,
+  // deletePost,
   pinPost,
   unfollowUser,
   unfriendUser,
@@ -28,6 +28,8 @@ import UserCard from "@/components/UserCard";
 import Link from "next/link";
 import { useUser } from "@/hooks/useUser";
 import { safeGetHostname } from "@/components/post-composer/utils";
+import { deletePostAction } from "@/app/actions/posts";
+import { toast } from "sonner";
 
 const PostCard = ({
   post,
@@ -35,12 +37,14 @@ const PostCard = ({
   className,
   isPostPage,
   deleteOptimisticPost,
+  optimistic, // ← ADD
 }: {
   post: PostProps;
   scrollPosition?: ScrollPosition;
   className?: string;
   isPostPage?: boolean;
   deleteOptimisticPost?: (postId: string) => void;
+  optimistic?: OptimisticCallbacks;
 }) => {
   const { user, quotedPost, quotedUser } = usePostWithQuote(post);
   const { user: currentUser } = useUserStore(state => state);
@@ -88,7 +92,17 @@ const PostCard = ({
                     // 1. Optimistic delete — instant UI
                     deleteOptimisticPost?.(post.id);
 
-                    await deletePost(post.id);
+                    if (!currentUser?.uid) return;
+                    // 2. Server side delete
+                    try {
+                      await deletePostAction(post.id, currentUser?.uid);
+                      toast.success("Post deleted")
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } catch (err: any) {
+                      // optional toast.error(err.message)
+                      console.error(err);
+                      // you could revert the optimistic delete here if you want
+                    }
                     // toast.success("Post deleted");
                   }}
                   onBlock={async () => {
@@ -217,7 +231,9 @@ const PostCard = ({
 
           {/* Reactions */}
           <div className="px-4" onClick={stopPropagation}>
-            {user && <Reactions user={user} post={post} />}
+            {user && (
+              <Reactions user={user} post={post} optimistic={optimistic} />
+            )}
           </div>
         </CardContent>
       </Card>
