@@ -53,7 +53,7 @@ export default function LiveSearchInput({
         updateURL(val);
         search(val);
       }}
-      className="w-full max-w-md rounded-md border px-3 py-2 text-sm mb-6"
+      className="w-full max-w-md rounded-md"
       autoFocus
     />
   );

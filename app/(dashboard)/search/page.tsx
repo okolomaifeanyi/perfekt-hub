@@ -3,8 +3,8 @@
 import NavBar from "../[username]/components/NavBar";
 import SearchResults from "./SearchResults";
 // import EmptyState from "./EmptyState";
-// import { Suspense } from "react";
-// import LoadingSkeleton from "./LoadingSkeletion";
+import { Suspense } from "react";
+import LoadingSkeleton from "./LoadingSkeletion";
 
 type Props = {
   searchParams: Promise<{ q?: string }>; // ← Now a Promise!
@@ -34,9 +34,9 @@ export default async function SearchPage({ searchParams }: Props) {
       />
 
       <main className="container mx-auto px-4 py-6">
-        {/* <Suspense fallback={<LoadingSkeleton />}> */}
+        <Suspense fallback={<LoadingSkeleton />}>
           <SearchResultsServer query={query} />
-        {/* </Suspense> */}
+        </Suspense>
       </main>
     </>
   );

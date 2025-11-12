@@ -82,7 +82,7 @@ const TopNav = ({
       initial={false}
       animate={{ y: hidden ? "-100%" : "0%" }}
       transition={{ duration: 0.25, ease: "easeInOut" }}
-      className="z-50 flex justify-between items-center px-4 h-12 sticky top-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-b shadow-sm w-full"
+      className="z-50 flex justify-between items-center px-4 h-12 sticky top-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-b shadow-sm w-full sm:hidden"
     >
       <Link href="/" className="text-primary font-bold">
         {appInfo.name}

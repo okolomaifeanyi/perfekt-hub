@@ -13,16 +13,18 @@ import {
   HomeIcon as HomeOutline,
   BellIcon as BellOutline,
   EnvelopeIcon as MailOutline,
-  UserGroupIcon as UsersOutline,
+  // UserGroupIcon as UsersOutline,
   UserIcon as UserOutline,
+  AdjustmentsHorizontalIcon as SettingsOutline,
 } from "@heroicons/react/24/outline";
 
 import {
   HomeIcon as HomeSolid,
   BellIcon as BellSolid,
   EnvelopeIcon as MailSolid,
-  UserGroupIcon as UsersSolid,
+  // UserGroupIcon as UsersSolid,
   UserIcon as UserSolid,
+  AdjustmentsHorizontalIcon as SettingsSolid,
 } from "@heroicons/react/24/solid";
 import JustAvatar from "./JustAvatar";
 
@@ -53,17 +55,23 @@ const NavBar = () => {
       SolidIcon: MailSolid,
       OutlineIcon: MailOutline,
     },
-    {
-      href: "/group",
-      label: "Group",
-      SolidIcon: UsersSolid,
-      OutlineIcon: UsersOutline,
-    },
+    // {
+    //   href: "/group",
+    //   label: "Group",
+    //   SolidIcon: UsersSolid,
+    //   OutlineIcon: UsersOutline,
+    // },
     {
       href: `/${user.username}`,
       label: "Me",
       SolidIcon: UserSolid,
       OutlineIcon: UserOutline,
+    },
+    {
+      href: `/settings`,
+      label: "Settings and Privacy",
+      SolidIcon: SettingsSolid,
+      OutlineIcon: SettingsOutline,
     },
   ];
 

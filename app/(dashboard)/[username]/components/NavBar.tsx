@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import Back from "./Back";
-import { H2 } from "@/components/Typography";
+import { H1 } from "@/components/Typography";
 
 const NavBar = ({
   title,
@@ -17,7 +17,7 @@ const NavBar = ({
         <Back />
 
         {avatar && avatar}
-        <H2 className="text-lg">{title}</H2>
+        <H1 className="text-lg">{title}</H1>
       </div>
 
       {extra && extra}
