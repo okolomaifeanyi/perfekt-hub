@@ -13,7 +13,6 @@ import {
 import { LinkPreviewType, PostProps } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-
 export async function notifyChainUsers(
   parentPostId: string,
   sender: { uid: string; username: string }
@@ -136,7 +135,13 @@ export async function sendPost({
   // 1. Save the new post
   batch.set(postRef, postData);
 
-  // 2. If reply → increment parent's replyCount + add engagement
+  // 2. Increment user's postsCount
+  const userRef = firestoreAdmin.doc(`users/${user.uid}`);
+  batch.update(userRef, {
+    postsCount: FieldValue.increment(1),
+  });
+
+  // 3. If reply → increment parent's replyCount + add engagement
   if (parentPostId) {
     const parentRef = firestoreAdmin.collection("posts").doc(parentPostId);
     batch.update(parentRef, {
@@ -154,7 +159,7 @@ export async function sendPost({
     );
   }
 
-  // 3. If quote → increment quoted post’s quoteCount + add engagement
+  // 4. If quote → increment quoted post’s quoteCount + add engagement
   if (quotePostId) {
     const quotedRef = firestoreAdmin.collection("posts").doc(quotePostId);
     batch.update(quotedRef, {

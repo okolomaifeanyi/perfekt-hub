@@ -178,6 +178,7 @@ export const saveOrUpdateUser = async (
       providerId: getAdditionalUserInfo(result)?.providerId ?? "unknown",
       completedProfile: false,
       randomKey: Math.random(),
+      postsCount: 0,
     };
 
     await setDoc(userRef, { ...baseData, ...newUserData }, { merge: true });

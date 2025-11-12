@@ -50,6 +50,7 @@ export async function signup(state: FormState, formData: FormData) {
       email: user.email,
       createdAt: FieldValue.serverTimestamp(),
       randomKey: Math.random(),
+      postsCount: 0,
     });
   } catch (error: unknown) {
     let message = "An unknown error occurred. Please try again.";
