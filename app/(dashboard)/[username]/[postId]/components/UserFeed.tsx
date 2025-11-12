@@ -7,21 +7,23 @@ import { Loader2 } from "lucide-react";
 // import { useParams } from "next/navigation";
 import { ScrollPosition } from "react-lazy-load-image-component";
 import { useLiveFeed } from "@/hooks/useLiveFeed";
-import { useUserStore } from "@/lib/store/useUserStore";
+// import { useUserStore } from "@/lib/store/useUserStore";
+// import { UserProps } from "@/lib/types";
 
 interface UserFeedProps {
   scrollPosition?: ScrollPosition;
+  uid: string;
 }
 
-const UserFeed = ({ scrollPosition }: UserFeedProps) => {
+const UserFeed = ({ scrollPosition, uid }: UserFeedProps) => {
   const [loading, setLoading] = useState(false);
 
   // const { username } = useParams<{
   //   username: string;
   // }>();
-  const currentUser = useUserStore(s => s.user);
+  // const currentUser = useUserStore(s => s.user);
 
-  const uid = currentUser?.uid;
+  // const uid = currentUser?.uid;
 
   const {
     posts,

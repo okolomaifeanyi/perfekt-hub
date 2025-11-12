@@ -25,7 +25,7 @@ const ProfileTab = ({
         </TabsList>
 
         <TabsContent value="posts" className="mt-4">
-          <UserFeed />
+          <UserFeed uid={profile.uid} />
         </TabsContent>
 
         <TabsContent value="media" className="mt-4">
