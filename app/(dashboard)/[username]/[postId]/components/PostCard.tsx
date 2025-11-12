@@ -82,7 +82,7 @@ const PostCard = ({
           >
             <PostIdDate user={user} post={post} />
             <div className="flex gap-x-2 items-center">
-              <div onClick={stopPropagation}>
+              <div>
                 <PostMenu
                   isOwner={isOwner}
                   isFriend={isFriend}
@@ -96,7 +96,7 @@ const PostCard = ({
                     // 2. Server side delete
                     try {
                       await deletePostAction(post.id, currentUser?.uid);
-                      toast.success("Post deleted")
+                      toast.success("Post deleted");
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } catch (err: any) {
                       // optional toast.error(err.message)
@@ -131,7 +131,7 @@ const PostCard = ({
           </div>
 
           {!isPostPage && parentPost && (
-            <div className="px-4 text-gray-500">
+            <div className="px-4 text-gray-500" onClick={stopPropagation}>
               Replying to{" "}
               <UserCard user={parentPostUser}>
                 <Link className="text-primary" href={`/${parentPost.username}`}>
@@ -142,7 +142,7 @@ const PostCard = ({
           )}
 
           {/* Text */}
-          <div className="px-4">
+          <div className="px-4" onClick={stopPropagation}>
             <Text text={post.content} />
           </div>
 
@@ -170,7 +170,7 @@ const PostCard = ({
                     <PostIdDate user={quotedUser} post={quotedPost} />
                   </div>
 
-                  <div className="px-4">
+                  <div className="px-4" onClick={stopPropagation}>
                     <Text text={quotedPost.content} />
                   </div>
 
@@ -188,6 +188,7 @@ const PostCard = ({
               href={post.linkPreview.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={stopPropagation}
             >
               <Card className="overflow-hidden border hover:bg-background/50 transition mx-4 mb-4">
                 <div className="flex items-center !py-0">
