@@ -30,6 +30,7 @@ import { useUser } from "@/hooks/useUser";
 import { safeGetHostname } from "@/components/post-composer/utils";
 import { deletePostAction } from "@/app/actions/posts";
 import { toast } from "sonner";
+import PostCardSkeleton from "./PostCardSkeleton";
 
 const PostCard = ({
   post,
@@ -65,6 +66,15 @@ const PostCard = ({
   const stopPropagation = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  // Show skeleton if user is not resolved
+  if (!user) {
+    return (
+      <LazyLoadComponent scrollPosition={scrollPosition}>
+        <PostCardSkeleton />
+      </LazyLoadComponent>
+    );
+  }
 
   return (
     <LazyLoadComponent scrollPosition={scrollPosition}>
