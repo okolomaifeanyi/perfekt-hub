@@ -1,115 +1,145 @@
 "use server";
 
 import { firestoreAdmin, authAdmin } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
-import { deleteChildrenPosts } from "./util";
+import { v2 as cloudinary } from "cloudinary";
 
-async function deleteUserPost(postId: string, userId: string): Promise<void> {
-  const db = firestoreAdmin;
-  const postRef = db.doc(`posts/${postId}`);
-  const snap = await postRef.get();
-  if (!snap.exists) return;
+const BATCH_LIMIT = 300;
 
-  const post = snap.data()!;
-  if (post.userId !== userId) return;
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
-  const batch = db.batch();
+// Batch delete helper
+async function deleteCollection(path: string): Promise<void> {
+  const ref = firestoreAdmin.collection(path);
 
-  // Decrement parent replyCount
-  if (post.parentPostId) {
-    const parentRef = db.doc(`posts/${post.parentPostId}`);
-    batch.update(parentRef, { replyCount: FieldValue.increment(-1) });
+  while (true) {
+    const snap = await ref.limit(BATCH_LIMIT).get();
+    if (snap.empty) break;
+
+    const batch = firestoreAdmin.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+
+    await batch.commit();
   }
-
-  // Decrement quoted post quoteCount
-  if (post.quotePostId) {
-    const quotedRef = db.doc(`posts/${post.quotePostId}`);
-    batch.update(quotedRef, { quoteCount: FieldValue.increment(-1) });
-  }
-
-  // Delete engagements
-  const engSnap = await postRef.collection("engagements").get();
-  for (const eng of engSnap.docs) {
-    batch.delete(eng.ref);
-  }
-
-  batch.delete(postRef);
-  await batch.commit();
-
-  await deleteChildrenPosts(postId);
 }
 
-/**
- * DELETE USER ACCOUNT – FULL CLEANUP
- */
-export async function deleteAccountAction(userId: string): Promise<void> {
-  if (!userId) throw new Error("userId is required");
+// Delete Cloudinary media belonging to user posts
+async function deleteUserCloudinaryMedia(uid: string): Promise<void> {
+  const postsRef = firestoreAdmin.collection("posts");
 
-  const db = firestoreAdmin;
-  const auth = authAdmin;
-  const userRef = db.doc(`users/${userId}`);
+  while (true) {
+    const snap = await postsRef
+      .where("authorId", "==", uid)
+      .limit(BATCH_LIMIT)
+      .get();
+    if (snap.empty) break;
 
-  // === 1. Delete all user posts ===
-  const postsSnap = await db
-    .collection("posts")
-    .where("userId", "==", userId)
-    .get();
-  for (const post of postsSnap.docs) {
-    await deleteUserPost(post.id, userId);
-  }
-
-  // === 2. Start batch for user doc + subcollections + inverse relationships ===
-  const batch = db.batch();
-
-  const subcollections = [
-    "friends",
-    "following",
-    "followers",
-    "notifications",
-    "friendRequestsSent",
-    "friendRequestsReceived",
-  ];
-
-  // Delete all subcollections
-  for (const sub of subcollections) {
-    const snap = await userRef.collection(sub).get();
     for (const doc of snap.docs) {
-      batch.delete(doc.ref);
+      const post = doc.data();
+
+      // Case 1: single image or video field
+      if (post.image?.publicId) {
+        await cloudinary.uploader.destroy(post.image.publicId);
+      }
+      if (post.video?.publicId) {
+        await cloudinary.uploader.destroy(post.video.publicId, {
+          resource_type: "video",
+        });
+      }
+
+      // Case 2: multiple media array
+      if (Array.isArray(post.media)) {
+        for (const file of post.media) {
+          await cloudinary.uploader.destroy(file.publicId, {
+            resource_type: file.type === "video" ? "video" : "image",
+          });
+        }
+      }
     }
   }
+}
 
-  // === 3. Clean inverse relationships ===
-  // For each person this user follows → remove from their followers
-  const followingSnap = await userRef.collection("following").get();
-  for (const doc of followingSnap.docs) {
-    const targetId = doc.id;
-    const inverseRef = db.doc(`users/${targetId}/followers/${userId}`);
-    batch.delete(inverseRef);
+// Delete top-level posts
+async function deleteUserPosts(uid: string): Promise<void> {
+  const postsRef = firestoreAdmin.collection("posts");
+
+  while (true) {
+    const snap = await postsRef
+      .where("authorId", "==", uid)
+      .limit(BATCH_LIMIT)
+      .get();
+    if (snap.empty) break;
+
+    const batch = firestoreAdmin.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
   }
+}
 
-  // For each follower → remove from their following
-  const followersSnap = await userRef.collection("followers").get();
-  for (const doc of followersSnap.docs) {
-    const followerId = doc.id;
-    const inverseRef = db.doc(`users/${followerId}/following/${userId}`);
-    batch.delete(inverseRef);
+// Delete conversations + messages
+async function deleteUserConversations(uid: string): Promise<void> {
+  const convRef = firestoreAdmin.collection("conversations");
+
+  while (true) {
+    const snap = await convRef
+      .where("participants", "array-contains", uid)
+      .limit(BATCH_LIMIT)
+      .get();
+    if (snap.empty) break;
+
+    for (const doc of snap.docs) {
+      await deleteCollection(`conversations/${doc.id}/messages`);
+    }
+
+    const batch = firestoreAdmin.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
   }
+}
 
-  // === 4. Decrement user's postsCount (if exists) ===
-  batch.update(userRef, {
-    postsCount: FieldValue.increment(-postsSnap.size),
-  });
-
-  // === 5. Delete user document ===
-  batch.delete(userRef);
-
-  await batch.commit();
-
-  // === 6. Delete Firebase Auth user ===
+export async function deleteAccountAction(
+  uid: string
+): Promise<{ success: boolean; message: string }> {
   try {
-    await auth.deleteUser(userId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    if (error.code !== "auth/user-not-found") throw error;
+    if (!uid) return { success: false, message: "Missing userId" };
+
+    const userRef = firestoreAdmin.collection("users").doc(uid);
+
+    // USER SUBCOLLECTIONS
+    const subs = [
+      "followers",
+      "following",
+      "notifications",
+      "savedPosts",
+      "reactions",
+      "friends",
+    ];
+    await Promise.all(subs.map(s => deleteCollection(`users/${uid}/${s}`)));
+
+    // DELETE CLOUDINARY MEDIA FIRST
+    await deleteUserCloudinaryMedia(uid);
+
+    // DELETE POSTS
+    await deleteUserPosts(uid);
+
+    // DELETE CONVERSATIONS
+    await deleteUserConversations(uid);
+
+    // DELETE USER
+    await userRef.delete();
+
+    // DELETE AUTH USER
+    await authAdmin.deleteUser(uid);
+
+    return {
+      success: true,
+      message: "Account deleted with all media removed.",
+    };
+  } catch (error) {
+    console.error("❌ Delete account error:", error);
+    return { success: false, message: "Failed to delete account" };
   }
 }

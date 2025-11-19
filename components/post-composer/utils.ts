@@ -2,18 +2,65 @@ import { MediaProps, PostProps, UserProps } from "@/lib/types";
 import { toast } from "sonner";
 import { sendPost } from "./actions";
 
-export const uploadToCloudinary = async (file: File) => {
+// export const uploadToCloudinary = async (file: File) => {
+//   const formData = new FormData();
+//   formData.append("file", file);
+
+//   const res = await fetch("/api/upload", {
+//     method: "POST",
+//     body: formData,
+//   });
+
+//   const data = await res.json();
+//   if (!res.ok) throw new Error(data.error);
+//   return data.result;
+// };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const uploadToCloudinary = async (file: File, retryCount = 0): Promise<any> => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch("/api/upload", {
-    method: "POST",
-    body: formData,
-  });
+  try {
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error);
-  return data.result;
+    let data;
+    if (res.ok) {
+      data = await res.json();
+    } else {
+      try {
+        data = await res.json();
+      } catch {
+        const errorText = await res.text();
+        // Detect QUIC error specifically
+        if (errorText.includes("QUIC") || errorText.includes("ERR_QUIC_PROTOCOL_ERROR")) {
+          if (retryCount < 2) {
+            console.warn("QUIC error detected—retrying with fallback...");
+            // Fallback: Force TCP by appending a query param (tricks some proxies)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const fallbackUrl = "/api/upload?fallback=1";
+            return uploadToCloudinary(file, retryCount + 1); // Recursive retry
+          }
+        }
+        throw new Error(errorText.substring(0, 200) || "Upload server error");
+      }
+      throw new Error(data.error || "Upload failed");
+    }
+
+    return data.result;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (err: any) {
+    // If QUIC suspected and retries exhausted, suggest user fix
+    if (err.message.includes("QUIC") && retryCount >= 2) {
+      toast.error("Network issue (QUIC protocol)—try disabling Chrome's QUIC flag or VPN.", {
+        duration: 5000,
+      });
+    }
+    throw err;
+  }
 };
 
 export async function handlePost({

@@ -137,7 +137,7 @@ export interface Notification {
   read: boolean;
   createdAt: Date;
   extra?: Record<string, unknown>;
-  actor: UserProps;
+  actor?: UserProps | null;
   timeAgo: string;
   url: string;
   message: string;

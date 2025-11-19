@@ -34,49 +34,49 @@ const getNotificationMeta = (n: Notification) => {
     case "like":
       return {
         icon: <HandThumbUpIcon className="w-4 h-4 text-red-500" />,
-        link: `/${n.actor.username}/${n.postId}`,
+        link: `/${n?.actor?.username}/${n.postId}`,
         message: "liked your post",
       };
     case "dislike":
       return {
         icon: <HandThumbDownIcon className="w-4 h-4 text-gray-500" />,
-        link: `/${n.actor.username}/${n.postId}`,
+        link: `/${n?.actor?.username}/${n.postId}`,
         message: "disliked your post",
       };
     case "reply":
       return {
         icon: <ArrowUturnLeftIcon className="w-4 h-4 text-blue-500" />,
-        link: `/${n.actor.username}/${n.postId}`,
+        link: `/${n?.actor?.username}/${n.postId}`,
         message: "replied to your post",
       };
     case "mention":
       return {
         icon: <ChatBubbleLeftRightIcon className="w-4 h-4 text-purple-500" />,
-        link: `/${n.actor.username}/${n.postId}`,
+        link: `/${n?.actor?.username}/${n.postId}`,
         message: "mentioned you",
       };
     case "follow":
       return {
         icon: <UserPlusIcon className="w-4 h-4 text-green-500" />,
-        link: `/${n.actor.username}`,
+        link: `/${n?.actor?.username}`,
         message: "started following you",
       };
     case "friendRequest":
       return {
         icon: <UserPlusIcon className="w-4 h-4 text-green-500" />,
-        link: `/${n.actor.username}`,
+        link: `/${n?.actor?.username}`,
         message: "sent you a friend request",
       };
     case "acceptRequest":
       return {
         icon: <CheckCircleIcon className="w-4 h-4 text-green-500" />,
-        link: `/${n.actor.username}`,
+        link: `/${n?.actor?.username}`,
         message: "accepted your friend request",
       };
     case "quote":
       return {
         icon: <PenIcon className="w-4 h-4 text-green-500" />,
-        link: `/${n.actor.username}/${n.postId}`,
+        link: `/${n?.actor?.username}/${n.postId}`,
         message: "quoted your post",
       };
     default:
@@ -188,7 +188,7 @@ const NotificationPage = () => {
               {grouped[group].map((n: Notification) => {
                 const meta = getNotificationMeta(n);
                 const altImage = userAltImageUrl({
-                  name: n.actor.fullName || n.actor.username,
+                  name: n?.actor?.fullName || n?.actor?.username || "Deleted User",
                 });
 
                 const handleClick = async (e: React.MouseEvent) => {
@@ -212,12 +212,12 @@ const NotificationPage = () => {
                         <Avatar className="h-[40px] w-[40px]">
                           <Image
                             alt={`${
-                              n.actor.fullName || n.actor.username
+                              n?.actor?.fullName || n?.actor?.username || "Deleted User"
                             }'s avatar`}
                             width={500}
                             height={500}
                             className="object-cover"
-                            src={n.actor.photoURL || altImage}
+                            src={n?.actor?.photoURL || altImage}
                           />
                         </Avatar>
 
@@ -229,7 +229,7 @@ const NotificationPage = () => {
                       <div className="flex-1 flex flex-col gap-y-2">
                         <P className="text-sm">
                           <strong>
-                            {n.actor.fullName || n.actor.username || "Someone"}
+                            {n.actor?.fullName || n.actor?.username || "Someone"}
                           </strong>{" "}
                           {meta.message}
                         </P>
