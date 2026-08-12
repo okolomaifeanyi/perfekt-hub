@@ -86,10 +86,24 @@ export function getSupabaseAdminClient() {
   }
 
   const { url, anonKey } = getSupabaseEnv();
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  adminClient = createClient(url, serviceRoleKey, {
+  // This client is the default fallback for every server-side Firestore-shim
+  // read that isn't explicitly wrapped in an authenticated request context
+  // (see getClient() in lib/shims/firestore-core.ts), so it needs to bypass
+  // RLS via service_role. Falling back to the anon key here doesn't fail
+  // loudly — the client still gets created and looks fine — it just quietly
+  // demotes every one of those reads to the anon role, which now correctly
+  // has no grant on tables like users and surfaces as a confusing "permission
+  // denied for table users" error deep inside a PostgREST call instead of a
+  // clear error at the point the misconfiguration actually is.
+  if (!serviceRoleKey && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY must be set in production — refusing to fall back to the anon key for the admin client."
+    );
+  }
+
+  adminClient = createClient(url, serviceRoleKey || anonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
