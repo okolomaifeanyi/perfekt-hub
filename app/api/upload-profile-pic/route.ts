@@ -1,6 +1,7 @@
 // app/api/upload-profile-pic/route.ts
 import { v2 as cloudinary } from "cloudinary";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -9,6 +10,11 @@ cloudinary.config({
 });
 
 export async function POST(req: NextRequest) {
+  const { uid } = await getUserFromSession();
+  if (!uid) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const data = await req.formData();
   const file = data.get("file") as File;
 

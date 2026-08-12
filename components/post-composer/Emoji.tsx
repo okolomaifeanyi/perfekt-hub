@@ -21,7 +21,7 @@ const Emoji = ({ onSelect }: { onSelect: (emoji: { native: string }) => void }) 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="secondary" title="Add Emoji">
+        <Button size="icon" variant="secondary" title="Add Emoji" aria-label="Add emoji">
           <FaceSmileIcon color="#FFCC4D" className="size-4" />
         </Button>
       </DropdownMenuTrigger>

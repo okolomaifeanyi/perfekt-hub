@@ -1,51 +1,71 @@
-// /app/actions/notifyChainUsers.ts
 "use server";
 
+import { cookies } from "next/headers";
 import { sendNotification } from "@/app/actions/notifications";
 import { scheduleEngagementScoreUpdate } from "@/app/actions/reactions";
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 import {
   extractLinks,
   fetchMetadata,
   isSafeLink,
   resolveNativePost,
 } from "@/lib/links";
+import { extractMentionUsernames } from "@/lib/rich-text.mjs";
 import { LinkPreviewType, PostProps } from "@/lib/types";
-import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { Timestamp } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { canRunPostBackgroundJobs } from "@/lib/supabase/post-jobs.mjs";
+import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
+import { getUserByUsername } from "@/lib/utils";
+
+async function withSupabaseRequestContext<T>(
+  callback: () => Promise<T>
+): Promise<T> {
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
+
+  // The @supabase/ssr server client initializes its session lazily
+  // (skipAutoInitialize), so no JWT is attached until an auth method runs and
+  // every query before that executes as the `anon` role. Hydrate it first so
+  // RLS sees the real user.
+  await supabase.auth.getUser();
+
+  return runWithSupabaseClient(supabase, callback);
+}
 
 export async function notifyChainUsers(
   parentPostId: string,
   sender: { uid: string; username: string }
 ): Promise<void> {
   const notifiedUserIds = new Set<string>();
-  const batch = firestoreAdmin.batch();
 
   let currentId = parentPostId;
 
   while (currentId) {
     const parentSnap = await firestoreAdmin.doc(`posts/${currentId}`).get();
-    if (!parentSnap.exists) break;
+    if (!parentSnap.exists()) break;
 
     const parentData = parentSnap.data();
     const recipientId = parentData?.userId;
     if (!recipientId) break;
 
     if (recipientId !== sender.uid && !notifiedUserIds.has(recipientId)) {
-      const notifRef = firestoreAdmin
-        .collection(`users/${recipientId}/notifications`)
-        .doc();
-
-      batch.set(notifRef, {
-        toUserId: recipientId,
-        fromUser: {
-          id: sender.uid,
-          username: sender.username,
-        },
-        postId: parentSnap.id,
+      await sendNotification({
+        recipientUid: recipientId,
+        actorUid: sender.uid,
         type: "reply",
-        message: `@${sender.username} replied to your post.`,
-        read: false,
-        createdAt: Timestamp.now(),
+        postId: parentSnap.id,
+        extra: {
+          message: `@${sender.username} replied to your post.`,
+        },
       });
 
       notifiedUserIds.add(recipientId);
@@ -53,8 +73,44 @@ export async function notifyChainUsers(
 
     currentId = parentData?.parentPostId;
   }
+}
 
-  await batch.commit();
+async function notifyMentionedUsers({
+  content,
+  sender,
+  postId,
+}: {
+  content: string;
+  sender: { uid: string; username: string };
+  postId: string;
+}): Promise<void> {
+  const mentionUsernames = Array.from(new Set(extractMentionUsernames(content))).filter(
+    username => username !== sender.username.toLowerCase()
+  );
+
+  if (mentionUsernames.length === 0) {
+    return;
+  }
+
+  const mentionRecipients = await Promise.all(
+    mentionUsernames.map(async username => getUserByUsername(username))
+  );
+
+  await Promise.all(
+    mentionRecipients
+      .filter((recipient): recipient is NonNullable<typeof recipient> => Boolean(recipient?.uid))
+      .map(recipient =>
+        sendNotification({
+          recipientUid: recipient.uid,
+          actorUid: sender.uid,
+          type: "mention",
+          postId,
+          extra: {
+            message: `@${sender.username} mentioned you.`,
+          },
+        })
+      )
+  );
 }
 
 export async function sendPost({
@@ -71,10 +127,15 @@ export async function sendPost({
   quotePostId?: string | null;
   linkPreview?: LinkPreviewType;
 }): Promise<PostProps> {
-  if (!user || (!text.trim() && media.length === 0))
+  if (!user || (!text.trim() && media.length === 0)) {
     throw new Error("User or content is missing");
+  }
 
-  // 🔍 Extract and validate links
+  const { uid } = await getUserFromSession();
+  if (!uid || uid !== user.uid) {
+    throw new Error("Unauthorized");
+  }
+
   const links = extractLinks(text);
   let linkPreview: LinkPreviewType | null = null;
 
@@ -87,7 +148,6 @@ export async function sendPost({
         );
       }
 
-      // resolve native post if no manual quotePostId
       if (!quotePostId) {
         const nativePost = await resolveNativePost(link);
         if (nativePost) {
@@ -107,120 +167,115 @@ export async function sendPost({
     type: item.type,
   }));
 
-  const postRef = firestoreAdmin.collection("posts").doc();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const postData: any = {
-    id: postRef.id,
-    userId: user.uid,
-    username: user.username,
-    content: text.trim(),
-    content_lowercase: text.trim().toLowerCase(), // ← ADD THIS
-    media: mediaPayload,
-    createdAt: Timestamp.now(),
-    userPhotoURL: user.photoURL || "",
-    userFullName: user.fullName || "",
-    parentPostId: parentPostId || "",
-    quotePostId: quotePostId || "",
-    replyCount: 0,
-    quoteCount: 0,
-    linkPreview: linkPreview || {},
-  };
+  return withSupabaseRequestContext(async () => {
+    const postRef = firestoreAdmin.collection("posts").doc();
 
-  if (linkPreview) {
-    postData.linkPreview = linkPreview;
-  }
-
-  const batch = firestoreAdmin.batch();
-
-  // 1. Save the new post
-  batch.set(postRef, postData);
-
-  // 2. Increment user's postsCount
-  const userRef = firestoreAdmin.doc(`users/${user.uid}`);
-  batch.update(userRef, {
-    postsCount: FieldValue.increment(1),
-  });
-
-  // 3. If reply → increment parent's replyCount + add engagement
-  if (parentPostId) {
-    const parentRef = firestoreAdmin.collection("posts").doc(parentPostId);
-    batch.update(parentRef, {
-      replyCount: FieldValue.increment(1),
-    });
-
-    const engagementRef = parentRef.collection("engagements").doc(user.uid);
-    batch.set(
-      engagementRef,
-      {
-        replied: true,
-        lastEngagedAt: Timestamp.now(),
-      },
-      { merge: true }
-    );
-  }
-
-  // 4. If quote → increment quoted post’s quoteCount + add engagement
-  if (quotePostId) {
-    const quotedRef = firestoreAdmin.collection("posts").doc(quotePostId);
-    batch.update(quotedRef, {
-      quoteCount: FieldValue.increment(1),
-    });
-
-    const engagementRef = quotedRef.collection("engagements").doc(user.uid);
-    batch.set(
-      engagementRef,
-      {
-        quoted: true,
-        lastEngagedAt: Timestamp.now(),
-      },
-      { merge: true }
-    );
-  }
-
-  // Commit batched writes
-  await batch.commit();
-
-  // ✅ Update engagement score of affected posts
-  if (parentPostId) {
-    await scheduleEngagementScoreUpdate(parentPostId);
-  }
-
-  if (quotePostId) {
-    await scheduleEngagementScoreUpdate(quotePostId);
-  }
-
-  // 🔔 Notify participants in reply chain
-  if (parentPostId) {
-    await notifyChainUsers(parentPostId, {
-      uid: user.uid,
+    const postData = {
+      id: postRef.id,
+      userId: user.uid,
       username: user.username,
-    });
-  }
+      content: text.trim(),
+      content_lowercase: text.trim().toLowerCase(),
+      media: mediaPayload,
+      createdAt: Timestamp.now(),
+      userPhotoURL: user.photoURL || "",
+      userFullName: user.fullName || "",
+      parentPostId: parentPostId || "",
+      quotePostId: quotePostId || "",
+      replyCount: 0,
+      quoteCount: 0,
+      linkPreview: linkPreview || {},
+    };
 
-  // 🔔 Notify quoted post’s owner
-  if (quotePostId) {
-    const quotedPostSnap = await firestoreAdmin
-      .collection("posts")
-      .doc(quotePostId)
-      .get();
+    const batch = firestoreAdmin.batch();
+    batch.set(postRef, postData);
 
-    if (quotedPostSnap.exists) {
-      const quotedPost = quotedPostSnap.data();
-      if (quotedPost?.userId !== user.uid) {
-        await sendNotification({
-          recipientUid: quotedPost?.userId,
-          actorUid: user.uid,
-          type: "quote",
-          postId: postRef.id,
-          extra: { quotePostId },
-        });
+    if (parentPostId) {
+      const engagementRef = firestoreAdmin
+        .collection("posts")
+        .doc(parentPostId)
+        .collection("engagements")
+        .doc(user.uid);
+
+      batch.set(
+        engagementRef,
+        {
+          replied: true,
+          lastEngagedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+    }
+
+    if (quotePostId) {
+      const engagementRef = firestoreAdmin
+        .collection("posts")
+        .doc(quotePostId)
+        .collection("engagements")
+        .doc(user.uid);
+
+      batch.set(
+        engagementRef,
+        {
+          quoted: true,
+          lastEngagedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+    }
+
+    await batch.commit();
+
+    if (canRunPostBackgroundJobs()) {
+      if (parentPostId) {
+        await scheduleEngagementScoreUpdate(parentPostId);
+      }
+
+      if (quotePostId) {
+        await scheduleEngagementScoreUpdate(quotePostId);
       }
     }
-  }
 
-  return {
-    ...postData,
-    createdAt: postData.createdAt.toDate(), // Convert Timestamp → Date
-    linkPreview: postData.linkPreview || {},
-  } as PostProps;
+    if (parentPostId) {
+      await notifyChainUsers(parentPostId, {
+        uid: user.uid,
+        username: user.username,
+      });
+    }
+
+    if (quotePostId) {
+      const quotedPostSnap = await firestoreAdmin
+        .collection("posts")
+        .doc(quotePostId)
+        .get();
+
+      if (quotedPostSnap.exists()) {
+        const quotedPost = quotedPostSnap.data();
+        if (quotedPost?.userId !== user.uid) {
+          await sendNotification({
+            recipientUid: quotedPost?.userId,
+            actorUid: user.uid,
+            type: "quote",
+            postId: postRef.id,
+            extra: { quotePostId },
+          });
+        }
+      }
+    }
+
+    await notifyMentionedUsers({
+      content: text,
+      sender: {
+        uid: user.uid,
+        username: user.username,
+      },
+      postId: postRef.id,
+    });
+
+    return {
+      ...postData,
+      createdAt: postData.createdAt.toDate(),
+      linkPreview: postData.linkPreview || {},
+    } as PostProps;
+  });
 }

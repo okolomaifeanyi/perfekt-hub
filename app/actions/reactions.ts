@@ -1,6 +1,11 @@
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { firestoreAdmin } from "@/lib/supabase";
+import {
+  FieldValue,
+  type DocumentReference,
+} from "@/lib/supabase";
 import { deleteNotification, sendNotification } from "./notifications";
+import { canRunPostBackgroundJobs } from "@/lib/supabase/post-jobs.mjs";
+import { runReactionNotificationSideEffects } from "@/lib/reaction-notifications.mjs";
 
 export async function toggleLikeDislikeAdmin({
   postId,
@@ -25,7 +30,7 @@ export async function toggleLikeDislikeAdmin({
         transaction.get(postRef),
       ]);
 
-      if (!postDoc.exists) throw new Error("❌ Post not found");
+      if (!postDoc.exists()) throw new Error("âŒ Post not found");
 
       const postData = postDoc.data();
       recipientUid = postData?.userId || null;
@@ -88,33 +93,21 @@ export async function toggleLikeDislikeAdmin({
     }
   );
 
-  // ✅ Recalculate engagementScore after successful transaction
+  // âœ… Recalculate engagementScore after successful transaction
   await scheduleEngagementScoreUpdate(postId);
 
-  // 🔔 notifications outside txn
-  if (recipientUid && action && recipientUid !== userId) {
-    if (action === "delete" && oldType) {
-      await deleteNotification({
-        recipientUid,
-        actorUid: userId,
-        type: oldType,
-      });
-    } else if (action === "send") {
-      if (oldType) {
-        await deleteNotification({
-          recipientUid,
-          actorUid: userId,
-          type: oldType,
-        });
-      }
-      await sendNotification({
-        recipientUid,
-        actorUid: userId,
-        type,
-        postId,
-      });
-    }
-  }
+  // ðŸ”” notifications outside txn
+  await runReactionNotificationSideEffects({
+    recipientUid,
+    actorUid: userId,
+    userId,
+    action,
+    oldType,
+    type,
+    postId,
+    sendNotification,
+    deleteNotification,
+  });
 
   return updatedCounts;
 }
@@ -127,7 +120,7 @@ export async function addUniqueView(postId: string, userId: string) {
 
   const snap = await engagementRef.get();
 
-  if (!snap.exists || !snap.data()?.viewed) {
+  if (!snap.exists() || !snap.data()?.viewed) {
     await engagementRef.set(
       {
         viewed: true,
@@ -141,13 +134,13 @@ export async function addUniqueView(postId: string, userId: string) {
       viewCount: FieldValue.increment(1),
     });
 
-    // ✅ Update engagement score
+    // âœ… Update engagement score
     await scheduleEngagementScoreUpdate(postId);
   }
 }
 
 /**
- * 🧮 Engagement score formula — consistent with your backfill script.
+ * ðŸ§® Engagement score formula â€” consistent with your backfill script.
  */
 function calculateEngagementScore(data: {
   replyCount?: number;
@@ -171,13 +164,13 @@ function calculateEngagementScore(data: {
 }
 
 /**
- * 🔁 Recalculate & update engagementScore for a given post.
+ * ðŸ” Recalculate & update engagementScore for a given post.
  */
 export async function updateEngagementScore(
-  postRef: FirebaseFirestore.DocumentReference
+  postRef: DocumentReference
 ) {
   const snap = await postRef.get();
-  if (!snap.exists) return;
+  if (!snap.exists()) return;
 
   const data = snap.data()!;
   const newScore = calculateEngagementScore({
@@ -203,12 +196,16 @@ const pendingUpdates = new Map<string, NodeJS.Timeout>();
 // same calculateEngagementScore function from before
 
 /**
- * ⚡ Debounced engagementScore updater (memoized)
+ * âš¡ Debounced engagementScore updater (memoized)
  */
 export async function scheduleEngagementScoreUpdate(
   postId: string,
   delay = 2000 // 2s debounce window
 ) {
+  if (!canRunPostBackgroundJobs()) {
+    return;
+  }
+
   // If already scheduled, clear the timer
   if (pendingUpdates.has(postId)) {
     clearTimeout(pendingUpdates.get(postId)!);
@@ -220,7 +217,7 @@ export async function scheduleEngagementScoreUpdate(
     const postRef = firestoreAdmin.collection("posts").doc(postId);
     const snap = await postRef.get();
 
-    if (!snap.exists) return;
+    if (!snap.exists()) return;
     const data = snap.data()!;
     const newScore = calculateEngagementScore({
       replyCount: data.replyCount,

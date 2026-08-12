@@ -1,6 +1,7 @@
 // app/api/upload/route.ts
 import { v2 as cloudinary } from "cloudinary";
 import { NextResponse } from "next/server";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
@@ -12,6 +13,11 @@ const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
 export async function POST(req: Request) {
   try {
+    const { uid } = await getUserFromSession();
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
@@ -67,19 +73,12 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, result });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Upload failed";
     console.error("Upload failed:", err);
     return NextResponse.json(
-      { error: err.message || "Upload failed" },
+      { error: message },
       { status: 500 }
     );
   }
 }
-
-// Optional: Increase body size limit (Vercel Pro required for >10MB)
-export const config = {
-  api: {
-    bodyParser: false, // Required for large files
-  },
-};

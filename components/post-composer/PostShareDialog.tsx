@@ -139,6 +139,7 @@ export function SharePostDialog({
               variant="outline"
               className="rounded-full hover:bg-muted/50 w-[48px] h-[48px]"
               title="Share via..."
+              aria-label="Share via..."
             >
               <Share2 />
             </Button>

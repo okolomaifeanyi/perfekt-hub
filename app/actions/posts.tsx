@@ -1,61 +1,69 @@
-// app/actions/deletePost.ts
 "use server";
 
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { cookies } from "next/headers";
+import { firestoreAdmin } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { deleteChildrenPosts } from "./util";
 
-export async function deletePostAction(
-  postId: string,
-  userId: string
-): Promise<void> {
-  if (!postId || !userId) {
-    throw new Error("postId and userId are required");
+async function withSupabaseRequestContext<T>(
+  callback: () => Promise<T>
+): Promise<T> {
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
+
+  // The @supabase/ssr server client initializes its session lazily
+  // (skipAutoInitialize), so no JWT is attached until an auth method runs and
+  // every query before that executes as the `anon` role. Hydrate it first so
+  // RLS sees the real user.
+  await supabase.auth.getUser();
+
+  return runWithSupabaseClient(supabase, callback);
+}
+
+export async function deletePostAction(postId: string): Promise<void> {
+  if (!postId) {
+    throw new Error("postId is required");
   }
 
-  const db = firestoreAdmin;
-  const postRef = db.doc(`posts/${postId}`);
-  const postSnap = await postRef.get();
-
-  if (!postSnap.exists) {
-    throw new Error("Post not found");
+  const { uid } = await getUserFromSession();
+  if (!uid) {
+    throw new Error("You must be signed in to delete posts");
   }
 
-  const post = postSnap.data()!;
-  if (post.userId !== userId) {
-    throw new Error("You can only delete your own posts");
-  }
+  await withSupabaseRequestContext(async () => {
+    const db = firestoreAdmin;
+    const postRef = db.doc(`posts/${postId}`);
+    const postSnap = await postRef.get();
 
-  const batch = db.batch();
+    if (!postSnap.exists()) {
+      throw new Error("Post not found");
+    }
 
-  // 1. Decrement parent replyCount
-  if (post.parentPostId) {
-    const parentRef = db.doc(`posts/${post.parentPostId}`);
-    batch.update(parentRef, { replyCount: FieldValue.increment(-1) });
-  }
+    const post = postSnap.data()!;
+    if (post.userId !== uid) {
+      throw new Error("You can only delete your own posts");
+    }
 
-  // 2. Decrement quoted post quoteCount
-  if (post.quotePostId) {
-    const quotedRef = db.doc(`posts/${post.quotePostId}`);
-    batch.update(quotedRef, { quoteCount: FieldValue.increment(-1) });
-  }
+    const batch = db.batch();
 
-  // 3. Delete engagements
-  const engSnap = await postRef.collection("engagements").get();
-  for (const eng of engSnap.docs) {
-    batch.delete(eng.ref);
-  }
+    const engSnap = await postRef.collection("engagements").get();
+    for (const eng of engSnap.docs) {
+      batch.delete(eng.ref);
+    }
 
-  // 4. Delete the post
-  batch.delete(postRef);
+    batch.delete(postRef);
 
-  // 5. Decrement user's postsCount
-  const userRef = db.doc(`users/${userId}`);
-  batch.update(userRef, { postsCount: FieldValue.increment(-1) });
+    await batch.commit();
 
-  // Commit all in one atomic batch
-  await batch.commit();
-
-  // 6. Recursively delete children (replies & quotes)
-  await deleteChildrenPosts(postId);
+    await deleteChildrenPosts(postId);
+  });
 }

@@ -1,8 +1,9 @@
 import { MediaProps } from "@/lib/types";
 import React, { Dispatch, SetStateAction } from "react";
 import { Button } from "../ui/button";
-import Image from "next/image";
 import { X } from "lucide-react";
+import { ContainedImage } from "../media/ContainedImage";
+import { ContainedVideo } from "../media/ContainedVideo";
 
 const MediaGallery = ({
   media,
@@ -18,7 +19,7 @@ const MediaGallery = ({
           {media.map((item, index) => (
             <div
               key={index}
-              className={`relative  ${
+              className={`relative bg-muted/20 ${
                 media.length > 1
                   ? "min-w-1/2 h-[200px]"
                   : "min-w-full h-[350px]"
@@ -36,22 +37,20 @@ const MediaGallery = ({
                 <X />
               </Button>
               {item.type === "image" ? (
-                <Image
+                <ContainedImage
                   src={item.src}
                   alt="Post"
-                  width={100}
-                  height={100}
-                  className="w-full h-full object-cover rounded-lg"
+                  sizes={media.length > 1 ? "(max-width: 640px) 50vw, 33vw" : "100vw"}
+                  className="h-full w-full rounded-lg"
+                  imageClassName="rounded-lg"
                   unoptimized={item.src.includes("giphy")}
                 />
               ) : (
-                <video
+                <ContainedVideo
+                  src={item.src}
                   controls
-                  className="w-full h-full object-cover rounded-lg"
-                >
-                  <source src={item.src} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
+                  className="h-full w-full rounded-lg"
+                />
               )}
             </div>
           ))}

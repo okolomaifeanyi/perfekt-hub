@@ -1,6 +1,7 @@
 "use server";
 
-import { firestoreAdmin, authAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin, authAdmin } from "@/lib/supabase";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { v2 as cloudinary } from "cloudinary";
 
 const BATCH_LIMIT = 300;
@@ -106,6 +107,11 @@ export async function deleteAccountAction(
   try {
     if (!uid) return { success: false, message: "Missing userId" };
 
+    const session = await getUserFromSession();
+    if (!session.uid || session.uid !== uid) {
+      return { success: false, message: "Unauthorized" };
+    }
+
     const userRef = firestoreAdmin.collection("users").doc(uid);
 
     // USER SUBCOLLECTIONS
@@ -139,7 +145,7 @@ export async function deleteAccountAction(
       message: "Account deleted with all media removed.",
     };
   } catch (error) {
-    console.error("❌ Delete account error:", error);
+    console.error("âŒ Delete account error:", error);
     return { success: false, message: "Failed to delete account" };
   }
 }
