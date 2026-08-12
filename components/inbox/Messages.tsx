@@ -144,7 +144,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
     const [chatTouched, setChatTouched] = useState("");
 
     return (
-      <div className="flex-1 overflow-y-auto space-y-2 sticky w-full bottom-0">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 w-full">
         <a href={`#${pinnedMessage?.id}`} className="!bg-secondary !mb-2 block">
           {pinnedMessage && (
             <div className="px-3 py-2 flex items-center gap-2 text-sm">
@@ -201,29 +201,31 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   </div>
                 )}
 
-                {msg.media && (
+                {msg.forwarded && (
+                  <p className="text-xs italic opacity-70 mb-1">Forwarded</p>
+                )}
+
+                {msg.media?.src && (
                   <div className="mb-2">
-                    {msg.media.type.startsWith("image") ? (
+                    {msg.media.type === "image" ? (
                       <Image
                         src={msg.media.src}
-                        className="rounded-lg max-h-60"
+                        className="rounded-lg max-h-60 w-auto"
                         alt=""
                         width={200}
                         height={200}
                       />
                     ) : (
-                      <a
-                        href={msg.media.src}
-                        target="_blank"
-                        className="underline text-sm"
-                      >
-                        Attachment
-                      </a>
+                      <video
+                        src={msg.media.src}
+                        controls
+                        className="rounded-lg max-h-60 max-w-full"
+                      />
                     )}
                   </div>
                 )}
 
-                <RichText text={msg.text} />
+                {msg.text && <RichText text={msg.text} />}
 
                 <span className="block text-[10px] opacity-70 mt-1 text-right">
                   {msg.createdAt?.toDate

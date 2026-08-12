@@ -130,11 +130,10 @@ export default function ForwardModal({ message, onClose }: ForwardModalProps) {
         {
           senderId: user.uid,
           text: message.text ?? "",
-          media: message.media ?? null,
+          ...(message.media ? { media: message.media } : {}),
           forwarded: true,
           originalSender: message.senderId,
           createdAt: serverTimestamp(),
-          readBy: [user.uid],
         }
       );
 

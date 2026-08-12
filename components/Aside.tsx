@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MessageCircle, Phone } from "lucide-react";
 
 import WhoToFollow from "./Features/follow/WhoToFollow";
@@ -9,12 +10,53 @@ import RecommendationRail from "@/components/feed/RecommendationRail";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { buildDirectConversationId } from "@/lib/conversation-utils.mjs";
 import { getUser } from "@/lib/data";
 import { useUserConnections } from "@/hooks/UserConnections";
+import { useConversations } from "@/hooks/useConversations";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { UserProps } from "@/lib/types";
+import ConversationRow from "@/app/(dashboard)/messages/Conversation";
+import NewConversationDialog from "@/components/inbox/NewConversationDialog";
+
+function MessagesAside() {
+  const { conversations, loaded, user } = useConversations();
+
+  return (
+    <div className="flex w-full flex-col p-4">
+      <div className="flex items-center justify-between gap-3 pb-2">
+        <h2 className="text-base font-semibold">Messages</h2>
+        <NewConversationDialog />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        {!loaded &&
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-2">
+              <Skeleton className="size-10 rounded-full shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-24" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+          ))}
+        {loaded && conversations.length === 0 && (
+          <p className="px-2 py-4 text-sm text-muted-foreground">
+            No conversations yet
+          </p>
+        )}
+        {user &&
+          conversations.map(conv => {
+            const other =
+              conv.participants.find(p => p !== user.uid) || "Unknown";
+            return <ConversationRow key={conv.id} otherUid={other} conv={conv} />;
+          })}
+      </div>
+    </div>
+  );
+}
 
 type FriendPreview = UserProps & {
   status: "online" | "recently-active" | "offline";
@@ -42,6 +84,7 @@ function getFriendStatus(user: UserProps): FriendPreview["status"] {
 }
 
 export default function Aside() {
+  const pathname = usePathname();
   const currentUser = useUserStore(state => state.user);
   const { friends } = useUserConnections();
   const [friendPreviews, setFriendPreviews] = useState<FriendPreview[]>([]);
@@ -77,6 +120,10 @@ export default function Aside() {
     if (friendPreviews.length === 0) return "No active friends yet";
     return friendPreviews.length === 1 ? "1 friend active" : `${friendPreviews.length} friends active`;
   }, [friendPreviews.length]);
+
+  if (pathname?.startsWith("/messages")) {
+    return <MessagesAside />;
+  }
 
   return (
     <div className="flex w-full flex-col space-y-6 p-4">

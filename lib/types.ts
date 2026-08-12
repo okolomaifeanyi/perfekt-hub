@@ -146,7 +146,7 @@ export interface Notification {
 export interface MessageProps {
   id: string;
   senderId: string;
-  media: MediaProps;
+  media?: MediaProps;
   text: string;
   createdAt: Timestamp;
   reactions: Record<string, string[]>;
@@ -158,10 +158,13 @@ export interface MessageProps {
     senderName?: string;
   };
   isPinned?: boolean;
+  forwarded?: boolean;
+  originalSender?: string;
 }
 
 export interface DraftMessage {
   text: string;
+  media?: MediaProps;
   replyTo?: {
     id: string;
     text: string;
