@@ -5,6 +5,7 @@ import { decode } from "html-entities";
 import { LinkPreviewType } from "./types";
 import { extractLinks, normalizeUrl } from "./link-parser.mjs";
 import { isPublicHttpUrl } from "./ssrf-guard.mjs";
+import { fetchFollowingValidatedRedirects } from "./safe-fetch.mjs";
 
 export { extractLinks, normalizeUrl };
 
@@ -155,14 +156,9 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
       return await fetchWithLinkPreview(normalized);
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch(normalized, {
-      signal: controller.signal,
-      redirect: "follow",
+    const res = await fetchFollowingValidatedRedirects(normalized, {
+      isPublicUrl: isPublicHttpUrl,
     });
-    clearTimeout(timeout);
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status} for ${normalized}`);
@@ -205,7 +201,9 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
     if (!image && !normalized.includes("://www.")) {
       const wwwUrl = normalized.replace("://", "://www.");
       try {
-        const res2 = await fetch(wwwUrl, { redirect: "follow" });
+        const res2 = await fetchFollowingValidatedRedirects(wwwUrl, {
+          isPublicUrl: isPublicHttpUrl,
+        });
         if (res2.ok) {
           const html2 = await res2.text();
           const $$ = cheerio.load(html2);
