@@ -77,6 +77,9 @@ function normalizePost(
     viewCount: data.viewCount ?? 0,
     engagementScore: data.engagementScore ?? 0,
     engagementUpdatedAt: toDate(data.engagementUpdatedAt),
+    groupId: data.groupId ?? null,
+    groupName: data.groupName ?? null,
+    visibility: data.visibility ?? "public",
     // Add any other fields you use:
     lastSeen: toDate(data.lastSeen),
     // ... add more if needed

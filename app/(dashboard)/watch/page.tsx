@@ -2,6 +2,9 @@ import { getFeedAction } from "@/app/actions/feed";
 import { buildVideoViewerQueue, hasVideoMedia } from "@/lib/video-viewer-queue.mjs";
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import VideoViewer from "@/components/feed/post/VideoViewer";
+import { createClient } from "@/lib/supabase/server";
+import { normalizeReadRow } from "@/lib/supabase/firestore-schema.mjs";
+import { PostProps } from "@/lib/types";
 
 export default async function WatchPage() {
   const { uid } = await getUserFromSession();
@@ -10,8 +13,23 @@ export default async function WatchPage() {
     return null;
   }
 
-  const feedPosts = await getFeedAction(uid, 50, null, null, false, "trending");
-  const currentPost = feedPosts.find(hasVideoMedia);
+  // Fetch regular feed posts + public group video posts in parallel
+  const [feedPosts, groupVideoPosts] = await Promise.all([
+    getFeedAction(uid, 50, null, null, false, "trending"),
+    fetchPublicGroupVideoPosts(),
+  ]);
+
+  // Merge and deduplicate
+  const seen = new Set<string>(feedPosts.map(p => p.id));
+  const merged = [...feedPosts];
+  for (const p of groupVideoPosts) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      merged.push(p);
+    }
+  }
+
+  const currentPost = merged.find(hasVideoMedia);
 
   if (!currentPost) {
     return (
@@ -26,7 +44,7 @@ export default async function WatchPage() {
 
   const queue = buildVideoViewerQueue({
     currentPost,
-    feedPosts,
+    feedPosts: merged,
     targetSize: 12,
   });
 
@@ -37,4 +55,31 @@ export default async function WatchPage() {
       queue={queue}
     />
   );
+}
+
+async function fetchPublicGroupVideoPosts(): Promise<PostProps[]> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("posts")
+      .select(`
+        *,
+        groups ( name )
+      `)
+      .not("groupid", "is", null)
+      .eq("visibility", "public")
+      .order("createdat", { ascending: false })
+      .limit(30);
+
+    if (error || !data) return [];
+
+    return data.map(row => {
+      const normalized = normalizeReadRow("posts", row);
+      // Attach the group name from the join
+      normalized.groupName = row.groups?.name ?? null;
+      return normalized as unknown as PostProps;
+    });
+  } catch {
+    return [];
+  }
 }

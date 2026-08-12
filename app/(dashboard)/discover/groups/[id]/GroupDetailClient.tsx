@@ -69,7 +69,14 @@ export function GroupDetailClient({
   const router = useRouter();
   const currentUid = useUserStore(state => state.user?.uid);
   const currentUser = useUserStore(state => state.user);
-  const [members, setMembers] = useState<GroupMemberProps[]>(detail.members);
+  const [members, setMembers] = useState<GroupMemberProps[]>(
+    // Sort: online first, then admins, then by name
+    [...detail.members].sort((a, b) => {
+      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+      if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
+      return (a.fullName || a.username).localeCompare(b.fullName || b.username);
+    })
+  );
   const [membersCount, setMembersCount] = useState(detail.group.membersCount);
   const [joinRequests, setJoinRequests] = useState<JoinRequestProps[]>(initialJoinRequests);
   const [posts, setPosts] = useState<GroupPostProps[]>(initialPosts);
@@ -335,6 +342,12 @@ export function GroupDetailClient({
           <h2 className="text-sm font-semibold flex items-center gap-1.5">
             <Users className="size-4" />
             Members ({membersCount})
+            {members.filter(m => m.isOnline).length > 0 && (
+              <span className="ml-auto flex items-center gap-1 text-xs text-green-500 font-normal">
+                <span className="size-1.5 rounded-full bg-green-500 inline-block" />
+                {members.filter(m => m.isOnline).length} online
+              </span>
+            )}
           </h2>
           <div className="space-y-2">
             {displayedMembers.map(member => (
@@ -352,6 +365,9 @@ export function GroupDetailClient({
                       {(member.fullName || member.username || "U").slice(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
+                  {member.isOnline && (
+                    <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium">

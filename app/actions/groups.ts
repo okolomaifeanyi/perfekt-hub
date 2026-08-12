@@ -28,6 +28,7 @@ export type GroupMemberProps = {
   username: string;
   fullName: string;
   photoURL: string | null;
+  isOnline: boolean;
 };
 
 export type GroupDetail = {
@@ -203,6 +204,10 @@ export async function leaveGroup(groupId: string): Promise<void> {
 
 function mapMemberRow(row: Record<string, unknown>): GroupMemberProps {
   const profile = (row.users ?? {}) as Record<string, unknown>;
+  const lastSeenRaw = profile.lastseen as string | null | undefined;
+  const isOnline = lastSeenRaw
+    ? Date.now() - new Date(lastSeenRaw).getTime() < 5 * 60 * 1000
+    : false;
   return {
     uid: row.uid as string,
     role: (row.role as GroupRole) ?? "member",
@@ -210,6 +215,7 @@ function mapMemberRow(row: Record<string, unknown>): GroupMemberProps {
     username: (profile.username as string) ?? "",
     fullName: (profile.fullname as string) ?? "",
     photoURL: (profile.photourl as string) ?? null,
+    isOnline,
   };
 }
 
@@ -227,7 +233,7 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
 
     const { data: memberRows, error: memberError } = await client
       .from("group_members")
-      .select("uid, role, joinedat, users:uid(username, fullname, photourl)")
+      .select("uid, role, joinedat, users:uid(username, fullname, photourl, lastseen)")
       .eq("groupid", groupId)
       .order("joinedat", { ascending: true });
     if (memberError) throw memberError;

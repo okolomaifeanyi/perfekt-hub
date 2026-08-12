@@ -57,6 +57,11 @@ const PostCard = ({
   const parentPost = useParentPost(post.parentPostId);
   const parentPostUser = useUser(parentPost?.userId || "");
 
+  // Use data cached in the post row as immediate fallbacks so the card is
+  // always clickable, even while the async user fetch is in-flight or when
+  // userId is missing (e.g. older posts).
+  const effectiveUsername = user?.username || post.username;
+
   const isPinned = post?.isPinned;
   const isOwner = user ? currentUser?.uid === user.uid : false;
   const isFollowing = user ? following?.includes(user.uid) : false;
@@ -71,8 +76,8 @@ const PostCard = ({
     e.stopPropagation();
   };
 
-  // Show skeleton if user is not resolved
-  if (!user) {
+  // While user profile is still loading AND we have no cached username, show skeleton
+  if (!user && !effectiveUsername) {
     return (
       <LazyLoadComponent scrollPosition={scrollPosition}>
         <PostCardSkeleton />
@@ -86,7 +91,7 @@ const PostCard = ({
         className={`${className} 
         cursor-pointer
         transition hover:bg-background/60 backdrop-blur-lg py-4`}
-        onClick={() => user && handleCardClick(`/${user.username}/${post.id}`)}
+        onClick={() => effectiveUsername && handleCardClick(`/${effectiveUsername}/${post.id}`)}
       >
         <CardContent className="space-y-3 px-0">
           {/* Header */}
@@ -154,6 +159,20 @@ const PostCard = ({
               </div>
             </div>
           </div>
+
+          {/* Group tag */}
+          {post.groupId && (
+            <div className="px-4" onClick={stopPropagation}>
+              <Link
+                href={`/discover/groups/${post.groupId}`}
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">
+                  📌 {post.groupName ?? "Group"}
+                </span>
+              </Link>
+            </div>
+          )}
 
           {!isPostPage && parentPost && (
             <div className="px-4 text-gray-500" onClick={stopPropagation}>

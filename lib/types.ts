@@ -68,6 +68,9 @@ export interface PostProps {
   linkPreview: LinkPreviewType;
   replyCount?: number;
   quoteCount?: number;
+  groupId?: string | null;
+  groupName?: string | null;
+  visibility?: "public" | "private";
   __optimistic?: boolean;
   engagementScore?: number;
   content_lowercase?: string;
