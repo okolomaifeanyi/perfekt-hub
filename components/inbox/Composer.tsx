@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { DraftMessage, MediaProps, UserProps } from "@/lib/types";
 import { uploadToCloudinary } from "../post-composer/utils";
 import Emoji from "../post-composer/Emoji";
+import { normalizeUnknownError } from "@/lib/supabase/error-utils.mjs";
 
 const Composer = ({
   newMsg,
@@ -82,17 +83,27 @@ const Composer = ({
         }
       );
 
-      await updateDoc(doc(db, "conversations", conversationId), {
-        lastMessage: text || (media ? "Attachment" : ""),
-        lastMessageAt: serverTimestamp(),
-        [`unreadCount.${user.uid}`]: 0,
-        [`unreadCount.${targetUid}`]: increment(1),
-      });
+      // The message itself already sent successfully at this point — a
+      // failure updating the conversation's lastMessage/unreadCount summary
+      // shouldn't be reported to the user as a failed send.
+      try {
+        if (targetUid) {
+          await updateDoc(doc(db, "conversations", conversationId), {
+            lastMessage: text || (media ? "Attachment" : ""),
+            lastMessageAt: serverTimestamp(),
+            [`unreadCount.${user.uid}`]: 0,
+            [`unreadCount.${targetUid}`]: increment(1),
+          });
+        }
+      } catch (metaError) {
+        console.error("Failed to update conversation summary:", metaError);
+      }
 
       setNewMsg({ text: "" });
     } catch (e) {
-      console.error(e);
-      toast.error("Failed to send message");
+      const normalized = normalizeUnknownError(e, "Failed to send message");
+      console.error(normalized);
+      toast.error(normalized.message || "Failed to send message");
     } finally {
       setSending(false);
     }
