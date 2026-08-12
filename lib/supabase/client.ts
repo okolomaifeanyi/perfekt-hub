@@ -10,13 +10,27 @@ let browserClient: SupabaseClient | null = null;
 let adminClient: SupabaseClient | null = null;
 
 function getSupabaseEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "placeholder-anon-key";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return { url, anonKey };
+  // The local-dev CLI defaults exist so `next dev` works without extra
+  // setup. Falling back to them in production is worse than crashing: it
+  // silently points every Supabase call (auth, data, everything) at an
+  // unreachable localhost instance instead of surfacing a clear error —
+  // that's exactly what shipped a production build with Google sign-in
+  // redirecting to http://127.0.0.1:54321.
+  if ((!url || !anonKey) && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) must be set at build time in production — refusing to fall back to the local dev Supabase instance."
+    );
+  }
+
+  return {
+    url: url || "http://127.0.0.1:54321",
+    anonKey: anonKey || "placeholder-anon-key",
+  };
 }
 
 export function getSupabasePublicClient() {
