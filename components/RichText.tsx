@@ -27,7 +27,7 @@ export default function RichText({
   }
 
   return (
-    <span className={cn("break-words", className)}>
+    <span className={cn("wrap-break-word", className)}>
       {lines.map((line, lineIndex) => (
         <span key={`line-${lineIndex}`}>
           {line.map((token, tokenIndex) => {

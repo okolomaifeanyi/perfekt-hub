@@ -25,7 +25,7 @@ const Conversation = ({
       {otherUser ? (
         <JustAvatar size={45} user={otherUser} />
       ) : (
-        <div className="size-[45px] shrink-0 rounded-full bg-muted animate-pulse" />
+        <div className="size-11.25 shrink-0 rounded-full bg-muted animate-pulse" />
       )}
       <div className="flex-1 min-w-0">
         <div className="font-medium">

@@ -111,7 +111,7 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
             <span>Merging...</span>
           </>
         ) : (
-          <span className="!m-0 font-medium">
+          <span className="m-0! font-medium">
             Show {count} new post{count > 1 ? "s" : ""}
           </span>
         )}

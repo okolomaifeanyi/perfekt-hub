@@ -19,7 +19,7 @@ const Main = ({ children, leftSidebar, rightSidebar }: MainProps) => {
       data-dashboard-scroll-container="true"
       className="h-screen w-full overflow-y-auto overflow-x-hidden"
     >
-      <div className="mx-auto grid min-h-full w-full max-w-[1440px] grid-cols-1 sm:grid-cols-[70px_minmax(0,1fr)] md:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)_450px]">
+      <div className="mx-auto grid min-h-full w-full max-w-360 grid-cols-1 sm:grid-cols-[70px_minmax(0,1fr)] md:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[250px_minmax(0,1fr)_450px]">
         <nav className="hidden sm:block sticky top-0 h-screen self-start">
           {leftSidebar}
         </nav>

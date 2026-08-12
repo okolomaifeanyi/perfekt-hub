@@ -209,7 +209,7 @@ const NotificationPage = () => {
                   >
                     <div className="flex gap-x-4 items-center">
                       <div className="relative">
-                        <Avatar className="h-[40px] w-[40px]">
+                        <Avatar className="h-10 w-10">
                           <Image
                             alt={`${
                               n?.actor?.fullName || n?.actor?.username || "Deleted User"

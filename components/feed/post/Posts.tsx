@@ -101,7 +101,7 @@ const Posts = ({
     }
   });
 
-  return <List className="space-y-4 list-none !m-0 !p-0">{items}</List>;
+  return <List className="space-y-4 list-none m-0! p-0!">{items}</List>;
 };
 
 export default Posts;

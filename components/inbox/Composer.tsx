@@ -194,7 +194,7 @@ const Composer = ({
         </Button>
 
         <Textarea
-          className="flex-1 resize-none leading-tight min-h-0 !h-[unset]"
+          className="flex-1 resize-none leading-tight min-h-0 h-[unset]!"
           placeholder="Type a message..."
           value={newMsg.text}
           rows={1}

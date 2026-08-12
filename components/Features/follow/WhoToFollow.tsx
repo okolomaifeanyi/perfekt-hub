@@ -102,9 +102,9 @@ export default function WhoToFollow({
   }
 
   return (
-    <Card className={`space-y-2 ${compact ? "!py-3" : "py-4"} ${className}`}>
+    <Card className={`space-y-2 ${compact ? "py-3!" : "py-4"} ${className}`}>
       
-        <CardHeader className="flex justify-between items-center !my-0">
+        <CardHeader className="flex justify-between items-center my-0!">
           <CardTitle
             className={"text-2xl font-bold flex items-center gap-x-2"}
           >

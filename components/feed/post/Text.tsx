@@ -38,7 +38,7 @@ export default function Text({ text }: TextProps) {
     <div>
       <div
         ref={textRef}
-        className="overflow-hidden transition-all duration-300 text-justify break-words"
+        className="overflow-hidden transition-all duration-300 text-justify wrap-break-word"
         style={{
           display: "-webkit-box",
           WebkitLineClamp: lines,

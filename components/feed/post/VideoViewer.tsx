@@ -127,7 +127,7 @@ export default function VideoViewer({
               data-index={index}
               className="group relative flex h-dvh snap-start items-center justify-center bg-black"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/70" />
+              <div className="absolute inset-0 bg-linear-to-b from-black/30 via-black/10 to-black/70" />
 
               {videoSrc ? (
                 <ContainedVideo
@@ -225,7 +225,7 @@ export default function VideoViewer({
       <aside
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 h-[70dvh] border-t bg-background/95 backdrop-blur-xl",
-          "transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:w-[420px] md:border-t-0 md:border-l",
+          "transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:w-105 md:border-t-0 md:border-l",
           detailsOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-x-full"
         )}
         aria-hidden={!detailsOpen}

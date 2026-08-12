@@ -220,10 +220,10 @@ const PostCard = ({
               onClick={stopPropagation}
             >
               <Card className="overflow-hidden transition mx-4 py-0">
-                <div className="flex items-center !py-0">
+                <div className="flex items-center py-0!">
                   {post.linkPreview.image && (
                     <div
-                      className="w-28 h-20 px-2 flex-shrink-0"
+                      className="w-28 h-20 px-2 shrink-0"
                       style={{
                         backgroundColor: fallbackColorFromSrc(
                           post.linkPreview.image

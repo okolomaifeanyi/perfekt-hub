@@ -149,7 +149,7 @@ export function MobileMenu() {
             </CardContent>
           </Card>
 
-          <List className="list-none !mx-0">
+          <List className="list-none mx-0!">
             {(PRIMARY_GROUP?.items ?? []).map(item => {
               const isActive = pathname === item.href;
               const Icon = isActive ? item.SolidIcon : item.OutlineIcon;
@@ -176,7 +176,7 @@ export function MobileMenu() {
           <div className="px-1 text-xs font-medium text-muted-foreground">
             Explore
           </div>
-          <List className="list-none !mx-0">
+          <List className="list-none mx-0!">
             {MORE_GROUPS.flatMap(group => group.items).map(item => (
               <li key={item.label}>
                 <SheetClose asChild>
@@ -196,7 +196,7 @@ export function MobileMenu() {
           <div className="px-1 text-xs font-medium text-muted-foreground">
             Accounts
           </div>
-          <List className="list-none !mx-0 space-y-1">
+          <List className="list-none mx-0! space-y-1">
             {savedAccounts.map(account => (
               <li key={account.uid} className="flex items-center gap-2">
                 <button

@@ -9,7 +9,7 @@ import { useConversations } from "@/hooks/useConversations";
 function ConversationRowSkeleton() {
   return (
     <div className="flex items-center gap-3 p-3">
-      <Skeleton className="size-[45px] rounded-full shrink-0" />
+      <Skeleton className="size-11.25 rounded-full shrink-0" />
       <div className="flex-1 min-w-0 space-y-2">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-3 w-48" />

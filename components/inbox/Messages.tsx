@@ -145,7 +145,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
 
     return (
       <div className="flex-1 min-h-0 overflow-y-auto space-y-2 w-full">
-        <a href={`#${pinnedMessage?.id}`} className="!bg-secondary !mb-2 block">
+        <a href={`#${pinnedMessage?.id}`} className="bg-secondary! mb-2! block">
           {pinnedMessage && (
             <div className="px-3 py-2 flex items-center gap-2 text-sm">
               <Pin className="w-4 h-4" />
@@ -180,8 +180,8 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
               }}
             >
               <div
-                className={`relative group w-full max-w-[250px] p-4 rounded-2xl shadow-sm leading-normal ${
-                  isMe ? "!bg-primary text-primary-foreground font-semibold" : "bg-secondary"
+                className={`relative group w-full max-w-62.5 p-4 rounded-2xl shadow-sm leading-normal ${
+                  isMe ? "bg-primary! text-primary-foreground font-semibold" : "bg-secondary"
                 }`}
               >
                 {msg.replyTo && (

@@ -35,11 +35,11 @@ const PostMedia = ({ post }: { post: PostProps }) => {
     <>
       {/* Collapsed grid view */}
       <div
-        className={`grid gap-[4px] max-h-[250px] overflow-hidden ${
+        className={`grid gap-1 max-h-62.5 overflow-hidden ${
           mediaCount === 2
             ? "grid-cols-2"
             : mediaCount === 3
-            ? "grid-cols-2 grid-rows-2 h-[300px]"
+            ? "grid-cols-2 grid-rows-2 h-75"
             : mediaCount === 4
             ? "grid-cols-2 grid-rows-2"
             : ""
