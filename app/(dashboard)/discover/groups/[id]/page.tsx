@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import NavBar from "../../../[username]/components/NavBar";
-import { getGroupDetail } from "@/app/actions/groups";
+import {
+  getGroupDetail,
+  listGroupFiles,
+  listGroupPosts,
+  listJoinRequests,
+} from "@/app/actions/groups";
 import { listGroupPolls } from "@/app/actions/polls";
 import { GroupDetailClient } from "./GroupDetailClient";
 
@@ -10,16 +15,28 @@ export default async function GroupDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const detail = await getGroupDetail(id);
-  if (!detail) return notFound();
 
-  const polls = await listGroupPolls(id);
+  const [detail, polls, posts, files, joinRequests] = await Promise.all([
+    getGroupDetail(id),
+    listGroupPolls(id).catch(() => []),
+    listGroupPosts(id).catch(() => []),
+    listGroupFiles(id).catch(() => []),
+    listJoinRequests(id).catch(() => []),
+  ]);
+
+  if (!detail) return notFound();
 
   return (
     <>
       <NavBar title={detail.group.name} />
       <main className="container mx-auto px-4 py-6">
-        <GroupDetailClient detail={detail} initialPolls={polls} />
+        <GroupDetailClient
+          detail={detail}
+          initialPolls={polls}
+          initialPosts={posts}
+          initialFiles={files}
+          initialJoinRequests={joinRequests}
+        />
       </main>
     </>
   );

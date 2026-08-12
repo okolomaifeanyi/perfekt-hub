@@ -345,7 +345,7 @@ function getBaseTarget(segments: string[]): Target {
       return { table: "conversations", idColumn: "id", baseFilters: [] };
     }
 
-    if (three === "messages") {
+    if (two === "messages") {
       return {
         table: "messages",
         idColumn: "id",

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { H1, P } from "@/components/Typography";
 import Conversation from "./Conversation";
 import NewConversationDialog from "@/components/inbox/NewConversationDialog";
@@ -20,6 +22,14 @@ function ConversationRowSkeleton() {
 
 export default function InboxPage() {
   const { conversations, loaded, user, authReady } = useConversations();
+  const router = useRouter();
+
+  // Redirect to the latest conversation once loaded
+  useEffect(() => {
+    if (loaded && conversations.length > 0) {
+      router.replace(`/messages/${conversations[0].id}`);
+    }
+  }, [loaded, conversations, router]);
 
   if (!authReady || !user) {
     return (

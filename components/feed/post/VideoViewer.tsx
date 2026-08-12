@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChevronRight, Settings, X } from "lucide-react";
+import { ChevronRight, Settings, X } from "lucide-react";
 
 import CommentFeed from "@/components/feed/post/CommentFeed";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { buildCanonicalPostUrl, buildVideoPostUrl } from "@/lib/video-url.mjs";
 import { applyVideoQuality, isCloudinaryVideoUrl, VIDEO_QUALITIES } from "@/lib/video-quality.mjs";
 import { cn } from "@/lib/utils";
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
+import JustAvatar from "@/components/JustAvatar";
 
 type VideoViewerProps = {
   currentUsername: string;
@@ -106,11 +107,12 @@ export default function VideoViewer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white">
+    <div className="flex h-[calc(100vh-3rem)] overflow-hidden bg-black text-white">
+      {/* Video feed */}
       <div
         ref={scrollContainerRef}
         className={cn(
-          "h-full w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory",
+          "flex-1 min-w-0 overflow-y-auto overflow-x-hidden snap-y snap-mandatory",
           "scroll-smooth"
         )}
       >
@@ -125,7 +127,8 @@ export default function VideoViewer({
                 sectionRefs.current[index] = node;
               }}
               data-index={index}
-              className="group relative flex h-dvh snap-start items-center justify-center bg-black"
+              className="group relative flex h-full snap-start items-center justify-center bg-black"
+              style={{ height: "calc(100vh - 3rem)" }}
             >
               <div className="absolute inset-0 bg-linear-to-b from-black/30 via-black/10 to-black/70" />
 
@@ -158,19 +161,6 @@ export default function VideoViewer({
                 <p className="line-clamp-3 text-sm leading-6 text-white/90">
                   {post.content}
                 </p>
-              </div>
-
-              <div className="pointer-events-none absolute left-4 top-4 z-20">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="pointer-events-auto rounded-full"
-                  onClick={handleBack}
-                  aria-label="Back"
-                >
-                  <ArrowLeft className="size-4" />
-                </Button>
               </div>
 
               <div
@@ -222,7 +212,66 @@ export default function VideoViewer({
         })}
       </div>
 
-      <aside
+      {/* Right sidebar — video queue */}
+      <aside className="hidden lg:flex w-72 xl:w-80 flex-col border-l border-white/10 bg-black/80 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+          <p className="text-sm font-semibold">Up next</p>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {queue.map((post, index) => {
+            const thumb = post.media?.find(m => m.type === "video")?.src ?? null;
+            const isActive = index === activeIndex;
+            return (
+              <button
+                key={post.id}
+                type="button"
+                onClick={() => {
+                  setActiveIndex(index);
+                  const section = sectionRefs.current[index];
+                  section?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className={cn(
+                  "flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-white/5",
+                  isActive && "bg-white/10"
+                )}
+              >
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
+                  {thumb && (
+                    <video
+                      src={thumb}
+                      className="h-full w-full object-cover"
+                      muted
+                      preload="metadata"
+                    />
+                  )}
+                  {isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="size-3 rounded-full bg-white animate-pulse" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <JustAvatar
+                      size={16}
+                      username={post.username}
+                      photoURL={post.userPhotoURL}
+                      fullName={post.userFullName}
+                    />
+                    <span className="truncate text-xs text-white/70">@{post.username || currentUsername}</span>
+                  </div>
+                  <p className="line-clamp-2 text-xs leading-snug text-white/80">
+                    {post.content || "Video"}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* Post details panel */}
+      <div
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 h-[70dvh] border-t bg-background/95 backdrop-blur-xl",
           "transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:h-dvh md:w-105 md:border-t-0 md:border-l",
@@ -257,7 +306,7 @@ export default function VideoViewer({
             <CommentFeed postId={activePost.id} />
           </div>
         </div>
-      </aside>
+      </div>
     </div>
   );
 }

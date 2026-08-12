@@ -11,9 +11,11 @@ export type GroupProps = {
   name: string;
   description: string;
   photoURL: string | null;
+  wallURL: string | null;
   ownerUid: string;
   membersCount: number;
   createdAt: string;
+  joinPolicy: "open" | "admin";
   isMember?: boolean;
 };
 
@@ -60,9 +62,11 @@ function mapGroupRow(row: Record<string, unknown>): GroupProps {
     name: row.name as string,
     description: (row.description as string) ?? "",
     photoURL: (row.photourl as string) ?? null,
+    wallURL: (row.wallurl as string) ?? null,
     ownerUid: row.owneruid as string,
     membersCount: (row.memberscount as number) ?? 0,
     createdAt: row.createdat as string,
+    joinPolicy: (row.joinpolicy as "open" | "admin") ?? "open",
   };
 }
 
@@ -121,18 +125,37 @@ export async function createGroup(input: { name: string; description?: string })
       name: input.name.trim(),
       description: input.description?.trim() ?? "",
       photoURL: null,
+      wallURL: null,
       ownerUid: uid,
       membersCount: 1,
       createdAt: new Date().toISOString(),
+      joinPolicy: "open",
     };
   });
 }
 
-export async function joinGroup(groupId: string): Promise<void> {
+export async function joinGroup(groupId: string): Promise<{ status: "joined" | "requested" }> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
 
-  await withSupabaseRequestContext(async client => {
+  return withSupabaseRequestContext(async client => {
+    const { data: groupRow, error: groupError } = await client
+      .from("groups")
+      .select("joinpolicy")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (groupError) throw groupError;
+    if (!groupRow) throw new Error("Group not found");
+
+    if ((groupRow as { joinpolicy: string }).joinpolicy === "admin") {
+      // Create a join request instead of directly adding
+      const { error } = await client
+        .from("group_join_requests")
+        .insert({ id: crypto.randomUUID(), groupid: groupId, uid });
+      if (error && error.code !== "23505") throw error; // ignore duplicate
+      return { status: "requested" };
+    }
+
     const { error } = await client
       .from("group_members")
       .insert({ id: crypto.randomUUID(), groupid: groupId, uid });
@@ -148,6 +171,8 @@ export async function joinGroup(groupId: string): Promise<void> {
       .from("groups")
       .update({ memberscount: count ?? 1 })
       .eq("id", groupId);
+
+    return { status: "joined" };
   });
 }
 
@@ -216,7 +241,7 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
 
 export async function updateGroupSettings(
   groupId: string,
-  input: { name?: string; description?: string; photoURL?: string | null }
+  input: { name?: string; description?: string; photoURL?: string | null; wallURL?: string | null; joinPolicy?: "open" | "admin" }
 ): Promise<void> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
@@ -228,6 +253,8 @@ export async function updateGroupSettings(
   }
   if (input.description !== undefined) patch.description = input.description.trim();
   if (input.photoURL !== undefined) patch.photourl = input.photoURL;
+  if (input.wallURL !== undefined) patch.wallurl = input.wallURL;
+  if (input.joinPolicy !== undefined) patch.joinpolicy = input.joinPolicy;
   if (Object.keys(patch).length === 0) return;
 
   await withSupabaseRequestContext(async client => {
@@ -308,3 +335,388 @@ export async function deleteGroup(groupId: string): Promise<void> {
     if (!data || data.length === 0) throw new Error("Only group admins can delete the group");
   });
 }
+
+// ─── Group Posts ──────────────────────────────────────────────────────────────
+
+export type GroupPostVisibility = "public" | "private";
+
+export type GroupPostProps = {
+  id: string;
+  groupId: string;
+  userId: string;
+  text: string;
+  media: Array<{ url: string; type: string }>;
+  visibility: GroupPostVisibility;
+  isPinned: boolean;
+  createdAt: string;
+  authorUsername?: string;
+  authorFullName?: string;
+  authorPhotoURL?: string | null;
+};
+
+function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
+  const author = (row.users ?? {}) as Record<string, unknown>;
+  const media = Array.isArray(row.media) ? (row.media as Array<{ url: string; type: string }>) : [];
+  return {
+    id: row.id as string,
+    groupId: row.groupid as string,
+    userId: row.userid as string,
+    text: (row.text as string) ?? "",
+    media,
+    visibility: (row.visibility as GroupPostVisibility) ?? "public",
+    isPinned: Boolean(row.ispinned),
+    createdAt: row.createdat as string,
+    authorUsername: (author.username as string) ?? undefined,
+    authorFullName: (author.fullname as string) ?? undefined,
+    authorPhotoURL: (author.photourl as string) ?? null,
+  };
+}
+
+export async function createGroupPost(input: {
+  groupId: string;
+  text: string;
+  media?: Array<{ url: string; type: string }>;
+  visibility?: GroupPostVisibility;
+}): Promise<GroupPostProps> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+  if (!input.text.trim() && (!input.media || input.media.length === 0))
+    throw new Error("Post must have text or media");
+
+  return withSupabaseRequestContext(async client => {
+    const id = crypto.randomUUID();
+    const { error } = await client.from("posts").insert({
+      id,
+      userid: uid,
+      groupid: input.groupId,
+      text: input.text.trim(),
+      media: input.media ?? [],
+      visibility: input.visibility ?? "public",
+      ispinned: false,
+      createdat: new Date().toISOString(),
+    });
+    if (error) throw error;
+
+    return {
+      id,
+      groupId: input.groupId,
+      userId: uid,
+      text: input.text.trim(),
+      media: input.media ?? [],
+      visibility: input.visibility ?? "public",
+      isPinned: false,
+      createdAt: new Date().toISOString(),
+    };
+  });
+}
+
+export async function listGroupPosts(
+  groupId: string,
+  limit = 20,
+  cursor?: string
+): Promise<GroupPostProps[]> {
+  const { uid } = await getUserFromSession();
+
+  return withSupabaseRequestContext(async client => {
+    let query = client
+      .from("posts")
+      .select("*, users:userid(username, fullname, photourl)")
+      .eq("groupid", groupId)
+      .order("ispinned", { ascending: false })
+      .order("createdat", { ascending: false })
+      .limit(limit);
+
+    // Non-members only see public posts
+    if (uid) {
+      const { data: membership } = await client
+        .from("group_members")
+        .select("role")
+        .eq("groupid", groupId)
+        .eq("uid", uid)
+        .maybeSingle();
+      if (!membership) {
+        query = query.eq("visibility", "public");
+      }
+    } else {
+      query = query.eq("visibility", "public");
+    }
+
+    if (cursor) query = query.lt("createdat", cursor);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []).map(row => mapGroupPostRow(row as Record<string, unknown>));
+  });
+}
+
+export async function updateGroupPostVisibility(
+  postId: string,
+  visibility: GroupPostVisibility
+): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    // Only author or group admin can change visibility
+    const { data: post } = await client
+      .from("posts")
+      .select("userid, groupid")
+      .eq("id", postId)
+      .maybeSingle();
+    if (!post) throw new Error("Post not found");
+
+    const p = post as { userid: string; groupid: string };
+    if (p.userid !== uid) {
+      const { data: membership } = await client
+        .from("group_members")
+        .select("role")
+        .eq("groupid", p.groupid)
+        .eq("uid", uid)
+        .maybeSingle();
+      const m = membership as { role: string } | null;
+      if (!m || m.role !== "admin") throw new Error("Not authorized");
+    }
+
+    const { error } = await client.from("posts").update({ visibility }).eq("id", postId);
+    if (error) throw error;
+  });
+}
+
+export async function pinGroupPost(postId: string, pin: boolean): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { data: post } = await client
+      .from("posts")
+      .select("groupid")
+      .eq("id", postId)
+      .maybeSingle();
+    if (!post) throw new Error("Post not found");
+
+    const { data: membership } = await client
+      .from("group_members")
+      .select("role")
+      .eq("groupid", (post as { groupid: string }).groupid)
+      .eq("uid", uid)
+      .maybeSingle();
+    const m = membership as { role: string } | null;
+    if (!m || m.role !== "admin") throw new Error("Only admins can pin posts");
+
+    const { error } = await client.from("posts").update({ ispinned: pin }).eq("id", postId);
+    if (error) throw error;
+  });
+}
+
+// ─── Group Files ──────────────────────────────────────────────────────────────
+
+export type GroupFileType = "image" | "video" | "pdf" | "file";
+
+export type GroupFileProps = {
+  id: string;
+  groupId: string;
+  uploaderUid: string;
+  name: string;
+  url: string;
+  fileType: GroupFileType;
+  size: number;
+  isPinned: boolean;
+  createdAt: string;
+  uploaderUsername?: string;
+};
+
+function mapGroupFileRow(row: Record<string, unknown>): GroupFileProps {
+  const uploader = (row.users ?? {}) as Record<string, unknown>;
+  return {
+    id: row.id as string,
+    groupId: row.groupid as string,
+    uploaderUid: row.uploaderuid as string,
+    name: row.name as string,
+    url: row.url as string,
+    fileType: (row.filetype as GroupFileType) ?? "file",
+    size: (row.size as number) ?? 0,
+    isPinned: Boolean(row.ispinned),
+    createdAt: row.createdat as string,
+    uploaderUsername: (uploader.username as string) ?? undefined,
+  };
+}
+
+export async function uploadGroupFile(input: {
+  groupId: string;
+  name: string;
+  url: string;
+  fileType: GroupFileType;
+  size?: number;
+}): Promise<GroupFileProps> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  return withSupabaseRequestContext(async client => {
+    const id = crypto.randomUUID();
+    const { error } = await client.from("group_files").insert({
+      id,
+      groupid: input.groupId,
+      uploaderuid: uid,
+      name: input.name,
+      url: input.url,
+      filetype: input.fileType,
+      size: input.size ?? 0,
+      ispinned: false,
+      createdat: new Date().toISOString(),
+    });
+    if (error) throw error;
+
+    return {
+      id,
+      groupId: input.groupId,
+      uploaderUid: uid,
+      name: input.name,
+      url: input.url,
+      fileType: input.fileType,
+      size: input.size ?? 0,
+      isPinned: false,
+      createdAt: new Date().toISOString(),
+    };
+  });
+}
+
+export async function listGroupFiles(groupId: string): Promise<GroupFileProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const { data, error } = await client
+      .from("group_files")
+      .select("*, users:uploaderuid(username)")
+      .eq("groupid", groupId)
+      .order("ispinned", { ascending: false })
+      .order("createdat", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(row => mapGroupFileRow(row as Record<string, unknown>));
+  });
+}
+
+export async function pinGroupFile(fileId: string, pin: boolean): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { data: file } = await client
+      .from("group_files")
+      .select("groupid")
+      .eq("id", fileId)
+      .maybeSingle();
+    if (!file) throw new Error("File not found");
+
+    const { data: membership } = await client
+      .from("group_members")
+      .select("role")
+      .eq("groupid", (file as { groupid: string }).groupid)
+      .eq("uid", uid)
+      .maybeSingle();
+    const m = membership as { role: string } | null;
+    if (!m || m.role !== "admin") throw new Error("Only admins can pin files");
+
+    const { error } = await client.from("group_files").update({ ispinned: pin }).eq("id", fileId);
+    if (error) throw error;
+  });
+}
+
+export async function deleteGroupFile(fileId: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { error } = await client.from("group_files").delete().eq("id", fileId);
+    if (error) throw error;
+  });
+}
+
+// ─── Join Requests ────────────────────────────────────────────────────────────
+
+export type JoinRequestProps = {
+  id: string;
+  groupId: string;
+  uid: string;
+  requestedAt: string;
+  username?: string;
+  fullName?: string;
+  photoURL?: string | null;
+};
+
+export async function listJoinRequests(groupId: string): Promise<JoinRequestProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const { data, error } = await client
+      .from("group_join_requests")
+      .select("*, users:uid(username, fullname, photourl)")
+      .eq("groupid", groupId)
+      .order("requestedat", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(row => {
+      const r = row as Record<string, unknown>;
+      const user = (r.users ?? {}) as Record<string, unknown>;
+      return {
+        id: r.id as string,
+        groupId: r.groupid as string,
+        uid: r.uid as string,
+        requestedAt: r.requestedat as string,
+        username: (user.username as string) ?? undefined,
+        fullName: (user.fullname as string) ?? undefined,
+        photoURL: (user.photourl as string) ?? null,
+      };
+    });
+  });
+}
+
+export async function approveJoinRequest(groupId: string, requestUid: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { data: membership } = await client
+      .from("group_members")
+      .select("role")
+      .eq("groupid", groupId)
+      .eq("uid", uid)
+      .maybeSingle();
+    const m = membership as { role: string } | null;
+    if (!m || m.role !== "admin") throw new Error("Only admins can approve requests");
+
+    const { error: insertError } = await client
+      .from("group_members")
+      .insert({ id: crypto.randomUUID(), groupid: groupId, uid: requestUid });
+    if (insertError && insertError.code !== "23505") throw insertError;
+
+    await client
+      .from("group_join_requests")
+      .delete()
+      .eq("groupid", groupId)
+      .eq("uid", requestUid);
+
+    const { count } = await client
+      .from("group_members")
+      .select("id", { count: "exact", head: true })
+      .eq("groupid", groupId);
+    await client.from("groups").update({ memberscount: count ?? 0 }).eq("id", groupId);
+  });
+}
+
+export async function rejectJoinRequest(groupId: string, requestUid: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { data: membership } = await client
+      .from("group_members")
+      .select("role")
+      .eq("groupid", groupId)
+      .eq("uid", uid)
+      .maybeSingle();
+    const m = membership as { role: string } | null;
+    if (!m || m.role !== "admin") throw new Error("Only admins can reject requests");
+
+    await client
+      .from("group_join_requests")
+      .delete()
+      .eq("groupid", groupId)
+      .eq("uid", requestUid);
+  });
+}
+

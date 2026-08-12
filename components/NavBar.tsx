@@ -130,6 +130,7 @@ const NavBar = () => {
           );
         })}
 
+        {/* More dropdown — items already accessible on /discover
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -159,6 +160,7 @@ const NavBar = () => {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        */}
       </div>
 
       <div className="space-y-4">

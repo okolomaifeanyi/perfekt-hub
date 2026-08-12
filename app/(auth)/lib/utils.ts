@@ -44,7 +44,7 @@ function buildFallbackProfile(user: AuthUser): UserProps {
       user.user_metadata?.picture ??
       user.user_metadata?.photoURL ??
       "",
-    completedProfile: false,
+    completedProfile: undefined,
     createdAt: user.created_at ? new Date(user.created_at) : new Date(),
     lastSeen: null,
     postsCount: 0,
