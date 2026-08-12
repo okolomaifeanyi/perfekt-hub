@@ -6,6 +6,7 @@ import { LinkPreviewType } from "./types";
 import { extractLinks, normalizeUrl } from "./link-parser.mjs";
 import { isPublicHttpUrl } from "./ssrf-guard.mjs";
 import { fetchFollowingValidatedRedirects } from "./safe-fetch.mjs";
+import { getSsrfSafeDispatcher } from "./ssrf-dispatcher.mjs";
 
 export { extractLinks, normalizeUrl };
 
@@ -158,6 +159,7 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
 
     const res = await fetchFollowingValidatedRedirects(normalized, {
       isPublicUrl: isPublicHttpUrl,
+      init: { dispatcher: getSsrfSafeDispatcher() as never },
     });
 
     if (!res.ok) {
@@ -203,6 +205,7 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
       try {
         const res2 = await fetchFollowingValidatedRedirects(wwwUrl, {
           isPublicUrl: isPublicHttpUrl,
+          init: { dispatcher: getSsrfSafeDispatcher() as never },
         });
         if (res2.ok) {
           const html2 = await res2.text();
