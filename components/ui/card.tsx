@@ -1,12 +1,14 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { CARD_SHADOW_STYLE } from "@/lib/card-shadow.mjs"
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({ className, style, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card"
+      style={{ ...CARD_SHADOW_STYLE, ...style }}
       className={cn(
-        "bg-card/50 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-lg",
+        "bg-card/50 backdrop-blur-md",
         "flex flex-col gap-6 rounded-xl py-6",
         className
       )}

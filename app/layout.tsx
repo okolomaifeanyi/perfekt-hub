@@ -1,57 +1,61 @@
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import ClientLayout from "@/components/ClientLayout";
 import { appInfo } from "@/lib/appInfo";
+import { BUTTON_SHADOW_VARS } from "@/lib/button-shadow.mjs";
+import { BODY_BACKGROUND_STYLE } from "@/lib/theme-background.mjs";
+import { buildSiteMetadata } from "@/lib/site-metadata.mjs";
+import type { CSSProperties, ReactNode } from "react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  display: "swap",
+  variable: "--font-plus-jakarta-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const siteMetadata = buildSiteMetadata({
+  canonical: appInfo.url,
+  title: appInfo.title,
+  description: appInfo.description,
 });
 
 export const metadata: Metadata = {
-  // metadataBase: new URL(appInfo.website),
+  ...siteMetadata,
   title: appInfo.title,
   description: appInfo.description,
-  alternates: {
-    canonical: "/",
-  },
   authors: [{ name: appInfo.owner }],
   creator: appInfo.developer.name,
   publisher: appInfo.owner,
   keywords: appInfo.keywords,
-  robots: "index, follow",
   openGraph: {
-    title: appInfo.title,
+    ...siteMetadata.openGraph,
     siteName: appInfo.title,
     type: "website",
-    description: appInfo.description,
-    // url: appInfo.website,
-    // images: [{ url: "/opengraph-image.png" }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: appInfo.title,
-    description: appInfo.description,
-    // images: ["/twitter-image.png"],
   },
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Must run synchronously before first paint, or dark-mode users see
+            a flash of the light theme while React hydrates and ThemeProvider's
+            effect corrects it. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem("theme");var t=(s==="light"||s==="dark"||s==="system")?s:"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);if(d)document.documentElement.classList.add("dark");}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${plusJakartaSans.variable} antialiased`}
         suppressHydrationWarning
+        style={{ ...BUTTON_SHADOW_VARS, ...BODY_BACKGROUND_STYLE } as CSSProperties}
       >
         <ClientLayout>{children}</ClientLayout>
       </body>
