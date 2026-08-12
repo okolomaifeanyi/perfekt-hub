@@ -1,188 +1,140 @@
-import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  UserCredential,
-  User,
-  getAdditionalUserInfo,
-} from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-  setDoc,
-  getDoc,
-} from "firebase/firestore";
+import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { lookupEmailByUsername } from "@/lib/supabase/user-profile-rpc.mjs";
+import { syncUserProfile } from "@/lib/supabase/user-profile-api.mjs";
 import { useUserStore } from "@/lib/store/useUserStore";
+import type { UserProps } from "@/lib/types";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import {
+  buildSavedAccountFromSession,
+  rememberSavedAccount,
+} from "@/lib/saved-accounts.mjs";
 
-
-export async function loginClient(identifier: string, password: string) {
-  try {
-    let email = identifier.trim().toLowerCase();
-
-    // If it's not an email, treat it as username
-    if (!email.includes("@")) {
-      const q = query(collection(db, "users"), where("username", "==", email));
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        return { error: "No user found with this username." };
-      }
-
-      // Assume username is unique, get the email
-      const userData = snapshot.docs[0].data();
-      email = userData.email?.toLowerCase();
-
-      if (!email) {
-        return { error: "Username found but no email attached to account." };
-      }
-    }
-
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const user = userCredential.user;
-    const token = await user.getIdToken();
-
-    const res = await fetch("/api/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-
-    if (!res.ok) throw new Error("Failed to create session");
-
-    const uid = user.uid;
-    if (!uid) throw new Error("User UID is undefined.");
-
-    await updateDoc(doc(db, "users", uid), {
-      lastLoginAt: serverTimestamp(),
-    });
-
-    return { success: true };
-  } catch (error: unknown) {
-    console.error("Login error:", error);
-
-    let message = "An unknown error occurred.";
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      typeof (error as { code: unknown }).code === "string"
-    ) {
-      const code = (error as { code: string }).code;
-      if (code === "auth/user-not-found") {
-        message = "No user found with this email or username.";
-      } else if (code === "auth/wrong-password") {
-        message = "Incorrect password.";
-      } else if (code === "auth/invalid-email") {
-        message = "Invalid email address.";
-      }
-    }
-
-    return { error: message };
-  }
-}
-
-export async function logoutClient(router: AppRouterInstance) {
-  const { clearUser } = useUserStore.getState();
-
-  try {
-    const uid = auth.currentUser?.uid;
-
-    if (uid) {
-      await updateDoc(doc(db, "users", uid), {
-        lastLogoutAt: serverTimestamp(),
-      });
-    }
-
-    await signOut(auth);
-  } catch (err) {
-    console.warn("⚠️ Firebase signOut or Firestore update failed:", err);
-  }
-
-  try {
-    await fetch("/api/logout", {
-      method: "POST",
-    });
-  } catch (err) {
-    console.error("⚠️ Error calling /api/logout:", err);
-  }
-
-  clearUser();
-
-  // ✅ Proper redirect via Next.js router (no white flash)
-  router.push("/login");
-}
+type AuthUser = SupabaseUser;
 
 function slugify(name: string): string {
   return name
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "") // remove special characters
-    .replace(/\s+/g, "-"); // replace spaces with hyphens
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
 }
 
-async function generateUniqueUsername(displayName: string): Promise<string> {
-  const base = slugify(displayName);
-  let username = base;
-  let suffix = 1;
+function buildFallbackProfile(user: AuthUser): UserProps {
+  const displayName =
+    user.user_metadata?.fullName ??
+    user.user_metadata?.name ??
+    user.email?.split("@")[0] ??
+    "user";
+  const providedUsername =
+    typeof user.user_metadata?.username === "string"
+      ? user.user_metadata.username.trim()
+      : "";
 
-  const usersRef = collection(db, "users");
-
-  while (true) {
-    const q = query(usersRef, where("username", "==", username));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) break;
-
-    username = `${base}-${suffix}`;
-    suffix++;
-  }
-
-  return username;
-}
-
-export const saveOrUpdateUser = async (
-  user: User,
-  result: UserCredential,
-  isNewUserFlag?: boolean
-) => {
-  const userRef = doc(db, "users", user.uid);
-
-  const isNewUser =
-    isNewUserFlag ??
-    getAdditionalUserInfo(result)?.isNewUser ??
-    !(await getDoc(userRef)).exists();
-
-  const baseData = {
+  return {
+    uid: user.id,
     email: user.email ?? "",
-    lastLoginAt: serverTimestamp(),
+    username: providedUsername || slugify(displayName || "user") || "user",
+    fullName:
+      user.user_metadata?.fullName ??
+      user.user_metadata?.name ??
+      displayName,
+    photoURL:
+      user.user_metadata?.avatar_url ??
+      user.user_metadata?.picture ??
+      user.user_metadata?.photoURL ??
+      "",
+    completedProfile: false,
+    createdAt: user.created_at ? new Date(user.created_at) : new Date(),
+    lastSeen: null,
+    postsCount: 0,
+    followersCount: 0,
+    followingCount: 0,
+    friendsCount: 0,
+    fullName_lowercase: String(
+      user.user_metadata?.fullName ??
+        user.user_metadata?.name ??
+        displayName
+    )
+      .trim()
+      .toLowerCase(),
   };
+}
 
-  if (isNewUser) {
-    const newUserData = {
-      uid: user.uid,
-      username: await generateUniqueUsername(user.displayName ?? "user"),
-      fullName: user.displayName ?? "",
-      photoURL: user.photoURL ?? "",
-      phoneNumber: user.phoneNumber ?? "",
-      createdAt: serverTimestamp(),
-      providerId: getAdditionalUserInfo(result)?.providerId ?? "unknown",
-      completedProfile: false,
-      randomKey: Math.random(),
-      postsCount: 0,
-    };
+export async function saveOrUpdateUser(
+  user: AuthUser
+): Promise<UserProps> {
+  const fallbackProfile = buildFallbackProfile(user);
 
-    await setDoc(userRef, { ...baseData, ...newUserData }, { merge: true });
-  } else {
-    await setDoc(userRef, baseData, { merge: true });
+  try {
+    return await syncUserProfile({
+      uid: user.id,
+    });
+  } catch {
+    return fallbackProfile;
   }
-};
+}
+
+export async function loginClient(identifier: string, password: string) {
+  try {
+    const supabase = getSupabaseBrowserClient();
+    let email = identifier.trim().toLowerCase();
+
+    if (!email.includes("@")) {
+      const resolvedEmail = await lookupEmailByUsername(supabase, email);
+      if (!resolvedEmail) {
+        return { error: "No user found with this username." };
+      }
+
+      email = resolvedEmail.toLowerCase();
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      const message =
+        error.message.includes("Invalid login credentials")
+          ? "Incorrect email/username or password."
+          : error.message;
+      return { error: message };
+    }
+
+    if (data.user) {
+      const profile = await saveOrUpdateUser(data.user);
+      if (data.session) {
+        rememberSavedAccount(window.localStorage, {
+          ...buildSavedAccountFromSession({
+            user: data.user,
+            session: data.session,
+            profile,
+          }),
+          lastUsedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Login error:", error);
+    return {
+      error: error instanceof Error ? error.message : "An unknown error occurred.",
+    };
+  }
+}
+
+export async function logoutClient(router: AppRouterInstance) {
+  const { clearUser } = useUserStore.getState();
+  const supabase = getSupabaseBrowserClient();
+
+  try {
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.warn("Supabase signOut failed:", err);
+  }
+
+  clearUser();
+  router.push("/login");
+}

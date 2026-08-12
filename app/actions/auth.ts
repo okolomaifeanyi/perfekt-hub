@@ -1,11 +1,13 @@
 "use server";
 
-import { FormState, SignupFormSchema } from "@/lib/definitions";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { authAdmin, firestoreAdmin } from "@/lib/firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FormState, SignupFormSchema } from "@/lib/definitions";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { generateUniqueUsername } from "@/lib/supabase/user-profile-rpc.mjs";
+import { toSupabaseUserRow } from "@/lib/supabase/user-profile.mjs";
 
-export async function signup(state: FormState, formData: FormData) {
+export async function signup(_state: FormState, formData: FormData) {
   const validatedFields = SignupFormSchema.safeParse({
     username: formData.get("username"),
     email: formData.get("email"),
@@ -15,6 +17,7 @@ export async function signup(state: FormState, formData: FormData) {
 
   if (!validatedFields.success) {
     return {
+      success: false,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         username: formData.get("username") as string,
@@ -24,63 +27,97 @@ export async function signup(state: FormState, formData: FormData) {
   }
 
   const { username, email, password } = validatedFields.data;
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
 
   try {
-    const user = await authAdmin.createUser({
+    const uniqueUsername = await generateUniqueUsername(supabase, username);
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          username: uniqueUsername,
+          fullName: username,
+        },
+      },
     });
 
-    const usernameSnapshot = await firestoreAdmin
-      .collection("users")
-      .where("username", "==", username)
-      .limit(1)
-      .get();
+    if (error) {
+      const message =
+        error.message.includes("User already registered")
+          ? "This email is already registered. Try logging in."
+          : error.message;
 
-    if (!usernameSnapshot.empty) {
       return {
-        message: "This username is already taken. Try another one.",
+        success: false,
+        message,
         values: { username, email },
       };
     }
 
-    await firestoreAdmin.collection("users").doc(user.uid).set({
-      uid: user.uid,
-      username: username,
-      email: user.email,
-      createdAt: FieldValue.serverTimestamp(),
-      randomKey: Math.random(),
-      postsCount: 0,
-    });
-  } catch (error: unknown) {
-    let message = "An unknown error occurred. Please try again.";
+    if (!data.user) {
+      return {
+        success: false,
+        message: "Unable to create your account.",
+        values: { username, email },
+      };
+    }
 
-    if (error instanceof Error && "code" in error) {
-      const err = error as { code: string; message?: string };
-      switch (err.code) {
-        case "auth/email-already-exists":
-          message = "This email is already registered. Try logging in.";
-          break;
-        case "auth/invalid-email":
-          message = "Please enter a valid email address.";
-          break;
-        case "auth/invalid-password":
-          message = "Password is too weak. It should be at least 6 characters.";
-          break;
-        case "auth/operation-not-allowed":
-          message = "Email/password accounts are not enabled.";
-          break;
-        default:
-          message = err.message || message;
-          break;
+    if (data.session) {
+      const { error: profileError } = await supabase.from("users").upsert(
+        toSupabaseUserRow({
+          uid: data.user.id,
+          email,
+          username: uniqueUsername,
+          fullName: username,
+          createdAt: new Date(),
+          lastLoginAt: new Date(),
+          completedProfile: false,
+          postsCount: 0,
+          followersCount: 0,
+          followingCount: 0,
+          friendsCount: 0,
+          randomKey: Math.random(),
+          providerId: data.user.app_metadata?.provider ?? "supabase",
+          fullName_lowercase: username.toLowerCase(),
+        }),
+        { onConflict: "uid" }
+      );
+
+      if (profileError) {
+        return {
+          success: false,
+          message: profileError.message,
+          values: { username, email },
+        };
       }
+
+      redirect("/");
     }
 
     return {
-      message,
+      success: true,
+      message:
+        "Account created. Check your email to verify your account, then sign in.",
+      values: { username, email },
+    };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "An unknown error occurred. Please try again.",
       values: { username, email },
     };
   }
-
-  redirect("/");
 }

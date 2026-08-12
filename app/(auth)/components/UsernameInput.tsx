@@ -15,34 +15,49 @@ export default function UsernameInput({
   renderAlert: (title: string, description: string | string[]) => ReactNode;
 }) {
   const [username, setUsername] = useState(initialUsername || "");
-  const [isAvailable, setIsAvailable] = useState(true);
+  const [availability, setAvailability] = useState<
+    "available" | "taken" | "unknown"
+  >("unknown");
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     const signal = controller.signal;
 
-    const delayDebounce = setTimeout(() => {
+    const delayDebounce = window.setTimeout(() => {
       if (username.trim().length < 2) return;
 
-      setChecking(true);
-      fetch(`/api/check-username?username=${username}`, { signal })
-        .then(res => res.json())
-        .then(data => {
-          setIsAvailable(data.available);
-          setChecking(false);
-        })
-        .catch(err => {
-          if (err.name !== "AbortError") {
-            console.error(err);
-            setChecking(false);
+      const checkUsername = async () => {
+        setChecking(true);
+
+        try {
+          const response = await fetch(
+            `/api/check-username?username=${encodeURIComponent(username)}`,
+            { signal }
+          );
+          const data = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            setAvailability("unknown");
+            return;
           }
-        });
+
+          setAvailability(data?.available ? "available" : "taken");
+        } catch (error) {
+          if ((error as DOMException)?.name !== "AbortError") {
+            setAvailability("unknown");
+          }
+        } finally {
+          setChecking(false);
+        }
+      };
+
+      void checkUsername();
     }, 500);
 
     return () => {
       clearTimeout(delayDebounce);
-      controller.abort(); // cancel previous request
+      controller.abort();
     };
   }, [username]);
 
@@ -55,7 +70,9 @@ export default function UsernameInput({
         value={username}
         onChange={e => setUsername(e.target.value)}
         className={
-          !isAvailable ? "border-red-500 focus-visible:ring-red-500" : ""
+          availability === "taken"
+            ? "border-red-500 focus-visible:ring-red-500"
+            : ""
         }
         required
         autoComplete="off"
@@ -64,10 +81,14 @@ export default function UsernameInput({
         {username.length >= 2 &&
           (checking ? (
             <span className="text-muted-foreground">Checking...</span>
-          ) : isAvailable ? (
-            <span className="text-green-500">✅ Available</span>
+          ) : availability === "available" ? (
+            <span className="text-green-500">Available</span>
+          ) : availability === "taken" ? (
+            <span className="text-red-500">Already taken</span>
           ) : (
-            <span className="text-red-500">❌ Already taken</span>
+            <span className="text-muted-foreground">
+              Unable to verify right now
+            </span>
           ))}
       </p>
 

@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from "@/lib/supabase";
 import { Dispatch, SetStateAction } from "react";
 
 export interface UserProps {
@@ -20,7 +20,7 @@ export interface UserProps {
   lastSeen?: Date | Timestamp | null;
   completedProfile?: boolean;
   phoneNumber?: string;
-  gender?: "male" | "female";
+  gender?: "male" | "female" | "other";
   dob?: string;
   education?: string;
   company?: string;
@@ -155,6 +155,7 @@ export interface MessageProps {
     id: string;
     text: string;
     senderId: string;
+    senderName?: string;
   };
   isPinned?: boolean;
 }
@@ -165,6 +166,7 @@ export interface DraftMessage {
     id: string;
     text: string;
     senderId: string;
+    senderName?: string;
   };
 }
 
@@ -174,6 +176,7 @@ export interface ConversationProps {
   lastMessage?: string;
   lastMessageAt?: Timestamp;
   lastMessageSender?: string;
+  unreadCount?: Record<string, number>;
 }
 
 export interface PixelCrop {

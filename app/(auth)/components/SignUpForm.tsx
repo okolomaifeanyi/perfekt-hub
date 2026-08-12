@@ -14,12 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { app } from "@/lib/app";
 import { FormState } from "@/lib/definitions";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import GoogleSignInButton from "./GoogleSignInButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import UsernameInput from "./UsernameInput";
+import { getSignupAlertConfig } from "../lib/signup-feedback.mjs";
 
 export function SignupForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(
@@ -27,10 +28,19 @@ export function SignupForm() {
     undefined
   );
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const signupAlert = getSignupAlertConfig(state);
 
-  const renderAlert = (title: string, description: string | string[]) => (
-    <Alert variant="destructive">
-      <AlertCircle className="mt-1 h-5 w-5" />
+  const renderAlert = (
+    title: string,
+    description: string | string[],
+    variant: "default" | "destructive" = "destructive"
+  ) => (
+    <Alert variant={variant}>
+      {variant === "default" ? (
+        <CheckCircle2 className="mt-1 h-5 w-5 text-green-600" />
+      ) : (
+        <AlertCircle className="mt-1 h-5 w-5" />
+      )}
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>
         {Array.isArray(description) ? (
@@ -91,6 +101,7 @@ export function SignupForm() {
                   onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                   className="absolute right-0 top-0"
                   variant="ghost"
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
                 >
                   {isPasswordVisible ? <EyeOff /> : <Eye />}
                 </Button>
@@ -114,6 +125,7 @@ export function SignupForm() {
                   onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                   className="absolute right-0 top-0"
                   variant="ghost"
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
                 >
                   {isPasswordVisible ? <EyeOff /> : <Eye />}
                 </Button>
@@ -126,7 +138,12 @@ export function SignupForm() {
               {pending ? "Signing up..." : "Sign Up"}
             </Button>
 
-            {state?.message && renderAlert("Signup Error", state.message)}
+            {signupAlert &&
+              renderAlert(
+                signupAlert.title,
+                signupAlert.description,
+                signupAlert.variant
+              )}
           </form>
         </CardContent>
         <CardFooter className="flex-col gap-2">

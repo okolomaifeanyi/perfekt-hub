@@ -13,12 +13,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { app } from "@/lib/app";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import GoogleSignInButton from "../../components/GoogleSignInButton";
 import Link from "next/link";
 import { loginClient } from "../../lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+function OAuthErrorSync({ onError }: { onError: (message: string) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const authError = searchParams.get("authError");
+    if (authError) onError(authError);
+  }, [searchParams, onError]);
+
+  return null;
+}
 
 export default function LoginForm() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -59,6 +70,9 @@ export default function LoginForm() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <Suspense fallback={null}>
+        <OAuthErrorSync onError={setErrorMsg} />
+      </Suspense>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>
@@ -95,6 +109,7 @@ export default function LoginForm() {
                   type="button"
                   className="absolute right-0 top-0"
                   variant="ghost"
+                  aria-label={isPasswordVisible ? "Hide password" : "Show password"}
                 >
                   {isPasswordVisible ? <EyeOff /> : <Eye />}
                 </Button>
