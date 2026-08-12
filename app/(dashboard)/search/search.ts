@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import { PostProps, UserProps } from "@/lib/types";
 import {
   collection,
@@ -10,7 +10,7 @@ import {
   endAt,
   orderBy,
   DocumentData,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 
 type SearchSnapshot = {
   docs: DocumentData[];
@@ -94,7 +94,7 @@ async function searchPosts(term: string) {
   );
 
   const snapshot = await getDocs(q);
-  // console.log(`[searchPosts] Term: "${term}" → ${snapshot.size} posts`);
+  // console.log(`[searchPosts] Term: "${term}" â†’ ${snapshot.size} posts`);
 
   return { docs: snapshot.docs, size: snapshot.size } as SearchSnapshot;
 }

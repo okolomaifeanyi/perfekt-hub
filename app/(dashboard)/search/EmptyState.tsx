@@ -9,8 +9,8 @@ export default function EmptyState() {
       </div>
       <h3 className="text-lg font-medium mb-1">Start exploring</h3>
       <p className="text-sm text-muted-foreground max-w-md">
-        Type a username, name, email, or post content to search across users and
-        posts.
+        Type a username, name, email, post content, or topic to search across
+        the app.
       </p>
     </div>
   );

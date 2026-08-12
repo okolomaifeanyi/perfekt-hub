@@ -45,7 +45,7 @@ export default function LiveSearchInput({
   return (
     <Input
       type="search"
-      placeholder="Search users or posts..."
+      placeholder="Search people, posts, videos, groups, events..."
       value={query}
       onChange={e => {
         const val = e.target.value;
@@ -53,7 +53,7 @@ export default function LiveSearchInput({
         updateURL(val);
         search(val);
       }}
-      className="w-full max-w-md rounded-md"
+      className="w-full rounded-md"
       autoFocus
     />
   );
