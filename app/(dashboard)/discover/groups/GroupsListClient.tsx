@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,13 +44,15 @@ export function GroupsListClient({ groups }: { groups: GroupProps[] }) {
         const isDone = joinedIds.has(group.id) || group.ownerUid === currentUid;
         return (
           <Card key={group.id} className="py-5">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-base">{group.name}</CardTitle>
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Users className="size-3.5" />
-                {group.membersCount} member{group.membersCount === 1 ? "" : "s"}
-              </p>
-            </CardHeader>
+            <Link href={`/discover/groups/${group.id}`} className="block">
+              <CardHeader className="space-y-2">
+                <CardTitle className="text-base hover:underline">{group.name}</CardTitle>
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Users className="size-3.5" />
+                  {group.membersCount} member{group.membersCount === 1 ? "" : "s"}
+                </p>
+              </CardHeader>
+            </Link>
             <CardContent className="space-y-3">
               {group.description && (
                 <p className="line-clamp-3 text-sm text-muted-foreground">

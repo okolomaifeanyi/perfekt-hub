@@ -17,6 +17,23 @@ export type GroupProps = {
   isMember?: boolean;
 };
 
+export type GroupRole = "admin" | "member";
+
+export type GroupMemberProps = {
+  uid: string;
+  role: GroupRole;
+  joinedAt: string;
+  username: string;
+  fullName: string;
+  photoURL: string | null;
+};
+
+export type GroupDetail = {
+  group: GroupProps;
+  members: GroupMemberProps[];
+  myRole: GroupRole | null;
+};
+
 async function withSupabaseRequestContext<T>(
   callback: (client: SupabaseClient) => Promise<T>
 ): Promise<T> {
@@ -96,7 +113,7 @@ export async function createGroup(input: { name: string; description?: string })
 
     const { error: memberError } = await client
       .from("group_members")
-      .insert({ id: crypto.randomUUID(), groupid: id, uid });
+      .insert({ id: crypto.randomUUID(), groupid: id, uid, role: "admin" });
     if (memberError) throw memberError;
 
     return {
@@ -156,5 +173,138 @@ export async function leaveGroup(groupId: string): Promise<void> {
       .from("groups")
       .update({ memberscount: count ?? 0 })
       .eq("id", groupId);
+  });
+}
+
+function mapMemberRow(row: Record<string, unknown>): GroupMemberProps {
+  const profile = (row.users ?? {}) as Record<string, unknown>;
+  return {
+    uid: row.uid as string,
+    role: (row.role as GroupRole) ?? "member",
+    joinedAt: row.joinedat as string,
+    username: (profile.username as string) ?? "",
+    fullName: (profile.fullname as string) ?? "",
+    photoURL: (profile.photourl as string) ?? null,
+  };
+}
+
+export async function getGroupDetail(groupId: string): Promise<GroupDetail | null> {
+  const { uid } = await getUserFromSession();
+
+  return withSupabaseRequestContext(async client => {
+    const { data: groupRow, error: groupError } = await client
+      .from("groups")
+      .select("*")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (groupError) throw groupError;
+    if (!groupRow) return null;
+
+    const { data: memberRows, error: memberError } = await client
+      .from("group_members")
+      .select("uid, role, joinedat, users:uid(username, fullname, photourl)")
+      .eq("groupid", groupId)
+      .order("joinedat", { ascending: true });
+    if (memberError) throw memberError;
+
+    const members = (memberRows ?? []).map(mapMemberRow);
+    const myRole = uid ? members.find(m => m.uid === uid)?.role ?? null : null;
+
+    return { group: mapGroupRow(groupRow), members, myRole };
+  });
+}
+
+export async function updateGroupSettings(
+  groupId: string,
+  input: { name?: string; description?: string; photoURL?: string | null }
+): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) {
+    if (!input.name.trim()) throw new Error("Group name is required");
+    patch.name = input.name.trim();
+  }
+  if (input.description !== undefined) patch.description = input.description.trim();
+  if (input.photoURL !== undefined) patch.photourl = input.photoURL;
+  if (Object.keys(patch).length === 0) return;
+
+  await withSupabaseRequestContext(async client => {
+    // RLS (groups_update_admin) restricts this to admins of the group; an
+    // unauthorized caller's update simply matches zero rows rather than
+    // erroring, so check the result to surface that as a real failure.
+    const { data, error } = await client
+      .from("groups")
+      .update(patch)
+      .eq("id", groupId)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only group admins can edit settings");
+  });
+}
+
+export async function setMemberRole(
+  groupId: string,
+  targetUid: string,
+  role: GroupRole
+): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+  if (uid === targetUid) throw new Error("You can't change your own role");
+
+  await withSupabaseRequestContext(async client => {
+    const { data, error } = await client
+      .from("group_members")
+      .update({ role })
+      .eq("groupid", groupId)
+      .eq("uid", targetUid)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only group admins can change roles");
+  });
+}
+
+export async function removeMember(groupId: string, targetUid: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+  if (uid === targetUid) throw new Error("Use leave group instead of removing yourself");
+
+  await withSupabaseRequestContext(async client => {
+    const { data, error } = await client
+      .from("group_members")
+      .delete()
+      .eq("groupid", groupId)
+      .eq("uid", targetUid)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only group admins can remove members");
+
+    const { count, error: countError } = await client
+      .from("group_members")
+      .select("id", { count: "exact", head: true })
+      .eq("groupid", groupId);
+    if (countError) throw countError;
+
+    await client
+      .from("groups")
+      .update({ memberscount: count ?? 0 })
+      .eq("id", groupId);
+  });
+}
+
+export async function deleteGroup(groupId: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    // RLS (groups_delete_admin) restricts this to admins of the group.
+    const { data, error } = await client
+      .from("groups")
+      .delete()
+      .eq("id", groupId)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only group admins can delete the group");
   });
 }

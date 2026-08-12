@@ -417,7 +417,7 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
         groups.map(group => (
           <ActionRow
             key={group.id}
-            href="/discover/groups"
+            href={`/discover/groups/${group.id}`}
             avatarSrc={group.photoURL}
             avatarFallback={group.name}
             title={group.name}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import { getUserGroups, type GroupProps } from "@/app/actions/groups";
 import RecommendationRail from "@/components/feed/RecommendationRail";
@@ -60,7 +61,8 @@ export default function ProfileGroupsGrid({ uid }: { uid: string }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {groups.map(group => (
-        <Card key={group.id} className="py-4">
+        <Link key={group.id} href={`/discover/groups/${group.id}`} className="block">
+        <Card className="py-4 transition hover:bg-accent/40">
           <CardHeader className="space-y-3">
             <div className="flex items-center gap-3">
               <Avatar className="size-12">
@@ -86,6 +88,7 @@ export default function ProfileGroupsGrid({ uid }: { uid: string }) {
             </p>
           </CardContent>
         </Card>
+        </Link>
       ))}
     </div>
   );

@@ -264,40 +264,53 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                         <MoreHorizontal className="w-5 h-5" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-40">
-                      <DropdownMenuItem onClick={() => onForward(msg)}>
-                        <Forward className="h-4 w-4 mr-2" /> Forward
+                    <DropdownMenuContent className="w-44">
+                      <DropdownMenuItem
+                        className="gap-2"
+                        onClick={() => onForward(msg)}
+                      >
+                        <Forward className="h-4 w-4" />
+                        Forward
                       </DropdownMenuItem>
                       {isMe && (
-                        <DropdownMenuItem onClick={() => handlePin(msg)}>
+                        <DropdownMenuItem
+                          className="gap-2"
+                          onClick={() => handlePin(msg)}
+                        >
                           {msg.isPinned ? (
-                            <span className="flex gap-x-4">
-                              <PinOff className="h-4 w-4" /> Unpin
-                            </span>
+                            <PinOff className="h-4 w-4" />
                           ) : (
-                            <span className="flex gap-x-4">
-                              <Pin className="h-4 w-4" /> Pin
-                            </span>
+                            <Pin className="h-4 w-4" />
                           )}
+                          {msg.isPinned ? "Unpin" : "Pin"}
                         </DropdownMenuItem>
                       )}
                       {msg.text && (
-                        <DropdownMenuItem onClick={() => handleCopy(msg.text!)}>
-                          <Copy className="h-4 w-4 mr-2" /> Copy
+                        <DropdownMenuItem
+                          className="gap-2"
+                          onClick={() => handleCopy(msg.text!)}
+                        >
+                          <Copy className="h-4 w-4" />
+                          Copy
                         </DropdownMenuItem>
                       )}
                       {isMe ? (
                         <DropdownMenuItem
+                          variant="destructive"
+                          className="gap-2"
                           onClick={() => handleDeleteForEveryone(msg)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete for
-                          everyone
+                          <Trash2 className="h-4 w-4" />
+                          Delete for everyone
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem
+                          variant="destructive"
+                          className="gap-2"
                           onClick={() => handleRemoveForMe(msg.id)}
                         >
-                          <Trash2 className="h-4 w-4 mr-2" /> Remove for me
+                          <Trash2 className="h-4 w-4" />
+                          Remove for me
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
