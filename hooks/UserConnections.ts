@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { db } from "@/lib/firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { collection, onSnapshot } from "@/lib/supabase";
 
 export function useUserConnections() {
   const { user: currentUser } = useUserStore(state => state);
@@ -14,7 +14,7 @@ export function useUserConnections() {
   useEffect(() => {
     if (!currentUser?.uid) return;
 
-    // 🔹 Subscriptions cleanup
+    // ðŸ”¹ Subscriptions cleanup
     const unsubs: (() => void)[] = [];
 
     // Friends listener

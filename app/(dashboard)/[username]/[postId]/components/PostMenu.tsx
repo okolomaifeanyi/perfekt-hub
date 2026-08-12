@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MoreVertical, Pin, Trash2, UserX, UserMinus, Ban } from "lucide-react";
+import { Bookmark, MoreVertical, Pin, Trash2, UserX, UserMinus, Ban } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +16,13 @@ type PostMenuProps = {
   isFriend?: boolean;
   isFollowing?: boolean;
   isPinned?: boolean;
+  isSaved?: boolean;
   onDelete: () => void;
   onUnfriend: () => void;
   onUnfollow: () => void;
   onBlock: () => void;
   onPin: () => void;
+  onToggleSave: () => void;
 };
 
 export default function PostMenu({
@@ -28,11 +30,13 @@ export default function PostMenu({
   isFriend,
   isFollowing,
   isPinned,
+  isSaved,
   onDelete,
   onUnfriend,
   onUnfollow,
   onBlock,
   onPin,
+  onToggleSave,
 }: PostMenuProps) {
   const [openDialog, setOpenDialog] = useState<null | "delete" | "block">(null);
 
@@ -40,11 +44,15 @@ export default function PostMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Post options">
             <MoreVertical className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={onToggleSave}>
+            <Bookmark className="mr-2 h-4 w-4" />
+            {isSaved ? "Unsave Post" : "Save Post"}
+          </DropdownMenuItem>
           {isOwner && (
             <>
               <DropdownMenuItem onSelect={() => setOpenDialog("delete")}>

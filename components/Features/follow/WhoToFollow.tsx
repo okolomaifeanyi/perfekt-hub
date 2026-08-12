@@ -33,15 +33,16 @@ export default function WhoToFollow({
   } = useUserStore();
 
   const [page, setPage] = useState(1);
+  const [hasFetched, setHasFetched] = useState(false);
   const ITEMS_PER_PAGE = fullPage ? 6 : 3;
   const showRotate = !fullPage && !compact;
 
   // Load on first login
   useEffect(() => {
-    if (currentUser?.uid && suggestions.length === 0) {
-      fetchSmartSuggestions();
+    if (currentUser?.uid && suggestions.length === 0 && !hasFetched) {
+      void fetchSmartSuggestions().finally(() => setHasFetched(true));
     }
-  }, [currentUser?.uid, suggestions.length, fetchSmartSuggestions]);
+  }, [currentUser?.uid, suggestions.length, fetchSmartSuggestions, hasFetched]);
 
   // Reset page when suggestions list changes
   useEffect(() => {
@@ -56,15 +57,32 @@ export default function WhoToFollow({
 
   if (!currentUser) return null;
 
-  // EMPTY STATE
+  // EMPTY STATE — distinguish "still fetching" from "fetched, found no one",
+  // since always showing a loading spinner here reads as permanently stuck
+  // once the search has actually completed with zero candidates (e.g. a
+  // small/new network where everyone is already connected).
   if (suggestions.length === 0) {
     if (compact) return null;
+
+    if (!hasFetched) {
+      return (
+        <Card className={`p-4 ${className}`}>
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Users className="w-6 h-6" />
+            <p className="text-center">Finding new people for you...</p>
+            <Skeleton className="h-8 w-32 mt-2" />
+          </div>
+        </Card>
+      );
+    }
+
     return (
       <Card className={`p-4 ${className}`}>
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <Users className="w-6 h-6" />
-          <p className="text-center">Finding new people for you...</p>
-          <Skeleton className="h-8 w-32 mt-2" />
+          <p className="text-center">
+            No new suggestions right now — check back as more people join.
+          </p>
         </div>
       </Card>
     );
@@ -97,6 +115,7 @@ export default function WhoToFollow({
               variant="ghost"
               size="icon"
               onClick={rotateVisibleSuggestions}
+              aria-label="Refresh suggestions"
             >
               <RotateCw className="w-4 h-4" />
             </Button>

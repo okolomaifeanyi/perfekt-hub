@@ -12,13 +12,16 @@ import PostComposer from "@/components/post-composer/PostComposer";
 
 const CommentFeed = ({
   scrollPosition,
+  postId,
 }: {
   scrollPosition: ScrollPosition;
+  postId?: string;
 }) => {
-  const { postId } = useParams<{
+  const routeParams = useParams<{
     username: string;
     postId: string;
   }>();
+  const resolvedPostId = postId ?? routeParams.postId;
 
   const currentUser = useUserStore(s => s.user);
 
@@ -32,15 +35,19 @@ const CommentFeed = ({
     replaceOptimisticPost,
     removeOptimisticPost,
     isSubmitting,
-  } = useLiveFeed(uid, 10, postId);
+  } = useLiveFeed(uid, 10, resolvedPostId);
+
+  if (!resolvedPostId) {
+    return null;
+  }
 
   return (
     <>
       <PostComposer
         // className="px-4"
         sendButton="Reply"
-        placeholder="Reply this post"
-        parentPostId={postId}
+        placeholder="Reply to this video"
+        parentPostId={resolvedPostId}
         optimistic={{
           addOptimisticPost: addOptimisticPost,
           replaceOptimisticPost: replaceOptimisticPost,

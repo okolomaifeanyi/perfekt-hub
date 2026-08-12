@@ -1,6 +1,6 @@
 // hooks/useEditProfile.ts
-import { db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, setDoc } from "@/lib/supabase";
 import { useState } from "react";
 import { toast } from "sonner";
 import { UserProps } from "@/lib/types";
@@ -11,9 +11,9 @@ export function useEditProfile(uid: string) {
   const saveProfile = async (values: Partial<UserProps>) => {
     setIsSaving(true);
     try {
-      // ──────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // 1. Always ensure fullName_lowercase is present and correct
-      // ──────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const payload: Partial<UserProps> = { ...values };
 
       if (values.fullName !== undefined) {
@@ -33,9 +33,9 @@ export function useEditProfile(uid: string) {
         }
       });
 
-      // ──────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // 2. Save to Firestore
-      // ──────────────────────────────────────────────────────────────
+      // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       await setDoc(doc(db, "users", uid), payload, { merge: true });
 
       toast.success("Profile updated successfully");

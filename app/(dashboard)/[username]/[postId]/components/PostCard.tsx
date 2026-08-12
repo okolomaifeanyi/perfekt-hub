@@ -11,10 +11,12 @@ import {
   blockUser,
   // deletePost,
   pinPost,
+  toggleSavedPost,
   unfollowUser,
   unfriendUser,
 } from "./utils";
 import { useUserConnections } from "@/hooks/UserConnections";
+import { useIsPostSaved } from "@/hooks/useSavedPost";
 import PostIdDate from "./PostIdDate";
 import { usePostWithQuote } from "@/hooks/UsePostWithQuote";
 import { useRouter } from "next/navigation";
@@ -31,6 +33,7 @@ import { safeGetHostname } from "@/components/post-composer/utils";
 import { deletePostAction } from "@/app/actions/posts";
 import { toast } from "sonner";
 import PostCardSkeleton from "./PostCardSkeleton";
+import { fallbackColorFromSrc } from "@/lib/image-colors.mjs";
 
 const PostCard = ({
   post,
@@ -58,6 +61,7 @@ const PostCard = ({
   const isOwner = user ? currentUser?.uid === user.uid : false;
   const isFollowing = user ? following?.includes(user.uid) : false;
   const isFriend = user ? friends?.includes(user.uid) : false;
+  const [isSaved, setIsSaved] = useIsPostSaved(post.id, currentUser?.uid);
 
   const handleCardClick = (url: string) => {
     router.push(url);
@@ -84,7 +88,7 @@ const PostCard = ({
         transition hover:bg-background/60 backdrop-blur-lg py-4`}
         onClick={() => user && handleCardClick(`/${user.username}/${post.id}`)}
       >
-        <CardContent className="space-y-4 px-0">
+        <CardContent className="space-y-3 px-0">
           {/* Header */}
           <div
             className="flex justify-between items-center px-4"
@@ -98,6 +102,7 @@ const PostCard = ({
                   isFriend={isFriend}
                   isFollowing={isFollowing}
                   isPinned={isPinned}
+                  isSaved={isSaved}
                   onDelete={async () => {
                     // 1. Optimistic delete — instant UI
                     deleteOptimisticPost?.(post.id);
@@ -105,11 +110,11 @@ const PostCard = ({
                     if (!currentUser?.uid) return;
                     // 2. Server side delete
                     try {
-                      await deletePostAction(post.id, currentUser?.uid);
+                      await deletePostAction(post.id);
                       toast.success("Post deleted");
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     } catch (err: any) {
-                      // optional toast.error(err.message)
+                      toast.error(err?.message || "Failed to delete post");
                       console.error(err);
                       // you could revert the optimistic delete here if you want
                     }
@@ -135,6 +140,16 @@ const PostCard = ({
                       await pinPost(post.id, currentUser.uid);
                     }
                   }}
+                  onToggleSave={async () => {
+                    if (!currentUser?.uid) return;
+                    const wasSaved = isSaved;
+                    setIsSaved(!wasSaved);
+                    try {
+                      await toggleSavedPost(post.id, currentUser.uid, wasSaved);
+                    } catch {
+                      setIsSaved(wasSaved);
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -151,8 +166,12 @@ const PostCard = ({
             </div>
           )}
 
-          {/* Text */}
-          <div className="px-4" onClick={stopPropagation}>
+          {/* Text — deliberately NOT wrapped in stopPropagation. Clicking a
+              post's body text is the single most obvious way a user expects
+              to open it, and this used to swallow that click entirely;
+              mentions/links inside stop propagation themselves instead (see
+              RichText.tsx) so they still open their own target, not the post. */}
+          <div className="px-4">
             <Text text={post.content} />
           </div>
 
@@ -172,7 +191,7 @@ const PostCard = ({
                   handleCardClick(`/${quotedUser.username}/${quotedPost.id}`)
                 }
               >
-                <CardContent className="space-y-4 px-0">
+                <CardContent className="space-y-3 px-0">
                   <div
                     className="flex justify-between items-center px-4"
                     onClick={stopPropagation}
@@ -200,10 +219,17 @@ const PostCard = ({
               rel="noopener noreferrer"
               onClick={stopPropagation}
             >
-              <Card className="overflow-hidden border hover:bg-background/50 transition mx-4 mb-4">
+              <Card className="overflow-hidden transition mx-4 py-0">
                 <div className="flex items-center !py-0">
                   {post.linkPreview.image && (
-                    <div className="w-28 h-20 px-2 border-r flex-shrink-0">
+                    <div
+                      className="w-28 h-20 px-2 flex-shrink-0"
+                      style={{
+                        backgroundColor: fallbackColorFromSrc(
+                          post.linkPreview.image
+                        ),
+                      }}
+                    >
                       <LazyLoadImage
                         src={post.linkPreview.image}
                         alt={post.linkPreview.title || "Preview image"}
@@ -241,7 +267,7 @@ const PostCard = ({
           )}
 
           {/* Reactions */}
-          <div className="px-4" onClick={stopPropagation}>
+          <div className="px-4 mt-4" onClick={stopPropagation}>
             {user && (
               <Reactions user={user} post={post} optimistic={optimistic} />
             )}

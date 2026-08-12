@@ -6,7 +6,7 @@ import {
   ScrollPosition,
   trackWindowScroll,
 } from "react-lazy-load-image-component";
-import { Loader2 } from "lucide-react";
+import { Loader2, PencilLine } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Posts from "./post/Posts";
@@ -14,16 +14,21 @@ import { useUserStore } from "@/lib/store/useUserStore";
 import { useLiveFeed } from "@/hooks/useLiveFeed";
 import PostComposer from "../post-composer/PostComposer";
 import { Button } from "../ui/button";
+import ComposePostDialog from "./ComposePostDialog";
 
 interface FeedProps {
   scrollPosition?: ScrollPosition;
+  initialTab?: "latest" | "trending";
 }
 
-const Feed = ({ scrollPosition }: FeedProps) => {
+export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
   const currentUser = useUserStore(s => s.user);
   const uid = currentUser?.uid ?? null;
 
-  const [activeTab, setActiveTab] = useState<"latest" | "trending">("latest");
+  const [activeTab, setActiveTab] = useState<"latest" | "trending">(
+    initialTab
+  );
+  const [composeOpen, setComposeOpen] = useState(false);
   const scrollMemory = useRef<{ latest: number; trending: number }>({
     latest: 0,
     trending: 0,
@@ -34,6 +39,9 @@ const Feed = ({ scrollPosition }: FeedProps) => {
 
   const activeFeed = activeTab === "latest" ? latestFeed : trendingFeed;
 
+  const getScrollContainer = () =>
+    document.querySelector<HTMLElement>('[data-dashboard-scroll-container="true"]');
+
   const { ref: latestLoadMoreRef, inView: latestInView } = useInView({
     triggerOnce: false,
     rootMargin: "600px 0px",
@@ -41,6 +49,10 @@ const Feed = ({ scrollPosition }: FeedProps) => {
   const { ref: trendingLoadMoreRef, inView: trendingInView } = useInView({
     triggerOnce: false,
     rootMargin: "600px 0px",
+  });
+  const { ref: composerInViewRef, inView: composerInView } = useInView({
+    triggerOnce: false,
+    threshold: 0.2,
   });
 
   useEffect(() => {
@@ -55,15 +67,23 @@ const Feed = ({ scrollPosition }: FeedProps) => {
 
   const handleTabChange = (v: string) => {
     const nextTab = v as "latest" | "trending";
-    scrollMemory.current[activeTab] = window.scrollY;
+    const scrollContainer = getScrollContainer();
+    scrollMemory.current[activeTab] = scrollContainer?.scrollTop ?? 0;
     setActiveTab(nextTab);
 
     setTimeout(() => {
-      window.scrollTo({
+      const targetScrollContainer = getScrollContainer();
+      if (!targetScrollContainer) return;
+
+      targetScrollContainer.scrollTo({
         top: scrollMemory.current[nextTab],
-        behavior: "instant",
+        behavior: "auto",
       });
     }, 30);
+  };
+
+  const handleComposeClick = () => {
+    setComposeOpen(true);
   };
 
   const NewPostsButton = ({
@@ -139,8 +159,21 @@ const Feed = ({ scrollPosition }: FeedProps) => {
       </TabsList>
 
       {/* POST COMPOSER – ALWAYS VISIBLE */}
-      <PostComposer
-        className="px-4"
+      <div ref={composerInViewRef}>
+        <PostComposer
+          className="px-4"
+          optimistic={{
+            addOptimisticPost: latestFeed.addOptimisticPost,
+            replaceOptimisticPost: latestFeed.replaceOptimisticPost,
+            removeOptimisticPost: latestFeed.removeOptimisticPost,
+          }}
+          isSubmitting={latestFeed.isSubmitting}
+        />
+      </div>
+
+      <ComposePostDialog
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
         optimistic={{
           addOptimisticPost: latestFeed.addOptimisticPost,
           replaceOptimisticPost: latestFeed.replaceOptimisticPost,
@@ -148,6 +181,18 @@ const Feed = ({ scrollPosition }: FeedProps) => {
         }}
         isSubmitting={latestFeed.isSubmitting}
       />
+
+      {!composerInView && (
+        <Button
+          type="button"
+          onClick={handleComposeClick}
+          className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full p-0 sm:h-auto sm:w-auto sm:min-h-14 sm:px-5 sm:py-4 sm:gap-2"
+          aria-label="Compose a post"
+        >
+          <PencilLine className="size-5" />
+          <span className="hidden sm:inline">Compose</span>
+        </Button>
+      )}
 
       {/* LATEST TAB */}
       <TabsContent value="latest" className="px-4 space-y-4">
@@ -169,6 +214,11 @@ const Feed = ({ scrollPosition }: FeedProps) => {
               posts={latestFeed.posts}
               scrollPosition={scrollPosition}
               deleteOptimisticPost={latestFeed.deleteOptimisticPost}
+              optimistic={{
+                addOptimisticPost: latestFeed.addOptimisticPost,
+                replaceOptimisticPost: latestFeed.replaceOptimisticPost,
+                removeOptimisticPost: latestFeed.removeOptimisticPost,
+              }}
             />
             <div
               ref={latestLoadMoreRef}
@@ -206,6 +256,11 @@ const Feed = ({ scrollPosition }: FeedProps) => {
               posts={trendingFeed.posts}
               scrollPosition={scrollPosition}
               deleteOptimisticPost={trendingFeed.deleteOptimisticPost}
+              optimistic={{
+                addOptimisticPost: trendingFeed.addOptimisticPost,
+                replaceOptimisticPost: trendingFeed.replaceOptimisticPost,
+                removeOptimisticPost: trendingFeed.removeOptimisticPost,
+              }}
             />
             <div
               ref={trendingLoadMoreRef}

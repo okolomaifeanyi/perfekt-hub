@@ -1,7 +1,7 @@
 "use client";
 
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, onSnapshot } from "@/lib/supabase";
 import { useEffect } from "react";
 import { usePostCounts } from "@/lib/store/postCounts";
 import { useUserStore } from "@/lib/store/useUserStore";
@@ -10,7 +10,7 @@ export function useRealtimePostCounts(postId: string) {
   const { setCounts } = usePostCounts();
   const currentUser = useUserStore(state => state.user);
 
-  // 🔴 Post-level counters (aggregates)
+  // ðŸ”´ Post-level counters (aggregates)
   useEffect(() => {
     if (!postId) return;
 
@@ -30,7 +30,7 @@ export function useRealtimePostCounts(postId: string) {
     return () => unsub();
   }, [postId, setCounts]);
 
-  // 🔵 User-specific engagement (flags)
+  // ðŸ”µ User-specific engagement (flags)
   useEffect(() => {
     if (!postId || !currentUser?.uid) return;
 

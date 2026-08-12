@@ -185,6 +185,7 @@ export default function EditImageButton({
             variant="secondary"
             onClick={() => applyPreset("center")}
             title="Center"
+            aria-label="Center"
           >
             <ArrowsPointingInIcon className="size-5" />
           </Button>
@@ -195,6 +196,7 @@ export default function EditImageButton({
                 variant="secondary"
                 onClick={() => applyPreset("top")}
                 title="Top"
+                aria-label="Align top"
               >
                 <ChevronDoubleUpIcon className="size-5" />
               </Button>
@@ -203,6 +205,7 @@ export default function EditImageButton({
                 variant="secondary"
                 onClick={() => applyPreset("bottom")}
                 title="Bottom"
+                aria-label="Align bottom"
               >
                 <ChevronDoubleDownIcon className="size-5" />
               </Button>
@@ -213,6 +216,7 @@ export default function EditImageButton({
             variant="secondary"
             onClick={fitToFrame}
             title="Fit to frame"
+            aria-label="Fit to frame"
           >
             <ScaleIcon className="size-5" />
           </Button>
@@ -314,6 +318,7 @@ export default function EditImageButton({
             variant="secondary"
             size="icon"
             className="bg-background/80 rounded-full"
+            aria-label="Edit image"
           >
             <PencilIcon className="size-4" />
           </Button>

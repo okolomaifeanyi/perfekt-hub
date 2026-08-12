@@ -4,8 +4,8 @@ import {
   onDisconnect,
   set,
   serverTimestamp,
-} from "firebase/database";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+} from "@/lib/supabase";
+import { getAuth, onAuthStateChanged } from "@/lib/supabase";
 
 export function setupPresence() {
   const auth = getAuth();

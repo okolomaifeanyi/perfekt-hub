@@ -1,11 +1,22 @@
 "use client";
 
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
-import WhoToFollow from "@/components/Features/follow/WhoToFollow";
+import RecommendationRail from "@/components/feed/RecommendationRail";
 import { List } from "@/components/Typography";
+import { computeRecommendationSlots } from "@/lib/feed-recommendation-inserts.mjs";
 import { PostProps } from "@/lib/types";
 import { ScrollPosition } from "react-lazy-load-image-component";
-const SUGGESTIONS_EVERY = 5;
+
+const FEED_RECOMMENDATION_TYPES = [
+  "friends",
+  "follows",
+  "groups",
+  "events",
+  "videos",
+  "saves",
+  "matches",
+] as const;
+type FeedRecommendationType = (typeof FEED_RECOMMENDATION_TYPES)[number];
 
 const Posts = ({
   posts,
@@ -25,23 +36,49 @@ const Posts = ({
     removeOptimisticPost: (id: string) => void;
   };
 }) => {
-  // ─── EMPTY STATE ───────────────────────────────────────────────────────
   if (posts.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="text-muted-foreground mb-6">
           No posts yet. Follow people to see their updates!
         </p>
-        <WhoToFollow fullPage />
+        <RecommendationRail type="friends" />
       </div>
     );
   }
 
-  // ─── RENDER POSTS + SUGGESTIONS ───────────────────────────────────────
+  const engagementScore = Math.min(
+    1,
+    Math.max(
+      0,
+      posts.reduce((sum, post) => {
+        const likes = post.likes ?? post.reactions?.likes ?? 0;
+        const replies = post.replyCount ?? post.comments?.length ?? 0;
+        const quotes = post.quoteCount ?? 0;
+        const views = post.views ?? 0;
+        const weightedEngagement = likes + replies * 1.5 + quotes * 1.5;
+
+        if (views > 0) {
+          return sum + Math.min(1, weightedEngagement / Math.max(views, 1));
+        }
+
+        return sum + (weightedEngagement > 0 ? 0.55 : 0.2);
+      }, 0) / posts.length
+    )
+  );
+
+  const recommendationSlots = computeRecommendationSlots({
+    itemCount: posts.length,
+    engagementScore,
+    availableTypes: FEED_RECOMMENDATION_TYPES,
+  });
+  const recommendationSlotByIndex = new Map(
+    recommendationSlots.map(slot => [slot.index, slot])
+  );
+
   const items: React.ReactNode[] = [];
 
   posts.forEach((post, index) => {
-    // Add the post
     items.push(
       <li key={post.id}>
         <PostCard
@@ -54,12 +91,11 @@ const Posts = ({
       </li>
     );
 
-    // Inject compact WhoToFollow every N posts (but not after the last one)
-    const isLast = index === posts.length - 1;
-    if ((index + 1) % SUGGESTIONS_EVERY === 0 && !isLast) {
+    const slot = recommendationSlotByIndex.get(index + 1);
+    if (slot && index !== posts.length - 1) {
       items.push(
-        <li key={`suggestion-${index}`} className="my-6">
-          <WhoToFollow compact />
+        <li key={`suggestion-${slot.type}-${slot.index}`} className="my-6">
+          <RecommendationRail type={slot.type as FeedRecommendationType} />
         </li>
       );
     }

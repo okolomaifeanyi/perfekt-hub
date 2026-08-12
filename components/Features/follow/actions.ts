@@ -1,6 +1,11 @@
 "use server";
 
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { cookies } from "next/headers";
+import { firestoreAdmin } from "@/lib/supabase";
+import { normalizeUnknownError } from "@/lib/supabase/error-utils.mjs";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { UserProps } from "@/lib/types";
 
 function fuzzyMatch(a: string, b: string): number {
@@ -25,6 +30,28 @@ function calculateAge(dob: string): number | null {
   return isNaN(birthYear) ? null : new Date().getFullYear() - birthYear;
 }
 
+async function withSupabaseRequestContext<T>(
+  callback: () => Promise<T>
+): Promise<T> {
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
+
+  // The @supabase/ssr server client initializes its session lazily
+  // (skipAutoInitialize), so no JWT is attached until an auth method runs and
+  // every query before that executes as the `anon` role. Hydrate it first so
+  // RLS sees the real user.
+  await supabase.auth.getUser();
+
+  return runWithSupabaseClient(supabase, callback);
+}
+
 // Helper: get all IDs from a subcollection
 async function getIds(path: string): Promise<Set<string>> {
   const snap = await firestoreAdmin.collection(path).get();
@@ -34,7 +61,14 @@ async function getIds(path: string): Promise<Set<string>> {
 export async function getSmartSuggestions(
   currentUid: string
 ): Promise<UserProps[]> {
-  const exclude = new Set<string>([currentUid]);
+  try {
+    const { uid: sessionUid } = await getUserFromSession();
+    if (!sessionUid || sessionUid !== currentUid) {
+      return [];
+    }
+
+    return await withSupabaseRequestContext(async () => {
+    const exclude = new Set<string>([currentUid]);
 
   // 1. Exclude known users
   const excludePaths = [
@@ -118,7 +152,7 @@ export async function getSmartSuggestions(
           );
           if (nameScore > 0.5) score += nameScore > 0.7 ? 12 : 8;
 
-          // Age match (±10 years)
+          // Age match (Â±10 years)
           if (myAge && data.dob) {
             const theirAge = calculateAge(data.dob);
             if (theirAge) {
@@ -267,4 +301,12 @@ export async function getSmartSuggestions(
     .slice(0, 12)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     .map(({ score, source, ...u }) => u);
+    });
+  } catch (error) {
+    console.error(
+      "getSmartSuggestions failed:",
+      normalizeUnknownError(error, "Unable to load suggestions.")
+    );
+    return [];
+  }
 }

@@ -237,7 +237,7 @@ const NotificationPage = () => {
                         {(n.type === "friendRequest" ||
                           n.type === "acceptRequest" ||
                           n.type === "follow") && (
-                          <div>
+                          <div onClick={e => e.stopPropagation()}>
                             <ConnectDropdown targetUid={n.actorUid} />
                           </div>
                         )}

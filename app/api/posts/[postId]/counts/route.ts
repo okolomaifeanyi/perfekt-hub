@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 import { getCurrentUid } from "@/app/actions";
 import { getQuoteCount, getReplyCount } from "@/lib/data";
 
@@ -11,7 +11,7 @@ export async function GET(
   const postRef = firestoreAdmin.collection("posts").doc(postId);
   const snap = await postRef.get();
 
-  if (!snap.exists) {
+  if (!snap.exists()) {
     return NextResponse.json({ error: "Post not found" }, { status: 404 });
   }
 
@@ -32,24 +32,24 @@ export async function GET(
     shared: false,
   };
 
-  // 👇 check if this user has a reaction doc in subcollection
+  // ðŸ‘‡ check if this user has a reaction doc in subcollection
   if (currentUid) {
     const reactionSnap = await postRef
       .collection("reactions")
       .doc(currentUid)
       .get();
 
-    if (reactionSnap.exists) {
+    if (reactionSnap.exists()) {
       const reactionData = reactionSnap.data() as { type: "like" | "dislike" };
 
       if (reactionData.type === "like") userReaction.liked = true;
       if (reactionData.type === "dislike") userReaction.disliked = true;
     }
 
-    // 👀 check if user viewed
+    // ðŸ‘€ check if user viewed
     const viewSnap = await postRef.collection("views").doc(currentUid).get();
 
-    if (viewSnap.exists) {
+    if (viewSnap.exists()) {
       userReaction.viewed = true;
     }
   }

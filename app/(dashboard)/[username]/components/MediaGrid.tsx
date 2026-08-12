@@ -1,6 +1,6 @@
 "use client";
 
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import { PostProps } from "@/lib/types";
 import {
   query,
@@ -9,13 +9,19 @@ import {
   limit,
   onSnapshot,
   orderBy,
-} from "firebase/firestore";
-import Image from "next/image";
+} from "@/lib/supabase";
 import { useState, useEffect } from "react";
+import { ContainedImage } from "@/components/media/ContainedImage";
+import { ContainedVideo } from "@/components/media/ContainedVideo";
 
-export function MediaGrid({ uid }: { uid: string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [items, setItems] = useState<any[]>([]);
+export function MediaGrid({
+  uid,
+  mediaType = "all",
+}: {
+  uid: string;
+  mediaType?: "all" | "image" | "video";
+}) {
+  const [items, setItems] = useState<PostProps[]>([]);
 
   useEffect(() => {
     const q = query(
@@ -28,21 +34,27 @@ export function MediaGrid({ uid }: { uid: string }) {
     const unsub = onSnapshot(q, snap => {
       const posts = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as PostProps))
-        .filter(post => (post.media || []).length > 0); // filter in JS
+        .filter(post => (post.media || []).length > 0)
+        .filter(post =>
+          mediaType === "all"
+            ? true
+            : (post.media || []).some(media => media.type === mediaType)
+        );
       setItems(posts);
     });
 
 
     return () => unsub();
-  }, [uid]);
+  }, [uid, mediaType]);
 
   // Flatten all media into a single list
   const mediaItems = items.flatMap(post =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (post.media || []).map((m: any) => ({
-      ...m,
-      postId: post.id,
-    }))
+    (post.media || [])
+      .filter(media => (mediaType === "all" ? true : media.type === mediaType))
+      .map(media => ({
+        ...media,
+        postId: post.id,
+      }))
   );
 
   if (!mediaItems.length) {
@@ -54,22 +66,24 @@ export function MediaGrid({ uid }: { uid: string }) {
       {mediaItems.map(m => (
         <div
           key={m.src}
-          className="relative aspect-square overflow-hidden rounded-md"
+          className="relative aspect-square overflow-hidden rounded-md bg-muted/20"
         >
           {m.type === "image" ? (
-            <Image
+            <ContainedImage
               src={m.src}
               alt="media"
-              fill
               sizes="160px"
-              className="object-cover"
+              className="h-full w-full rounded-md"
+              imageClassName="rounded-md"
             />
           ) : (
-            <video
+            <ContainedVideo
               src={m.src}
-              className="w-full h-full object-cover"
+              className="h-full w-full rounded-md"
+              videoClassName="rounded-md"
               muted
               playsInline
+              loop
             />
           )}
         </div>

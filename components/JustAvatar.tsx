@@ -10,12 +10,14 @@ const JustAvatar = ({
   photoURL,
   username,
   fullName,
+  priority = size == null || size >= 80,
 }: {
   user?: UserProps | null;
   size?: number;
   photoURL?: string;
   username?: string;
   fullName?: string;
+  priority?: boolean;
 }) => {
   const altImage = userAltImageUrl({
     name: user?.fullName || user?.username || "User",
@@ -39,6 +41,8 @@ const JustAvatar = ({
         fill
         sizes={size ? `${size}px` : "(max-width: 768px) 80px, 120px"}
         className="object-cover"
+        loading={priority ? "eager" : "lazy"}
+        priority={priority}
       />
     </Avatar>
   );

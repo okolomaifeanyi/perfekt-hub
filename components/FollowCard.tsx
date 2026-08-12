@@ -26,7 +26,9 @@ const FollowCard = ({
       <CardContent className="space-y-4 px-0">
         <div className="flex justify-between items-center px-4">
           <AvatarHoverCard user={user} />
-          <ConnectDropdown targetUid={user.uid} />
+          <div onClick={e => e.stopPropagation()}>
+            <ConnectDropdown targetUid={user.uid} />
+          </div>
         </div>
       </CardContent>
     </Card>

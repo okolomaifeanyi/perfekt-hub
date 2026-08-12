@@ -1,6 +1,6 @@
 "use client";
 
-import { getFirebaseToken } from "@/lib/utils";
+import { getSupabaseToken } from "@/lib/utils";
 import { useEffect } from "react";
 
 export default function ViewTracker({ postId }: { postId: string }) {
@@ -9,7 +9,7 @@ export default function ViewTracker({ postId }: { postId: string }) {
 
     const recordView = async () => {
       try {
-        const token = await getFirebaseToken();
+        const token = await getSupabaseToken();
         await fetch(`/api/posts/${postId}/view`, {
           method: "POST",
           headers: {

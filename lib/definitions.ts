@@ -66,6 +66,7 @@ export type FormState =
         password2?: string[];
       };
       message?: string;
+      success?: boolean;
       values?: {
         username?: string;
         email?: string;

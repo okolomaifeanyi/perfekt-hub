@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, onSnapshot } from "@/lib/supabase";
 import { UserProps } from "@/lib/types";
 
 export function useUser(userId: string | null) {

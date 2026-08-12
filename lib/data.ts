@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import {
   collection,
   getDocs,
@@ -9,7 +9,7 @@ import {
   orderBy,
   limit as limitFn,
   startAfter,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { PostProps, UserProps } from "./types";
 
 // Get a single user

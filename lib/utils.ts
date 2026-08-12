@@ -7,11 +7,14 @@ import {
   query,
   updateDoc,
   where,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { twMerge } from "tailwind-merge";
-import { db } from "./firebase";
+import { db } from "@/lib/supabase";
 import { PixelCrop, UserProps, ViewerRole } from "./types";
 import { uploadToCloudinary } from "@/components/post-composer/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { buildReactionRequestInit } from "@/lib/reaction-request.mjs";
+import { mapSupabaseAuthError as mapSupabaseAuthErrorShared } from "@/lib/auth-errors.mjs";
 // import { usePostCounts } from "@/lib/store/postCounts";
 
 export function cn(...inputs: ClassValue[]) {
@@ -34,95 +37,52 @@ export function loadEmojiData() {
   return emojiDataPromise;
 }
 
-// lib/utils/authErrors.ts
-
-// Define a type for Firebase Auth errors, as 'error.code' is common.
-interface FirebaseAuthError extends Error {
+export function mapSupabaseAuthError(error: {
   code?: string;
-}
-
-/**
- * Maps Firebase authentication error codes to user-friendly messages.
- * @param error The Firebase error object.
- * @returns A user-friendly error message.
- */
-export function mapFirebaseAuthError(error: FirebaseAuthError): string {
-  if (!error || !error.code) {
-    return "An unexpected error occurred. Please try again.";
-  }
-
-  switch (error.code) {
-    case "auth/email-already-in-use":
-      return "This email address is already registered. Please use a different one or log in.";
-    case "auth/invalid-email":
-      return "The email address is not valid. Please check the format.";
-    case "auth/operation-not-allowed":
-      return "Email/password login is not enabled for this project. Please contact support.";
-    case "auth/weak-password":
-      return "The password is too weak. Please choose a stronger password (at least 6 characters, with letters, numbers, and symbols).";
-    case "auth/user-disabled":
-      return "This account has been disabled. Please contact support.";
-    case "auth/user-not-found":
-      return "No account found with this email. Please check your spelling or sign up.";
-    case "auth/wrong-password":
-      return "Incorrect password. Please try again.";
-    case "auth/too-many-requests":
-      return "Too many failed login attempts. Please try again later.";
-    case "auth/network-request-failed":
-      return "A network error occurred. Please check your internet connection and try again.";
-    case "auth/popup-closed-by-user":
-      return "Authentication process cancelled. Please try again.";
-    case "auth/cancelled-popup-request":
-      return "Login cancelled. Please try again.";
-    case "auth/requires-recent-login":
-      return "This operation requires re-authentication. Please log in again.";
-    case "auth/invalid-credential":
-      return "Invalid login credentials. Please check your email and password.";
-    case "auth/credential-already-in-use":
-      return "This credential (e.g., Google account) is already linked to another user.";
-    case "auth/account-exists-with-different-credential":
-      return "An account with this email already exists but with a different login method. Please try logging in with the original method.";
-    // Add more cases as you encounter them or need specific messages
-    default:
-      console.error(
-        "Unhandled Firebase Auth Error:",
-        error.code,
-        error.message
-      );
-      return "An unknown error occurred. Please try again later.";
-  }
+  message?: string;
+}): string {
+  return mapSupabaseAuthErrorShared(error);
 }
 
 export async function toggleReaction({
   postId,
-  userId,
   type,
 }: {
   postId: string;
-  userId: string;
   type: "like" | "dislike";
 }) {
-  const res = await fetch("/api/reactions/toggle", {
-    method: "POST",
-    body: JSON.stringify({ postId, userId, type }),
-  });
+  const accessToken = await getSupabaseToken();
+  const res = await fetch(
+    "/api/reactions/toggle",
+    buildReactionRequestInit({
+      postId,
+      type,
+      accessToken,
+    })
+  );
 
   if (!res.ok) {
-    throw new Error("Failed to toggle reaction");
+    const payload = await res.json().catch(() => null);
+    throw new Error(
+      typeof payload?.error === "string" && payload.error.trim()
+        ? payload.error
+        : "Failed to toggle reaction"
+    );
   }
 
   const updatedCounts = await res.json();
 
-  // ⚠️ Keep optimistic UI state — don’t overwrite userReaction here.
+  // âš ï¸ Keep optimistic UI state â€” donâ€™t overwrite userReaction here.
   return updatedCounts;
 }
 
-export async function getFirebaseToken(): Promise<string> {
-  const user = await import("firebase/auth").then(
-    ({ getAuth }) => getAuth().currentUser
-  );
-  if (!user) throw new Error("Not authenticated");
-  return await user.getIdToken();
+export async function getSupabaseToken(): Promise<string> {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Not authenticated");
+  return token;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,7 +104,7 @@ export async function getUserByUsername(username: string) {
 
     if (querySnapshot.empty) return null;
 
-    // Assuming usernames are unique → take the first
+    // Assuming usernames are unique â†’ take the first
     const doc = querySnapshot.docs[0];
 
     return { ...(doc.data() as UserProps) };

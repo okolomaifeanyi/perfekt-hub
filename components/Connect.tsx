@@ -17,9 +17,9 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useFriendStore } from "@/lib/store/friendStore";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
-import { useUserStore } from "@/lib/store/useUserStore"; // ✅ assuming you keep logged-in user in Zustand
+import { db } from "@/lib/supabase";
+import { doc, onSnapshot } from "@/lib/supabase";
+import { useUserStore } from "@/lib/store/useUserStore"; // âœ… assuming you keep logged-in user in Zustand
 
 export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
   const status = useFriendStore(s => s.statuses[targetUid]) ?? "none";
@@ -36,7 +36,7 @@ export default function ConnectDropdown({ targetUid }: { targetUid: string }) {
     requested: "Sent Request",
   }[status];
 
-  // 🔥 Real-time Firestore subscription
+  // ðŸ”¥ Real-time Firestore subscription
   useEffect(() => {
     if (!user?.uid || !targetUid) return;
 

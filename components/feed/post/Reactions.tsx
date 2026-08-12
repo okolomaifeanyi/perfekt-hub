@@ -18,8 +18,8 @@ const Reactions = ({
   optimistic?: OptimisticCallbacks;
 }) => {
   const postCounts = usePostCounts(state => state.counts[post.id]);
-  const { user: currentUser } = useUserStore(state => state);
-  if (!currentUser) return null;
+  const currentUser = useUserStore(state => state.user);
+  if (!currentUser?.uid) return null;
 
   const liked = postCounts?.userReaction?.liked ?? false;
   const disliked = postCounts?.userReaction?.disliked ?? false;
@@ -43,11 +43,7 @@ const Reactions = ({
     });
 
     try {
-      await toggleReaction({
-        postId: post.id,
-        userId: currentUser.uid,
-        type: "like",
-      });
+      await toggleReaction({ postId: post.id, type: "like" });
     } catch (err) {
       setCounts(post.id, prev || {});
       console.error(err);
@@ -68,11 +64,7 @@ const Reactions = ({
     });
 
     try {
-      await toggleReaction({
-        postId: post.id,
-        userId: currentUser.uid,
-        type: "dislike",
-      });
+      await toggleReaction({ postId: post.id, type: "dislike" });
     } catch (err) {
       setCounts(post.id, prev || {});
       console.error(err);

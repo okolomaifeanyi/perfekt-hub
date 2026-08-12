@@ -1,5 +1,5 @@
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { getFirestore } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp } from "@/lib/supabase";
+import { getFirestore } from "@/lib/supabase";
 
 export async function mirrorPresence(uid: string, state: "online" | "offline") {
   const db = getFirestore();

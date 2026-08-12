@@ -1,16 +1,20 @@
 import * as cheerio from "cheerio";
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 import { appInfo } from "./appInfo";
-import { decode } from 'html-entities';
+import { decode } from "html-entities";
 import { LinkPreviewType } from "./types";
+import { extractLinks, normalizeUrl } from "./link-parser.mjs";
+import { isPublicHttpUrl } from "./ssrf-guard.mjs";
 
-const APP_DOMAIN = process.env.APP_URL || "https://perfektmart.com.ng";
+export { extractLinks, normalizeUrl };
+
+const APP_DOMAIN = appInfo.url;
 
 function cleanText(str?: string) {
   return str ? decode(str).replace(/\s+/g, " ").trim() : "";
 }
 
-// Known sites that block scraping → prefer LinkPreview directly
+// Known sites that block scraping â†’ prefer LinkPreview directly
 const LINK_PREVIEW_DOMAINS = [
   "facebook.com",
   "instagram.com",
@@ -18,29 +22,18 @@ const LINK_PREVIEW_DOMAINS = [
   "x.com",
 ];
 
-/** Normalize a URL string */
-export function normalizeUrl(raw: string): string {
-  const url = raw.trim();
+const SAFETY_CHECK_TIMEOUT_MS = 4000;
 
-  // Already absolute
-  if (/^https?:\/\//i.test(url)) return url;
+// Both providers are non-critical (posting must not hang or fail because a
+// third-party safety check is slow or unreachable), so every request gets a
+// short timeout and any failure falls through to the next check.
+function fetchWithTimeout(url: string, init?: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SAFETY_CHECK_TIMEOUT_MS);
 
-  // Domain with optional path (e.g., x.com, www.x.com/abc123)
-  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(url)) {
-    return "https://" + url;
-  }
-
-  // Fallback
-  return url;
-}
-
-
-/** Extract links from plain text */
-export function extractLinks(text: string): string[] {
-  const urlRegex =
-    /((?:https?:\/\/)?(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*))/gi;
-
-  return [...text.matchAll(urlRegex)].map(m => normalizeUrl(m[0]));
+  return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timeout)
+  );
 }
 
 export async function isSafeLink(url: string): Promise<{
@@ -50,7 +43,7 @@ export async function isSafeLink(url: string): Promise<{
 }> {
   try {
     // 1. Google Safe Browsing API check
-    const googleRes = await fetch(
+    const googleRes = await fetchWithTimeout(
       `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${process.env.SAFE_BROWSING_API_KEY}`,
       {
         method: "POST",
@@ -91,7 +84,7 @@ export async function isSafeLink(url: string): Promise<{
 
   // 2. VirusTotal fallback
   try {
-    const vtRes = await fetch(`https://www.virustotal.com/api/v3/urls`, {
+    const vtRes = await fetchWithTimeout(`https://www.virustotal.com/api/v3/urls`, {
       method: "POST",
       headers: {
         "x-apikey": process.env.VIRUSTOTAL_API_KEY!,
@@ -103,7 +96,7 @@ export async function isSafeLink(url: string): Promise<{
     const vtData = await vtRes.json();
     if (vtData?.data?.id) {
       // fetch full analysis
-      const analysisRes = await fetch(
+      const analysisRes = await fetchWithTimeout(
         `https://www.virustotal.com/api/v3/analyses/${vtData.data.id}`,
         {
           headers: { "x-apikey": process.env.VIRUSTOTAL_API_KEY! },
@@ -129,7 +122,7 @@ export async function isSafeLink(url: string): Promise<{
 }
 
 async function fetchWithLinkPreview(url: string) {
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://api.linkpreview.net/?key=${
       process.env.LINK_PREVIEW_API_KEY
     }&q=${encodeURIComponent(url)}`
@@ -151,7 +144,13 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
     const normalized = normalizeUrl(rawUrl);
     const { hostname } = new URL(normalized);
 
-    // If blocked domain → go straight to LinkPreview
+    // Refuse to let the server fetch internal/private network targets on a
+    // caller's behalf (SSRF).
+    if (!(await isPublicHttpUrl(normalized))) {
+      return null;
+    }
+
+    // If blocked domain â†’ go straight to LinkPreview
     if (LINK_PREVIEW_DOMAINS.some(d => hostname.endsWith(d))) {
       return await fetchWithLinkPreview(normalized);
     }
@@ -262,14 +261,14 @@ export async function resolveNativePost(rawUrl: string) {
     // Extract just the host from APP_DOMAIN
     const appHost = new URL(APP_DOMAIN).hostname;
 
-    // Strict domain check (prevent evil.com/perfektmart.com.ng.evil)
+    // Strict domain check (prevent evil.com/perfekthub.com.evil)
     if (u.hostname === appHost || u.hostname.endsWith("." + appHost)) {
       const pathParts = u.pathname.split("/").filter(Boolean);
       const postId = pathParts.at(-1); // cleaner way
       if (!postId) return null;
 
       const snap = await firestoreAdmin.collection("posts").doc(postId).get();
-      if (snap.exists) {
+      if (snap.exists()) {
         return { ...snap.data(), id: snap.id };
       }
     }

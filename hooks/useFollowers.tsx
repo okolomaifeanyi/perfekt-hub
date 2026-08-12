@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import {
   collection,
   doc,
@@ -9,7 +9,7 @@ import {
   query,
   orderBy,
   getDoc,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 // import { useUserStore } from "@/lib/store/useUserStore";
 import { UserProps } from "@/lib/types";
 

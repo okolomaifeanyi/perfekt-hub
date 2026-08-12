@@ -1,8 +1,10 @@
 "use server";
 
 import { getMoreComments, getMorePosts, getMoreUserPosts } from "@/lib/data";
-import { authAdmin } from "@/lib/firebaseAdmin";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { resolveCurrentUid } from "@/lib/auth/current-user.mjs";
 
 export async function loadMore(formData: FormData) {
   try {
@@ -58,17 +60,30 @@ export async function loadMoreComments(prevState: unknown, formData: FormData) {
 export async function getCurrentUid(
   req: Request
 ): Promise<{ uid: string } | NextResponse> {
-  const authHeader = req.headers.get("Authorization") || "";
-  const token = authHeader.replace("Bearer ", "");
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
+
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const uid = await resolveCurrentUid({
+    supabase,
+    bearerToken: token,
+  });
+
+  if (uid) {
+    return { uid };
+  }
 
   if (!token) {
     return NextResponse.json({ error: "No token provided" }, { status: 401 });
   }
 
-  try {
-    const decoded = await authAdmin.verifyIdToken(token);
-    return { uid: decoded.uid };
-  } catch {
-    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-  }
+  return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 }

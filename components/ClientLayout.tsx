@@ -6,24 +6,32 @@ import CompleteProfileModal from "./CompleteProfileModal";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { logoutClient } from "@/app/(auth)/lib/utils";
 import Loader from "./Loader";
-
-import { auth } from "@/lib/firebase";
-import { signInWithCustomToken, onAuthStateChanged } from "firebase/auth";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { saveOrUpdateUser, logoutClient } from "@/app/(auth)/lib/utils";
+import {
+  canSyncUserProfile,
+  hasAuthenticatedSession,
+} from "@/lib/supabase/session-status.mjs";
+import {
+  buildSavedAccountFromSession,
+  rememberSavedAccount,
+} from "@/lib/saved-accounts.mjs";
 
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const {
     user,
+    authReady,
     clearUser,
+    setAuthReady,
     globalLoading,
     setGlobalLoading,
     dismissedProfileModal,
     setDismissedProfileModal,
     startUserListener,
     startMessageListener,
-    startNotificationListener,
     stopListeners,
+    setUser,
   } = useUserStore(state => state);
 
   const pathname = usePathname();
@@ -32,68 +40,163 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (isAuthPage) {
+      setAuthReady(false);
       setGlobalLoading(false);
       return;
     }
 
+    const supabase = getSupabaseBrowserClient();
+    let active = true;
+    setAuthReady(false);
     setGlobalLoading(true);
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async currentUser => {
-      // no client user yet → try server-issued custom token
-      if (!currentUser) {
-        try {
-          const tokenRes = await fetch("/api/firebase-token", {
-            method: "POST",
-          });
-          if (!tokenRes.ok) throw new Error("Failed to fetch Firebase token");
+    const bootstrap = async () => {
+      try {
+        // getSession() reads the locally-persisted session (fast, no network
+        // round trip). Using getUser() here instead races the client's own
+        // hydration right after an OAuth redirect, since it depends on a
+        // fresh network call succeeding before the session has settled.
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+        const currentUser = session?.user ?? null;
 
-          const { token } = await tokenRes.json();
-          await signInWithCustomToken(auth, token);
-          // onAuthStateChanged will fire again after sign-in
-          return;
-        } catch (err) {
-          console.error("Auth sync failed:", err);
-          await logoutClient(router);
+        if (!active) return;
+
+        if (!currentUser) {
           clearUser();
-          stopListeners();
+          setAuthReady(true);
           setGlobalLoading(false);
           return;
         }
+
+        const canSync = canSyncUserProfile(currentUser, session);
+        const profile = await saveOrUpdateUser(currentUser);
+        if (!active) return;
+
+        setUser({
+          uid: currentUser.id,
+          email: currentUser.email ?? "",
+          username: String(profile.username ?? ""),
+          fullName: String(profile.fullName ?? ""),
+          photoURL: String(profile.photoURL ?? ""),
+          completedProfile: Boolean(profile.completedProfile),
+          postsCount: Number(profile.postsCount ?? 0),
+          followersCount: Number(profile.followersCount ?? 0),
+          followingCount: Number(profile.followingCount ?? 0),
+          friendsCount: Number(profile.friendsCount ?? 0),
+          lastSeen: profile.lastSeen ?? null,
+        });
+
+        if (session) {
+          rememberSavedAccount(window.localStorage, {
+            ...buildSavedAccountFromSession({
+              user: currentUser,
+              session,
+              profile,
+            }),
+            lastUsedAt: new Date().toISOString(),
+          });
+        }
+
+        if (hasAuthenticatedSession(session) && canSync) {
+          startUserListener(currentUser.id);
+          startMessageListener(currentUser.id);
+          setAuthReady(true);
+        }
+
+        if (!hasAuthenticatedSession(session) || !canSync) {
+          setAuthReady(false);
+        }
+      } catch (error) {
+        console.error("Failed to bootstrap auth state:", error);
+        clearUser();
+        setAuthReady(true);
+      } finally {
+        if (active) {
+          setGlobalLoading(false);
+        }
+      }
+    };
+
+    void bootstrap();
+
+    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
+
+      if (!session?.user) {
+        clearUser();
+        setAuthReady(true);
+        stopListeners();
+        setGlobalLoading(false);
+        return;
       }
 
-      // we now have a signed-in user
-      const uid = currentUser.uid;
+      const canSync = canSyncUserProfile(session.user, session);
+      const profile = await saveOrUpdateUser(session.user);
+      if (!active) return;
 
-      // start real-time listeners tied to UID
-      startUserListener(uid); // 🔹 Firestore user doc
-      startMessageListener(uid);
-      startNotificationListener(uid);
+      setUser({
+        uid: session.user.id,
+        email: session.user.email ?? "",
+        username: String(profile.username ?? ""),
+        fullName: String(profile.fullName ?? ""),
+        photoURL: String(profile.photoURL ?? ""),
+        completedProfile: Boolean(profile.completedProfile),
+        postsCount: Number(profile.postsCount ?? 0),
+        followersCount: Number(profile.followersCount ?? 0),
+        followingCount: Number(profile.followingCount ?? 0),
+        friendsCount: Number(profile.friendsCount ?? 0),
+        lastSeen: profile.lastSeen ?? null,
+      });
 
+      rememberSavedAccount(window.localStorage, {
+        ...buildSavedAccountFromSession({
+          user: session.user,
+          session,
+          profile,
+        }),
+        lastUsedAt: new Date().toISOString(),
+      });
+
+      if (hasAuthenticatedSession(session) && canSync) {
+        startUserListener(session.user.id);
+        startMessageListener(session.user.id);
+      }
+
+      setAuthReady(hasAuthenticatedSession(session) && canSync);
       setGlobalLoading(false);
     });
 
     return () => {
-      unsubscribeAuth();
+      active = false;
+      data.subscription.unsubscribe();
       stopListeners();
     };
   }, [
     isAuthPage,
-    router,
-    setGlobalLoading,
     clearUser,
-    startUserListener,
+    setAuthReady,
+    setGlobalLoading,
+    setUser,
     startMessageListener,
-    startNotificationListener,
+    startUserListener,
     stopListeners,
   ]);
 
+  useEffect(() => {
+    // `authReady` gates this deliberately. logoutClient() calls
+    // supabase.auth.signOut(), which DELETES the session cookies — so firing it
+    // during the initial indeterminate window (where `user` is still null and
+    // `globalLoading` is still the stale `false` from this render) would destroy
+    // a session that had just been established, e.g. right after an OAuth
+    // redirect. Only sign out once auth has actually resolved to "no session".
+    if (!isAuthPage && authReady && globalLoading === false && !user) {
+      void logoutClient(router);
+    }
+  }, [authReady, globalLoading, isAuthPage, router, user]);
+
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-    >
+    <ThemeProvider defaultTheme="system">
       {!isAuthPage && globalLoading && <Loader />}
 
       {!isAuthPage &&

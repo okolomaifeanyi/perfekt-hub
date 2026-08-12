@@ -1,6 +1,6 @@
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import { PostProps } from "@/lib/types";
-import { collection, onSnapshot, orderBy, query, where, limit as limitFn } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, where, limit as limitFn } from "@/lib/supabase";
 import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 
@@ -21,7 +21,7 @@ export function useLiveComments(postId: string, limit = 10) {
         snapshot.docChanges().forEach(change => {
           if (change.type === "added") {
             const newComment = change.doc.data();
-            toast.success(`🗨️ New reply from @${newComment.username}`);
+            toast.success(`ðŸ—¨ï¸ New reply from @${newComment.username}`);
           }
         });
       } else {

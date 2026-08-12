@@ -1,7 +1,7 @@
 "use client"
 
-import { db } from "@/lib/firebase";
-import { query, collection, limit, onSnapshot, orderBy } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { query, collection, limit, onSnapshot, orderBy } from "@/lib/supabase";
 import { useState, useEffect } from "react";
 import { FriendTile } from "./FriendTile";
 
@@ -20,7 +20,10 @@ export default function FriendsList({ uid, isMe }: { uid: string; isMe: boolean 
     const unsub = onSnapshot(
       q,
       async snap => {
-        const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const rows = snap.docs.map((d: { id: string; data: () => Record<string, unknown> }) => ({
+          id: d.id,
+          ...d.data(),
+        }));
         setItems(rows);
       },
       err => {

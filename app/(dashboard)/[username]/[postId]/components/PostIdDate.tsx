@@ -20,7 +20,10 @@ const PostIdDate = ({
       <AvatarHoverCard user={user!} />
 
       <Tooltip>
-        <TooltipTrigger className="text-xs text-muted-foreground flex items-center">
+        <TooltipTrigger
+          data-no-button-shadow
+          className="text-xs text-muted-foreground flex items-center"
+        >
           {post.createdAt ? getCompactTimeAgo(post.createdAt) : "Just now"}
           <Dot />
         </TooltipTrigger>

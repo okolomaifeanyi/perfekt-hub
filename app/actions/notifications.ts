@@ -1,6 +1,7 @@
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 import { NotificationInput } from "@/lib/types";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "@/lib/supabase";
+import { buildNotificationDocId } from "@/lib/notification-id.mjs";
 
 /**
  * Normalize engagement-style booleans into a consistent notification type string.
@@ -19,7 +20,16 @@ export async function sendNotification({
 }: NotificationInput) {
   if (!recipientUid || !actorUid || recipientUid === actorUid) return;
 
-  const notificationRef = firestoreAdmin.collection("notifications").doc();
+  const notificationRef = firestoreAdmin
+    .collection("notifications")
+    .doc(
+      buildNotificationDocId({
+        recipientUid,
+        actorUid,
+        type,
+        postId,
+      })
+    );
 
   const payload = {
     recipientUid,
@@ -31,17 +41,19 @@ export async function sendNotification({
     ...extra,
   };
 
-  await notificationRef.set(payload);
+  await notificationRef.set(payload, { merge: true });
 }
 
 export async function deleteNotification({
   recipientUid,
   actorUid,
   type,
+  postId,
 }: {
   recipientUid: string;
   actorUid: string;
   type: NotificationInput["type"];
+  postId?: string;
 }) {
   if (!recipientUid || !actorUid || !type) {
     console.error("deleteNotification called with missing params", {
@@ -54,16 +66,16 @@ export async function deleteNotification({
 
   const normalized = normalizeType(type);
 
-  const snapshot = await firestoreAdmin
+  const notificationRef = firestoreAdmin
     .collection("notifications")
-    .where("recipientUid", "==", recipientUid)
-    .where("actorUid", "==", actorUid)
-    .where("type", "==", normalized)
-    .get();
+    .doc(
+      buildNotificationDocId({
+        recipientUid,
+        actorUid,
+        type: normalized as NotificationInput["type"],
+        postId,
+      })
+    );
 
-  if (snapshot.empty) return;
-
-  const batch = firestoreAdmin.batch();
-  snapshot.forEach(doc => batch.delete(doc.ref));
-  await batch.commit();
+  await notificationRef.delete();
 }

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import {
   doc,
   deleteDoc,
@@ -12,9 +12,9 @@ import {
   getDoc,
   updateDoc,
   increment,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { toast } from "sonner";
-import { getAuth } from "firebase/auth";
+import { getAuth } from "@/lib/supabase";
 const auth = getAuth();
 
 async function deleteChildrenPosts(parentId: string) {
@@ -65,22 +65,22 @@ export async function deletePost(postId: string, skipAuthCheck = false) {
       return;
     }
 
-    // 🔽 Decrement parent’s reply count
+    // ðŸ”½ Decrement parentâ€™s reply count
     if (post?.parentPostId) {
       const parentRef = doc(db, "posts", post.parentPostId);
       await updateDoc(parentRef, { replyCount: increment(-1) });
     }
 
-    // 🔽 Decrement quoted post’s quote count
+    // ðŸ”½ Decrement quoted postâ€™s quote count
     if (post?.quotePostId) {
       const quotedRef = doc(db, "posts", post.quotePostId);
       await updateDoc(quotedRef, { quoteCount: increment(-1) });
     }
 
-    // 🔁 Recursively delete children replies & quotes
+    // ðŸ” Recursively delete children replies & quotes
     await deleteChildrenPosts(postId);
 
-    // ❌ Delete actual post
+    // âŒ Delete actual post
     await deleteDoc(postRef);
 
     if (!skipAuthCheck)
@@ -141,7 +141,7 @@ export async function pinPost(postId: string, userId: string) {
     const pinnedQuery = query(
       collection(db, "posts"),
       where("userId", "==", userId),
-      where("pinned", "==", true)
+      where("isPinned", "==", true)
     );
 
     const pinnedSnapshot = await getDocs(pinnedQuery);
@@ -149,15 +149,13 @@ export async function pinPost(postId: string, userId: string) {
 
     pinnedSnapshot.forEach(docSnap => {
       batch.update(docSnap.ref, {
-        pinned: false,
-        pinnedAt: null,
+        isPinned: false,
       });
     });
 
     const postRef = doc(db, "posts", postId);
     batch.update(postRef, {
-      pinned: true,
-      pinnedAt: Date.now(),
+      isPinned: true,
     });
 
     await batch.commit();
@@ -166,6 +164,27 @@ export async function pinPost(postId: string, userId: string) {
   } catch (err) {
     console.error("pinPost error:", err);
     toast.error("Failed to pin post");
+  }
+}
+
+export async function toggleSavedPost(
+  postId: string,
+  userId: string,
+  isSaved: boolean
+) {
+  try {
+    const ref = doc(db, `users/${userId}/savedPosts`, postId);
+    if (isSaved) {
+      await deleteDoc(ref);
+      toast.success("Removed from saved posts");
+    } else {
+      await setDoc(ref, {});
+      toast.success("Saved");
+    }
+  } catch (err) {
+    console.error("toggleSavedPost:", err);
+    toast.error("Failed to update saved posts");
+    throw err;
   }
 }
 

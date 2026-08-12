@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
-import { getFirebaseToken } from "@/lib/utils";
+import { getSupabaseToken } from "@/lib/utils";
+import { useUserStore } from "@/lib/store/useUserStore";
 import { toast } from "sonner";
 
 type FriendStatus = "none" | "following" | "friends" | "requested" | "pending";
@@ -96,13 +97,24 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     try {
       const res = await fetch(`/api/friends/${uid}/${action}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${await getFirebaseToken()}` },
+        headers: { Authorization: `Bearer ${await getSupabaseToken()}` },
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(`Action ${action} failed`);
 
       if (data.status) setStatus(uid, data.status);
+
+      // Following OR becoming friends both grant feed inclusion (see
+      // getFeedForUser), so either should surface that person's existing
+      // posts immediately — the feed only polls for posts newer than what it
+      // already has, so it wouldn't otherwise pick up their back-catalog.
+      const grantsFeedAccess =
+        action === "follow" ||
+        ((action === "befriend" || action === "accept") && data.status === "friends");
+      if (grantsFeedAccess) {
+        useUserStore.getState().bumpFeedRefreshSignal();
+      }
 
       toast.success(successMsgFor(action, data.status ?? optimistic));
     } catch (err) {

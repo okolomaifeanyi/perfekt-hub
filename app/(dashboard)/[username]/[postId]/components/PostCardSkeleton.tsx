@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const PostCardSkeleton = () => {
   return (
     <Card className="cursor-pointer transition hover:bg-background/60 backdrop-blur-lg py-4">
-      <CardContent className="space-y-4 px-0">
+      <CardContent className="space-y-3 px-0">
         {/* Header */}
         <div className="flex justify-between items-center px-4">
           <div className="flex items-center space-x-3">
@@ -32,7 +32,7 @@ const PostCardSkeleton = () => {
         </div>
 
         {/* Reactions */}
-        <div className="px-4 flex gap-6">
+        <div className="px-4 mt-4 flex gap-6">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} className="h-5 w-16" />
           ))}

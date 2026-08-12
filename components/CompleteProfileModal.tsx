@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import Webcam from "react-webcam";
-import Image from "next/image";
 import { AlertCircle, CalendarIcon, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -29,13 +28,15 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/high-res.css";
 import { parse, isValid } from "date-fns";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { db } from "@/lib/firebase";
-import { doc, updateDoc } from "firebase/firestore";
-import { getAuth, updateProfile } from "firebase/auth";
+import { db } from "@/lib/supabase";
+import { doc, updateDoc } from "@/lib/supabase";
+import { getAuth, updateProfile } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { INPUT_BOX_SHADOW_CLASS } from "@/lib/input-shadow.mjs";
 import { ResponsiveSheet } from "./ReponsiveSheet";
+import { ContainedImage } from "./media/ContainedImage";
 
-// ✅ Validation schema
+// âœ… Validation schema
 const schema = z.object({
   fullName: z
     .string()
@@ -46,7 +47,7 @@ const schema = z.object({
     .min(10, "Phone number must be at least 10 digits")
     .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number format"),
   gender: z.enum(["male", "female", "other"], {
-    required_error: "Gender is required",
+    error: "Gender is required",
   }),
   dob: z
     .string()
@@ -83,7 +84,7 @@ export default function CompleteProfileModal({
 }: {
   onClose: () => void;
 }) {
-  const { user } = useUserStore();
+  const { user, setUser } = useUserStore();
   const [show, setShow] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
   const webcamRef = useRef<Webcam>(null);
@@ -110,7 +111,7 @@ export default function CompleteProfileModal({
 
   const photoURL = watch("photoURL");
 
-  // ✅ Populate form from Firestore `user`
+  // âœ… Populate form from Firestore `user`
   useEffect(() => {
     if (!user) return;
     if (!user.completedProfile) setShow(true);
@@ -177,7 +178,7 @@ export default function CompleteProfileModal({
     }
   };
 
-  // ✅ Save profile directly to Firestore
+  // âœ… Save profile directly to Firestore
   const onSubmit = async (form: FormData) => {
     if (!user?.uid) return;
     setLoading(true);
@@ -193,13 +194,33 @@ export default function CompleteProfileModal({
         fullName_lowercase: form.fullName.trim().toLowerCase(),
       });
 
-      // Sync Firebase Auth profile
-      const auth = getAuth();
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: form.fullName,
-          photoURL: form.photoURL,
-        });
+      // The database write above is the source of truth and already
+      // succeeded — reflect it locally now instead of waiting for a reload,
+      // otherwise the modal closes but the rest of the app still shows the
+      // stale pre-save profile.
+      setUser({
+        ...user,
+        fullName: form.fullName,
+        phoneNumber: form.phoneNumber,
+        gender: form.gender,
+        dob: form.dob,
+        photoURL: form.photoURL,
+        completedProfile: true,
+      });
+
+      // Sync Supabase Auth profile. This is a secondary, non-critical step —
+      // its failure shouldn't be reported as "profile save failed" when the
+      // real save above already succeeded.
+      try {
+        const auth = getAuth();
+        if (auth.currentUser) {
+          await updateProfile(auth.currentUser, {
+            displayName: form.fullName,
+            photoURL: form.photoURL,
+          });
+        }
+      } catch (syncError) {
+        console.error("Auth profile sync failed:", syncError);
       }
 
       toast.success("Profile completed successfully.");
@@ -226,6 +247,7 @@ export default function CompleteProfileModal({
       open={show}
       setOpen={open => !open && onClose()}
       title={"Complete Your Profile"}
+      preventOutsideClose
     >
       {/* <Dialog open={show} onOpenChange={open => !open && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[calc(100vh-6rem)] overflow-y-auto"> */}
@@ -282,8 +304,9 @@ export default function CompleteProfileModal({
               name: "phone",
               required: true,
               className: cn(
+                INPUT_BOX_SHADOW_CLASS,
                 "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground",
-                "bg-background dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border px-3 py-1 pl-14 text-base shadow-xs",
+                "bg-background dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border px-3 py-1 pl-14 text-base",
                 "transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
                 "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
                 "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive"
@@ -401,13 +424,21 @@ export default function CompleteProfileModal({
             Use Camera Instead
           </Button>
           {photoURL && (
-            <Image
+            <ContainedImage
               src={photoURL}
               alt="Profile picture preview"
-              width={80}
-              height={80}
-              className="rounded object-cover"
+              sizes="80px"
+              className="h-20 w-20 rounded p-1"
+              imageClassName="rounded object-contain"
             />
+          )}
+          {errors.photoURL && (
+            <Alert variant="destructive">
+              <AlertCircle className="mt-1 h-5 w-5" />
+              <AlertDescription>
+                <p className="text-sm">{errors.photoURL.message}</p>
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 

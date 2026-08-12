@@ -1,6 +1,6 @@
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 import { sendNotification, deleteNotification } from "./notifications";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from "@/lib/supabase";
 import { onFollowAction, onUnfollowAction, prewarmFeeds } from "./feed";
 
 const usersRef = firestoreAdmin.collection("users");
@@ -21,7 +21,7 @@ export async function followUser(currentUid: string, targetUid: string) {
       tx.get(followerRef),
     ]);
 
-    if (!followingDoc.exists) {
+    if (!followingDoc.exists()) {
       tx.set(followingRef, { followedAt: Date.now() });
       tx.set(followerRef, { followedAt: Date.now() });
       tx.update(usersRef.doc(currentUid), {
@@ -35,7 +35,7 @@ export async function followUser(currentUid: string, targetUid: string) {
 
   await onFollowAction(currentUid, targetUid);
 
-  // Notifications = non-critical → run outside transaction
+  // Notifications = non-critical â†’ run outside transaction
   await sendNotification({
     recipientUid: targetUid,
     actorUid: currentUid,
@@ -56,7 +56,7 @@ export async function unfollowUser(currentUid: string, targetUid: string) {
       tx.get(followerRef),
     ]);
 
-    if (followingDoc.exists) {
+    if (followingDoc.exists()) {
       tx.delete(followingRef);
       tx.delete(followerRef);
       tx.update(usersRef.doc(currentUid), {
@@ -90,7 +90,7 @@ export async function removeFollower(currentUid: string, followerUid: string) {
       tx.get(followingRef),
     ]);
 
-    if (followerDoc.exists) {
+    if (followerDoc.exists()) {
       tx.delete(followerRef);
       tx.delete(followingRef);
       tx.update(usersRef.doc(currentUid), {
@@ -130,7 +130,7 @@ export async function sendFriendRequest(currentUid: string, targetUid: string) {
       tx.get(receivedRef),
     ]);
 
-    if (!sentDoc.exists && !receivedDoc.exists) {
+    if (!sentDoc.exists() && !receivedDoc.exists()) {
       const now = Date.now();
       tx.set(sentRef, { from: currentUid, to: targetUid, createdAt: now });
       tx.set(receivedRef, { from: currentUid, to: targetUid, createdAt: now });
@@ -246,41 +246,41 @@ export async function acceptFriendRequest(
       tx.get(reverseFollowerRef),
     ]);
 
-    // ✅ Only accept if there was a valid pending request
-    if (receivedDoc.exists && sentDoc.exists) {
+    // âœ… Only accept if there was a valid pending request
+    if (receivedDoc.exists() && sentDoc.exists()) {
       tx.set(currentFriendRef, { since, initiatedBy: requesterUid });
       tx.set(requesterFriendRef, { since, initiatedBy: requesterUid });
 
       tx.delete(receivedRef);
       tx.delete(sentRef);
 
-      // ✅ Remove follow relations if they exist, and decrement counts safely
-      if (followingDoc.exists) {
+      // âœ… Remove follow relations if they exist, and decrement counts safely
+      if (followingDoc.exists()) {
         tx.delete(followingRef);
         tx.update(usersRef.doc(currentUid), {
           followingCount: FieldValue.increment(-1),
         });
       }
-      if (followerDoc.exists) {
+      if (followerDoc.exists()) {
         tx.delete(followerRef);
         tx.update(usersRef.doc(requesterUid), {
           followersCount: FieldValue.increment(-1),
         });
       }
-      if (revFollowingDoc.exists) {
+      if (revFollowingDoc.exists()) {
         tx.delete(reverseFollowingRef);
         tx.update(usersRef.doc(requesterUid), {
           followingCount: FieldValue.increment(-1),
         });
       }
-      if (revFollowerDoc.exists) {
+      if (revFollowerDoc.exists()) {
         tx.delete(reverseFollowerRef);
         tx.update(usersRef.doc(currentUid), {
           followersCount: FieldValue.increment(-1),
         });
       }
 
-      // ✅ Always increment friends count
+      // âœ… Always increment friends count
       tx.update(usersRef.doc(currentUid), {
         friendsCount: FieldValue.increment(1),
       });
@@ -313,8 +313,8 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
     const currentFriendDoc = await tx.get(currentUserFriendRef);
     const targetFriendDoc = await tx.get(targetUserFriendRef);
 
-    if (currentFriendDoc.exists && targetFriendDoc.exists) {
-      // ✅ Only delete if they are actually friends
+    if (currentFriendDoc.exists() && targetFriendDoc.exists()) {
+      // âœ… Only delete if they are actually friends
       tx.delete(currentUserFriendRef);
       tx.delete(targetUserFriendRef);
 

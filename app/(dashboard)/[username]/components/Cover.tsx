@@ -1,12 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import EditImageButton from "./EditImageButton";
-import { updateDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { updateDoc, doc } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useUserStore } from "@/lib/store/useUserStore";
-import { dataImage } from "@/lib/utils";
+import { ContainedImage } from "@/components/media/ContainedImage";
 
 const Cover = ({ uid }: { uid: string }) => {
   const profile = useUserProfile(uid);
@@ -18,19 +17,17 @@ const Cover = ({ uid }: { uid: string }) => {
 
   return (
     <div className="aspect-[3/1] relative">
-      <Image
+      <ContainedImage
         src={
           profile?.coverURL ||
           `https://picsum.photos/seed/${profile?.username}/1200/400`
         }
         alt={`${profile?.username}'s cover image` || "Cover image"}
-        fill
         sizes="100vw"
-        className="object-cover"
+        className="h-full w-full"
+        imageClassName="object-contain"
         loading="eager"
         priority={true}
-        blurDataURL={dataImage}
-        placeholder="blur"
       />
 
       {isMe && profile && (

@@ -11,17 +11,27 @@ const page = async ({ params }: { params: Promise<{ postId: string }> }) => {
   const post = await getPost(postId);
   if (!post) return notFound();
 
-  const parentChain = [];
-  let current = post;
+  // The parent chain must be walked one level at a time (each id depends on
+  // the previous post), but it doesn't depend on the post author's profile —
+  // run them concurrently instead of paying for both waterfalls back to back.
+  const walkParentChain = async () => {
+    const parentChain = [];
+    let current = post;
 
-  while (current?.parentPostId) {
-    const parent = await getPost(current.parentPostId);
-    if (!parent) break;
-    parentChain.unshift(parent);
-    current = parent;
-  }
+    while (current?.parentPostId) {
+      const parent = await getPost(current.parentPostId);
+      if (!parent) break;
+      parentChain.unshift(parent);
+      current = parent;
+    }
 
-  const user = await getUser(post.userId);
+    return parentChain;
+  };
+
+  const [parentChain, user] = await Promise.all([
+    walkParentChain(),
+    getUser(post.userId),
+  ]);
   if (!user) return null;
 
   const parentChainWithUsers = await Promise.all(

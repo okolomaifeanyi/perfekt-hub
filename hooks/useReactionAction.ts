@@ -1,7 +1,7 @@
 import { usePostCounts } from "@/lib/store/postCounts";
 import { toggleReaction } from "@/lib/utils";
 
-export function useReactionActions(postId: string, userId: string) {
+export function useReactionActions(postId: string) {
   const { setCounts, counts } = usePostCounts();
   const postCounts = counts[postId];
 
@@ -11,17 +11,16 @@ export function useReactionActions(postId: string, userId: string) {
 
     setCounts(postId, {
       likeCount: (postCounts?.likeCount ?? 0) + (liked ? -1 : 1),
-      // 👇 if removing like, keep dislike count as-is
       dislikeCount: postCounts?.dislikeCount ?? 0,
       userReaction: {
         ...postCounts?.userReaction,
         liked: !liked,
-        disliked: false, // mutual exclusivity
+        disliked: false,
       },
     });
 
     try {
-      await toggleReaction({ postId, userId, type: "like" });
+      await toggleReaction({ postId, type: "like" });
     } catch (err) {
       setCounts(postId, prev || {});
       console.error(err);
@@ -38,12 +37,12 @@ export function useReactionActions(postId: string, userId: string) {
       userReaction: {
         ...postCounts?.userReaction,
         disliked: !disliked,
-        liked: false, // mutual exclusivity
+        liked: false,
       },
     });
 
     try {
-      await toggleReaction({ postId, userId, type: "dislike" });
+      await toggleReaction({ postId, type: "dislike" });
     } catch (err) {
       setCounts(postId, prev || {});
       console.error(err);

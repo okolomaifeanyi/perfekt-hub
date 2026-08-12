@@ -2,17 +2,16 @@
 
 import { useState } from "react";
 import { PostProps } from "@/lib/types";
-import Image from "next/image";
 import Lightbox, { Slide, SlideVideo } from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Video from "yet-another-react-lightbox/plugins/video";
-import ReactPlayer from "react-player";
+import { ContainedImage } from "@/components/media/ContainedImage";
+import { ContainedVideo } from "@/components/media/ContainedVideo";
 
 const PostMedia = ({ post }: { post: PostProps }) => {
   const mediaCount = post?.media?.length || 0;
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const slides: Slide[] = (post?.media || []).map(media => {
     if (media.type === "video") {
@@ -50,10 +49,10 @@ const PostMedia = ({ post }: { post: PostProps }) => {
           const isThree = mediaCount === 3;
           const isFirst = idx === 0;
 
-          let containerClass = `relative w-full overflow-hidden cursor-pointer`;
+          let containerClass = `relative w-full overflow-hidden cursor-pointer bg-muted/20`;
 
           if (mediaCount === 1) {
-            containerClass += " aspect-video";
+            containerClass += " aspect-video h-full";
           } else if (isThree && isFirst) {
             containerClass += " row-span-2 h-full";
           } else {
@@ -68,27 +67,24 @@ const PostMedia = ({ post }: { post: PostProps }) => {
                 setIndex(idx);
                 setOpen(true);
               }}
-              onMouseEnter={() => setHoverIndex(idx)}
-              onMouseLeave={() => setHoverIndex(null)}
             >
               {media.type === "video" ? (
-                <ReactPlayer
+                <ContainedVideo
                   src={media.src}
-                  width="100%"
-                  height="100%"
-                  playing={hoverIndex === idx} // autoplay on hover
-                  muted // avoid noisy previews
+                  className="h-full w-full"
+                  autoPlayOnHover
+                  muted // avoid noisy previews by default
                   loop
-                  controls={false} // hide controls in collapsed view
-                  style={{ position: "absolute", top: 0, left: 0 }}
+                  controls={false}
+                  showMuteToggle
                 />
               ) : (
-                <Image
+                <ContainedImage
                   src={media.src}
                   alt={`Post media ${idx + 1}`}
-                  fill
                   unoptimized
-                  className="object-cover"
+                  className="h-full w-full"
+                  imageClassName="object-contain"
                 />
               )}
             </div>

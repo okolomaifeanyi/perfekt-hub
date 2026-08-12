@@ -2,8 +2,8 @@
 
 import JustAvatar from "@/components/JustAvatar";
 import EditImageButton from "./EditImageButton";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { doc, updateDoc } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { P } from "@/components/Typography";

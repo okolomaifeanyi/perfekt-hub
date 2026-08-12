@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, onSnapshot } from "@/lib/supabase";
 import { usePostCounts } from "@/lib/store/postCounts";
 
 export function usePostReactions(postId: string, userId?: string) {
@@ -11,7 +11,7 @@ export function usePostReactions(postId: string, userId?: string) {
   useEffect(() => {
     if (!postId) return;
 
-    // 🔥 Listen for post root counts
+    // ðŸ”¥ Listen for post root counts
     const postRef = doc(db, "posts", postId);
     const unsubPost = onSnapshot(postRef, snap => {
       if (!snap.exists()) return;
@@ -25,7 +25,7 @@ export function usePostReactions(postId: string, userId?: string) {
       });
     });
 
-    // 🔥 Listen for this user's engagement
+    // ðŸ”¥ Listen for this user's engagement
     let unsubUser: (() => void) | undefined;
     if (userId) {
       const engagementRef = doc(db, `posts/${postId}/engagements/${userId}`);

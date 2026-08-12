@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
@@ -9,16 +10,47 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Menu, UserPlus2, X } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import MyAvatar from "./feed/post/MyAvatar";
+import JustAvatar from "./JustAvatar";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { logoutClient } from "@/app/(auth)/lib/utils";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import { List } from "./Typography";
-import { navItems } from "@/lib/utils/navbar";
+import { navGroups as rawNavGroups } from "@/lib/utils/navbar";
+import {
+  buildSavedAccountFromSession,
+  readSavedAccounts,
+  removeSavedAccount,
+  rememberSavedAccount,
+} from "@/lib/saved-accounts.mjs";
+import { toast } from "sonner";
+
+type SavedAccount = {
+  uid: string;
+  email: string;
+  username: string;
+  fullName: string;
+  photoURL: string;
+  providerId: string;
+  accessToken: string;
+  refreshToken: string;
+  lastUsedAt: string;
+};
+
+type NavIcon = React.ComponentType<{ className?: string }>;
+type NavGroupItem = { href: string; label: string; SolidIcon?: NavIcon; OutlineIcon?: NavIcon };
+type NavGroup = { label: string; items: NavGroupItem[] };
+
+const navGroups = rawNavGroups as NavGroup[];
+const PRIMARY_GROUP = navGroups.find(group => group.label === "Primary");
+const MORE_GROUPS = navGroups.filter(
+  group => group.label !== "Primary" && group.label !== "Account"
+);
 
 export function MobileMenu() {
   const currentUser = useUserStore(state => state.user);
@@ -26,15 +58,65 @@ export function MobileMenu() {
 
   const router = useRouter();
   const pathname = usePathname();
+  const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+
+  useEffect(() => {
+    setSavedAccounts(readSavedAccounts(window.localStorage));
+  }, [currentUser?.uid]);
+
+  const handleSwitchAccount = async (account: SavedAccount) => {
+    if (account.uid === currentUser?.uid) return;
+    if (!account.accessToken || !account.refreshToken) {
+      toast.error("Saved account is missing session data. Sign in again.");
+      return;
+    }
+
+    setGlobalLoading(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error, data } = await supabase.auth.setSession({
+        access_token: account.accessToken,
+        refresh_token: account.refreshToken,
+      });
+      if (error) throw error;
+
+      if (data.user && data.session) {
+        rememberSavedAccount(window.localStorage, {
+          ...buildSavedAccountFromSession({
+            user: data.user,
+            session: data.session,
+            profile: {
+              uid: data.user.id,
+              email: data.user.email ?? "",
+              username: account.username,
+              fullName: account.fullName,
+              photoURL: account.photoURL,
+            },
+          }),
+          lastUsedAt: new Date().toISOString(),
+        });
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Account switch failed:", error);
+      toast.error("Could not switch account");
+      setGlobalLoading(false);
+    }
+  };
+
+  const handleRemoveAccount = (uid: string) => {
+    removeSavedAccount(window.localStorage, uid);
+    setSavedAccounts(readSavedAccounts(window.localStorage));
+  };
 
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="secondary" size="icon">
+        <Button variant="secondary" size="icon" aria-label="Open menu">
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent className="pt-12 px-2 pb-2 w-full flex flex-col justify-between">
+      <SheetContent className="pt-12 px-2 pb-2 w-full flex flex-col justify-between overflow-y-auto">
         <SheetHeader className="hidden">
           <SheetTitle className="hidden">Mobile navigation</SheetTitle>
         </SheetHeader>
@@ -55,30 +137,32 @@ export function MobileMenu() {
                   {currentUser?.fullName || currentUser?.username}
                 </p>
 
-                <Link
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  href={`/${currentUser?.username}`}
-                >
-                  View your profile
-                </Link>
+                <SheetClose asChild>
+                  <Link
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                    href={`/${currentUser?.username}`}
+                  >
+                    View your profile
+                  </Link>
+                </SheetClose>
               </div>
             </CardContent>
           </Card>
 
           <List className="list-none !mx-0">
-            {navItems.map(({ href, label, SolidIcon, OutlineIcon }) => {
-              const isActive = pathname === href;
-              const Icon = isActive ? SolidIcon : OutlineIcon;
+            {(PRIMARY_GROUP?.items ?? []).map(item => {
+              const isActive = pathname === item.href;
+              const Icon = isActive ? item.SolidIcon : item.OutlineIcon;
               return (
-                <li key={label}>
+                <li key={item.label}>
                   <SheetClose asChild>
                     <Link
-                      href={href}
+                      href={item.href}
                       className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-accent/50"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className="size-5" />
-                        <span>{label}</span>
+                        {Icon && <Icon className="size-5" />}
+                        <span>{item.label}</span>
                       </div>
                       <ChevronRightIcon className="size-5" />
                     </Link>
@@ -86,13 +170,79 @@ export function MobileMenu() {
                 </li>
               );
             })}
-            {/* <li>
+          </List>
+
+          {/* More */}
+          <div className="px-1 text-xs font-medium text-muted-foreground">
+            Explore
+          </div>
+          <List className="list-none !mx-0">
+            {MORE_GROUPS.flatMap(group => group.items).map(item => (
+              <li key={item.label}>
+                <SheetClose asChild>
+                  <Link
+                    href={item.href}
+                    className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-accent/50"
+                  >
+                    <span>{item.label}</span>
+                    <ChevronRightIcon className="size-5" />
+                  </Link>
+                </SheetClose>
+              </li>
+            ))}
+          </List>
+
+          {/* Accounts */}
+          <div className="px-1 text-xs font-medium text-muted-foreground">
+            Accounts
+          </div>
+          <List className="list-none !mx-0 space-y-1">
+            {savedAccounts.map(account => (
+              <li key={account.uid} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchAccount(account)}
+                  className="flex flex-1 items-center gap-3 rounded-md px-3 py-2 text-left hover:bg-accent/50"
+                >
+                  <JustAvatar
+                    size={28}
+                    username={account.username}
+                    photoURL={account.photoURL || undefined}
+                    fullName={account.fullName || undefined}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {account.fullName || account.username}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      @{account.username}
+                    </p>
+                  </div>
+                  {account.uid === currentUser?.uid && (
+                    <span className="text-xs text-muted-foreground">Current</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => handleRemoveAccount(account.uid)}
+                  aria-label={`Remove ${account.username} from saved accounts`}
+                >
+                  <X className="size-4" />
+                </button>
+              </li>
+            ))}
+            <li>
               <SheetClose asChild>
-              <Link href="/settings" className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-accent/50">
-                <span>Settings and Privacy</span>
-                <ChevronRightIcon className="size-5" />
-              </Link></SheetClose>
-            </li> */}
+                <Link
+                  href="/login?addAccount=1"
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-md hover:bg-accent/50"
+                >
+                  <UserPlus2 className="size-4" />
+                  Add another account
+                </Link>
+              </SheetClose>
+            </li>
           </List>
         </div>
 

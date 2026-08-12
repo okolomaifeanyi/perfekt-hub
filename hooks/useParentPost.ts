@@ -3,8 +3,8 @@
 
 import { PostProps } from "@/lib/types";
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { doc, getDoc } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 
 export function useParentPost(parentPostId?: string) {
   const [parentPost, setParentPost] = useState<PostProps | null>(null);

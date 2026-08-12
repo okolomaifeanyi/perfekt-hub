@@ -1,7 +1,7 @@
 "use client";
 
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, onSnapshot } from "@/lib/supabase";
 import { useEffect, useState } from "react";
 
 export function useUserCounts(

@@ -1,8 +1,8 @@
 "use client"
 
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
-import { db } from "@/lib/firebase";
-import { onSnapshot, doc } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { onSnapshot, doc } from "@/lib/supabase";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";

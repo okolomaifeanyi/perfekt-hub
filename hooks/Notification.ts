@@ -6,7 +6,6 @@ import {
   query,
   where,
   collection,
-  FirestoreError,
   orderBy,
   limit,
   startAfter,
@@ -17,36 +16,49 @@ import {
   QueryDocumentSnapshot,
   DocumentData,
   getDoc,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+} from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { Notification } from "@/lib/types";
+import { getSupabaseToken } from "@/lib/utils";
+import { fetchUnreadNotificationCount } from "@/lib/notification-count-api.mjs";
 
 export function useUnreadNotificationsCount(): number {
   const [count, setCount] = useState(0);
-  const { user } = useUserStore();
+  const { user, authReady } = useUserStore();
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!authReady || !user?.uid) {
+      setCount(0);
+      return;
+    }
 
-    const q = query(
-      collection(db, "notifications"),
-      where("recipientUid", "==", user.uid),
-      where("read", "==", false)
-    );
+    let active = true;
 
-    const unsubscribe = onSnapshot(
-      q,
-      snapshot => {
-        setCount(snapshot.size);
-      },
-      (error: FirestoreError) => {
-        console.error("Failed to fetch unread notifications:", error);
+    const loadCount = async () => {
+      try {
+        const accessToken = await getSupabaseToken();
+        const nextCount = await fetchUnreadNotificationCount({ accessToken });
+        if (active) {
+          setCount(nextCount);
+        }
+      } catch {
+        if (active) {
+          setCount(0);
+        }
       }
-    );
+    };
 
-    return () => unsubscribe();
-  }, [user?.uid]);
+    void loadCount();
+    const interval = setInterval(() => {
+      void loadCount();
+    }, 30000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [authReady, user?.uid]);
 
   return count;
 }
@@ -84,7 +96,7 @@ function getNotificationMessage(n: Notification): string {
 export function useNotifications(
   filter: "all" | "mentions" | "unread" = "all"
 ) {
-  const { user } = useUserStore();
+  const { user, authReady } = useUserStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastDoc, setLastDoc] =
     useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -178,7 +190,14 @@ export function useNotifications(
 
   // real-time listener for initial + updates
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!authReady || !user?.uid) {
+      setNotifications([]);
+      setLastDoc(null);
+      setHasMore(false);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -208,11 +227,11 @@ export function useNotifications(
 
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, filter, buildQuery]);
+  }, [authReady, user?.uid, filter, buildQuery]);
 
   // manual "load more" (still uses getDocs, not live updates for next pages)
   const loadMore = useCallback(async () => {
-    if (!user?.uid || !lastDoc || !hasMore) return;
+    if (!authReady || !user?.uid || !lastDoc || !hasMore) return;
     setLoadingMore(true);
 
     try {
@@ -237,21 +256,23 @@ export function useNotifications(
       setLoadingMore(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, lastDoc, hasMore, buildQuery]);
+  }, [authReady, user?.uid, lastDoc, hasMore, buildQuery]);
 
   // mark single notification as read
   const markAsRead = useCallback(async (id: string) => {
+    if (!authReady || !user?.uid) return;
+
     try {
       const ref = doc(db, "notifications", id);
       await updateDoc(ref, { read: true });
     } catch (err) {
       console.error("Error marking notification as read:", err);
     }
-  }, []);
+  }, [authReady, user?.uid]);
 
   // mark all notifications as read
   const markAllAsRead = useCallback(async () => {
-    if (!user?.uid || notifications.length === 0) return;
+    if (!authReady || !user?.uid || notifications.length === 0) return;
 
     try {
       const batch = writeBatch(db);
@@ -265,7 +286,7 @@ export function useNotifications(
     } catch (err) {
       console.error("Error marking all as read:", err);
     }
-  }, [user?.uid, notifications]);
+  }, [authReady, user?.uid, notifications]);
 
   return {
     notifications,

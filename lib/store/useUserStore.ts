@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { UserProps } from "../types";
-import { db } from "@/lib/firebase";
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { collection, doc, onSnapshot, query, where } from "@/lib/supabase";
 import { getSmartSuggestions } from "@/components/Features/follow/actions";
 
 type UserState = {
@@ -10,8 +10,15 @@ type UserState = {
   suggestions: UserProps[];
   visibleSuggestions: UserProps[]; // Always top 3 or rotated
   currentIndex: number; // For rotation
+  authReady: boolean;
 
   globalLoading: boolean;
+
+  // Bumped whenever the current user's follow/friend graph changes, so feeds
+  // (which cache the follow list server-side) know to refetch instead of
+  // waiting for the next poll cycle or a page reload.
+  feedRefreshSignal: number;
+  bumpFeedRefreshSignal: () => void;
 
   // Badges
   messageBadge: number;
@@ -24,6 +31,7 @@ type UserState = {
   // Core
   setUser: (user: UserProps) => void;
   clearUser: () => void;
+  setAuthReady: (authReady: boolean) => void;
   setGlobalLoading: (globalLoading: boolean) => void;
 
   // Suggestions
@@ -53,7 +61,11 @@ export const useUserStore = create<UserState>()(
       suggestions: [],
       visibleSuggestions: [],
       currentIndex: 0,
+      authReady: false,
       globalLoading: false,
+      feedRefreshSignal: 0,
+      bumpFeedRefreshSignal: () =>
+        set(state => ({ feedRefreshSignal: state.feedRefreshSignal + 1 })),
       messageBadge: 0,
       notificationBadge: 0,
       dismissedProfileModal: false,
@@ -61,14 +73,27 @@ export const useUserStore = create<UserState>()(
       setDismissedProfileModal: value => set({ dismissedProfileModal: value }),
 
       setUser: user => {
+        // setUser fires on every auth-state event, including background
+        // token refreshes for the *same already-logged-in* user (Supabase
+        // rotates tokens periodically) — resetting dismissedProfileModal and
+        // suggestions unconditionally made the "complete your profile"
+        // prompt reappear at effectively random moments and re-fetched
+        // suggestions needlessly. Only reset them when the user actually
+        // changes (fresh login, or switching accounts).
+        const isDifferentUser = get().user?.uid !== user?.uid;
+
         set({
           user,
-          dismissedProfileModal: false,
-          suggestions: [],
-          visibleSuggestions: [],
-          currentIndex: 0,
+          ...(isDifferentUser
+            ? {
+                dismissedProfileModal: false,
+                suggestions: [],
+                visibleSuggestions: [],
+                currentIndex: 0,
+              }
+            : {}),
         });
-        if (user?.uid) {
+        if (user?.uid && isDifferentUser) {
           get().fetchSmartSuggestions();
         }
       },
@@ -76,6 +101,7 @@ export const useUserStore = create<UserState>()(
       clearUser: () => {
         set({
           user: null,
+          authReady: false,
           messageBadge: 0,
           notificationBadge: 0,
           dismissedProfileModal: false,
@@ -85,6 +111,8 @@ export const useUserStore = create<UserState>()(
         });
         get().stopListeners();
       },
+
+      setAuthReady: authReady => set({ authReady }),
 
       setGlobalLoading: globalLoading => set({ globalLoading }),
 
@@ -145,7 +173,7 @@ export const useUserStore = create<UserState>()(
         await get().fetchSmartSuggestions();
       },
 
-      // ────── LISTENERS ──────
+      // â”€â”€â”€â”€â”€â”€ LISTENERS â”€â”€â”€â”€â”€â”€
       startUserListener: uid => {
         if (unsubUser) return;
         const ref = doc(db, "users", uid);

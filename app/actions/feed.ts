@@ -1,14 +1,46 @@
 "use server";
 
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { cookies } from "next/headers";
+import { firestoreAdmin } from "@/lib/supabase";
+import { normalizeUnknownError } from "@/lib/supabase/error-utils.mjs";
+import { getSupabaseServerClient } from "@/lib/supabase/client";
+import { mergeFeedAuthorIds } from "@/lib/supabase/feed-author-ids.mjs";
+import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { PostProps } from "@/lib/types";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, type QueryDocumentSnapshot } from "@/lib/supabase";
+
+void getCachedFeedAuthorIds;
 
 // --- Types for cursor ---
 type Cursor = number | null;
+const canWarmOtherUsersFeedCache = Boolean(
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+);
+
+async function withSupabaseRequestContext<T>(
+  callback: () => Promise<T>
+): Promise<T> {
+  const cookieStore = await cookies();
+  const supabase = getSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: cookieUpdates => {
+      cookieUpdates.forEach(({ name, value, options }) => {
+        cookieStore.set(name, value, options);
+      });
+    },
+  });
+
+  // The @supabase/ssr server client initializes its session lazily
+  // (skipAutoInitialize), so no JWT is attached until an auth method runs and
+  // every query before that executes as the `anon` role. Hydrate it first so
+  // RLS sees the real user.
+  await supabase.auth.getUser();
+
+  return runWithSupabaseClient(supabase, callback);
+}
 
 function normalizePost(
-  doc: FirebaseFirestore.QueryDocumentSnapshot
+  doc: QueryDocumentSnapshot
 ): PostProps {
   const data = doc.data();
   const id = doc.id;
@@ -51,8 +83,12 @@ function normalizePost(
   } as PostProps;
 }
 
-/** ✅ Prewarm both users’ feed caches after relationship changes */
+/** âœ… Prewarm both usersâ€™ feed caches after relationship changes */
 export async function prewarmFeeds(userA: string, userB: string) {
+  if (!canWarmOtherUsersFeedCache) {
+    return;
+  }
+
   await Promise.allSettled([
     refreshFeedCacheForUser(userA),
     refreshFeedCacheForUser(userB),
@@ -68,13 +104,13 @@ async function getSubcollectionIds(
 ): Promise<string[]> {
   const snap = await firestoreAdmin
     .collection(`users/${userId}/${subcollection}`)
-    .select() // ✅ only retrieve document IDs (faster)
+    .select() // âœ… only retrieve document IDs (faster)
     .get();
 
   return snap.docs.map(d => d.id);
 }
 
-/** ✅ Centralized cache refresh logic — call this when friends/following change */
+/** âœ… Centralized cache refresh logic â€” call this when friends/following change */
 export async function refreshFeedCacheForUser(
   userId: string
 ): Promise<string[]> {
@@ -83,7 +119,11 @@ export async function refreshFeedCacheForUser(
     getSubcollectionIds(userId, "following"),
   ]);
 
-  const merged = Array.from(new Set([userId, ...friendIds, ...followingIds]));
+  const merged = mergeFeedAuthorIds(userId, friendIds, followingIds);
+
+  if (!canWarmOtherUsersFeedCache) {
+    return merged;
+  }
 
   const metaRef = firestoreAdmin.doc(`users/${userId}/meta/feed`);
   await metaRef.set(
@@ -99,11 +139,11 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
   const metaRef = firestoreAdmin.doc(`users/${userId}/meta/feed`);
   const metaSnap = await metaRef.get();
 
-  if (metaSnap.exists) {
+  if (metaSnap.exists()) {
     const data = metaSnap.data();
     if (Array.isArray(data?.feedAuthorIds)) {
-      // ✅ Filter out empty, null, undefined, whitespace-only, duplicates
-      const clean = Array.from(
+      // âœ… Filter out empty, null, undefined, whitespace-only, duplicates
+      const clean: string[] = Array.from(
         new Set(
           data.feedAuthorIds.filter(
             (id: unknown): id is string =>
@@ -121,10 +161,10 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
     }
   }
 
-  // 🔁 Build fresh cache if not found
+  // ðŸ” Build fresh cache if not found
   const ids = await refreshFeedCacheForUser(userId);
 
-  // ✅ Apply same cleaning logic before returning
+  // âœ… Apply same cleaning logic before returning
   return Array.from(
     new Set(
       ids.filter(
@@ -135,7 +175,16 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
   );
 }
 
-/** 🧩 Main feed loader */
+async function getDirectFeedAuthorIds(userId: string): Promise<string[]> {
+  const [friendIds, followingIds] = await Promise.all([
+    getSubcollectionIds(userId, "friends"),
+    getSubcollectionIds(userId, "following"),
+  ]);
+
+  return mergeFeedAuthorIds(userId, friendIds, followingIds);
+}
+
+/** ðŸ§© Main feed loader */
 export async function getFeedForUser(
   currentUid: string,
   opts: {
@@ -152,7 +201,7 @@ export async function getFeedForUser(
   const onlyUser = opts.onlyUser ?? false;
   const sortMode = opts.sortMode ?? "latest";
 
-  // --- 1️⃣ Replies/comments feed
+  // --- 1ï¸âƒ£ Replies/comments feed
   if (parentPostId) {
     let q = firestoreAdmin
       .collection("posts")
@@ -166,7 +215,7 @@ export async function getFeedForUser(
     return snap.docs.map(normalizePost);
   }
 
-  // --- 2️⃣ User-only feed
+  // --- 2ï¸âƒ£ User-only feed
   if (onlyUser) {
     const queryLimit = sortMode === "trending" ? limit * 10 : limit;
     let q = firestoreAdmin
@@ -194,8 +243,8 @@ export async function getFeedForUser(
     return results.slice(0, limit);
   }
 
-  // --- 3️⃣ Main home feed
-  const authorIds = await getCachedFeedAuthorIds(currentUid);
+  // --- 3ï¸âƒ£ Main home feed
+  const authorIds = await getDirectFeedAuthorIds(currentUid);
   if (authorIds.length === 0) return [];
 
   // Split into Firestore "in" chunks
@@ -228,7 +277,7 @@ export async function getFeedForUser(
     })
   );
 
-  // ✅ Sort all results together in memory
+  // âœ… Sort all results together in memory
   posts.sort((a, b) => {
     if (sortMode === "trending") {
       const scoreDiff = (b.engagementScore ?? 0) - (a.engagementScore ?? 0);
@@ -239,7 +288,7 @@ export async function getFeedForUser(
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  // ✅ Deduplicate & limit *after* all fetches and sorting are complete
+  // âœ… Deduplicate & limit *after* all fetches and sorting are complete
   const seen = new Set<string>();
   const out: PostProps[] = [];
   for (const p of posts) {
@@ -247,6 +296,27 @@ export async function getFeedForUser(
       seen.add(p.id);
       out.push(p);
       if (out.length >= limit) break;
+    }
+  }
+
+  // Backfill: someone who follows few (or no) people would otherwise see a
+  // near-empty or empty feed forever, even once real content exists on the
+  // platform — top up the first page with popular posts from anyone until
+  // their own network grows. Only on the first page (no cursor) so paging
+  // through a feed stays a stable, non-repeating sequence.
+  if (out.length < limit && before === null) {
+    const backfillSnap = await firestoreAdmin
+      .collection("posts")
+      .orderBy("engagementScore", "desc")
+      .limit(limit + out.length + 30)
+      .get();
+
+    for (const doc of backfillSnap.docs) {
+      if (out.length >= limit) break;
+      const post = normalizePost(doc);
+      if (seen.has(post.id)) continue;
+      seen.add(post.id);
+      out.push(post);
     }
   }
 
@@ -262,20 +332,31 @@ export async function getFeedAction(
   onlyUser = false,
   sortMode: "latest" | "trending" = "latest"
 ): Promise<PostProps[]> {
-  return await getFeedForUser(userId, {
-    limit,
-    before,
-    parentPostId,
-    onlyUser,
-    sortMode,
-  });
+  try {
+    return await withSupabaseRequestContext(() =>
+      getFeedForUser(userId, {
+        limit,
+        before,
+        parentPostId,
+        onlyUser,
+        sortMode,
+      })
+    );
+  } catch (error) {
+    console.error("getFeedAction failed:", normalizeUnknownError(error, "Unable to load feed."));
+    return [];
+  }
 }
 
-/** 🧩 Auto-refresh cache actions (to be called when friends/following change) */
+/** ðŸ§© Auto-refresh cache actions (to be called when friends/following change) */
 export async function onFollowAction(
   currentUserId: string,
   targetUserId: string
 ): Promise<void> {
+  if (!canWarmOtherUsersFeedCache) {
+    return;
+  }
+
   await Promise.allSettled([
     refreshFeedCacheForUser(currentUserId),
     refreshFeedCacheForUser(targetUserId),
@@ -286,6 +367,10 @@ export async function onUnfollowAction(
   currentUserId: string,
   targetUserId: string
 ): Promise<void> {
+  if (!canWarmOtherUsersFeedCache) {
+    return;
+  }
+
   await Promise.allSettled([
     refreshFeedCacheForUser(currentUserId),
     refreshFeedCacheForUser(targetUserId),

@@ -1,6 +1,6 @@
 "use client";
 
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import { PostProps } from "@/lib/types";
 import {
   query,
@@ -13,7 +13,7 @@ import {
   limit,
   QueryDocumentSnapshot,
   DocumentData,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const PAGE_SIZE = 10;
@@ -25,7 +25,7 @@ export function useUserFeed(username: string) {
   const [hasMore, setHasMore] = useState(true);
   const isInitialLoad = useRef(true);
 
-  // 🔹 Initial load + live updates
+  // ðŸ”¹ Initial load + live updates
   useEffect(() => {
     if (!username) return;
 
@@ -38,7 +38,7 @@ export function useUserFeed(username: string) {
 
     const unsubscribe = onSnapshot(q, snapshot => {
       if (isInitialLoad.current) {
-        // 🟢 First snapshot = initial posts
+        // ðŸŸ¢ First snapshot = initial posts
         const initial: PostProps[] = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -61,7 +61,7 @@ export function useUserFeed(username: string) {
         return;
       }
 
-      // 🟡 Handle live updates
+      // ðŸŸ¡ Handle live updates
       snapshot.docChanges().forEach(change => {
         const doc = change.doc;
         const data = doc.data();
@@ -85,7 +85,7 @@ export function useUserFeed(username: string) {
     return () => unsubscribe();
   }, [username]);
 
-  // 🔹 Pagination
+  // ðŸ”¹ Pagination
   const loadMorePosts = useCallback(async () => {
     if (!lastVisible || !hasMore || !username) return;
 
