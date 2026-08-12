@@ -73,13 +73,27 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         const profile = await saveOrUpdateUser(currentUser);
         if (!active) return;
 
+        // saveOrUpdateUser falls back to a locally-built profile (with no
+        // completedProfile field at all) when the network call to fetch the
+        // real one fails — e.g. the connection drops. Coercing that missing
+        // field straight to `false` silently downgraded an already-complete
+        // profile to "incomplete" on any offline blip, popping the
+        // complete-your-profile modal for users who'd long since dismissed
+        // it. Preserve whatever was last known instead of assuming the
+        // worst when the fetch didn't actually tell us anything new.
+        const previousUser = useUserStore.getState().user;
         setUser({
           uid: currentUser.id,
           email: currentUser.email ?? "",
           username: String(profile.username ?? ""),
           fullName: String(profile.fullName ?? ""),
           photoURL: String(profile.photoURL ?? ""),
-          completedProfile: Boolean(profile.completedProfile),
+          completedProfile:
+            profile.completedProfile !== undefined
+              ? Boolean(profile.completedProfile)
+              : (previousUser?.uid === currentUser.id &&
+                  previousUser?.completedProfile) ||
+                false,
           postsCount: Number(profile.postsCount ?? 0),
           followersCount: Number(profile.followersCount ?? 0),
           followingCount: Number(profile.followingCount ?? 0),
@@ -135,13 +149,19 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       const profile = await saveOrUpdateUser(session.user);
       if (!active) return;
 
+      const previousUser = useUserStore.getState().user;
       setUser({
         uid: session.user.id,
         email: session.user.email ?? "",
         username: String(profile.username ?? ""),
         fullName: String(profile.fullName ?? ""),
         photoURL: String(profile.photoURL ?? ""),
-        completedProfile: Boolean(profile.completedProfile),
+        completedProfile:
+          profile.completedProfile !== undefined
+            ? Boolean(profile.completedProfile)
+            : (previousUser?.uid === session.user.id &&
+                previousUser?.completedProfile) ||
+              false,
         postsCount: Number(profile.postsCount ?? 0),
         followersCount: Number(profile.followersCount ?? 0),
         followingCount: Number(profile.followingCount ?? 0),

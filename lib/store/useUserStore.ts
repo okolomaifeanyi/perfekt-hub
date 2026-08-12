@@ -179,9 +179,15 @@ export const useUserStore = create<UserState>()(
         const ref = doc(db, "users", uid);
         unsubUser = onSnapshot(ref, snap => {
           if (snap.exists()) {
+            const data = snap.data() as UserProps;
             set({
-              user: { ...(snap.data() as UserProps), uid: snap.id },
-              dismissedProfileModal: false,
+              user: { ...data, uid: snap.id },
+              // Only reopen the modal when the profile is genuinely
+              // incomplete — this fires on every change to the row
+              // (including unrelated fields like lastSeen), so
+              // unconditionally clearing the dismissal here reopened the
+              // modal for users who'd already completed their profile.
+              ...(data.completedProfile ? {} : { dismissedProfileModal: false }),
             });
           } else {
             get().clearUser();
