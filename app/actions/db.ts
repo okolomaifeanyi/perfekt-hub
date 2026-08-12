@@ -1,10 +1,10 @@
 // app/dbActions.ts
 "use server"; // Mark this file as server-side context
 
-import { auth, db } from "@/lib/firebase"; // Import auth and db
+import { auth, db } from "@/lib/supabase"; // Import auth and db
 import { FormState } from "@/lib/schemas/types";
 import { UserProfileSchema } from "@/lib/schemas/userProfile";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore"; // Firestore functions
+import { doc, getDoc, setDoc, updateDoc } from "@/lib/supabase"; // Firestore functions
 import { z } from "zod";
 
 
@@ -73,7 +73,7 @@ export async function createUserProfile(
 
 // --- Server Action to get user profile ---
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  "use client"; // This runs on the client to use Firebase SDK
+  "use client"; // This runs on the client to use the Supabase client
 
   if (!uid) {
     return null;

@@ -1,4 +1,4 @@
-import { firestoreAdmin } from "@/lib/firebaseAdmin";
+import { firestoreAdmin } from "@/lib/supabase";
 
 export async function deleteChildrenPosts(parentId: string): Promise<void> {
   const db = firestoreAdmin;

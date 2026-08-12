@@ -1,11 +1,12 @@
 import { getSmartSuggestions } from "@/components/Features/follow/actions";
+import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    const { uid } = await req.json();
+    const { uid } = await getUserFromSession();
     if (!uid) {
-      return NextResponse.json({ error: "Missing uid" }, { status: 400 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const suggestions = await getSmartSuggestions(uid);
