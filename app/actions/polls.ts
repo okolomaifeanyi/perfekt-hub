@@ -166,6 +166,19 @@ export async function votePoll(pollId: string, optionId: string): Promise<void> 
   if (!uid) throw new Error("Unauthorized");
 
   await withSupabaseRequestContext(async client => {
+    // Belt and suspenders alongside the composite FK + RLS check on
+    // group_poll_votes: confirm the option actually belongs to this poll
+    // before writing, so a mismatched pair fails with a clear message here
+    // instead of a raw constraint-violation error from the insert.
+    const { data: option, error: optionError } = await client
+      .from("group_poll_options")
+      .select("id")
+      .eq("id", optionId)
+      .eq("pollid", pollId)
+      .maybeSingle();
+    if (optionError) throw optionError;
+    if (!option) throw new Error("Invalid option for this poll");
+
     // A member can only ever see/touch their own vote row (enforced by
     // RLS), so changing a vote is delete-then-insert rather than an
     // update — there's nothing else it could conflict with.
