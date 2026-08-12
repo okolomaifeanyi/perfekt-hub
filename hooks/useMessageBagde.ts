@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { collection, onSnapshot, query, where } from "@/lib/supabase";
 import { useUserStore } from "@/lib/store/useUserStore";
 
 export function useMessageBadge() {

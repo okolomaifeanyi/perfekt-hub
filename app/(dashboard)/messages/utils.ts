@@ -1,5 +1,5 @@
-import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { doc, updateDoc, arrayUnion, arrayRemove } from "@/lib/supabase";
+import { db } from "@/lib/supabase";
 
 export async function toggleReaction(
   conversationId: string,

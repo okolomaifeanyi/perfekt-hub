@@ -9,6 +9,7 @@ import {
   PinOff,
 } from "lucide-react";
 import Image from "next/image";
+import RichText from "@/components/RichText";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,19 +17,18 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Button } from "../ui/button";
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import {
   deleteDoc,
   doc,
   updateDoc,
   arrayUnion,
   arrayRemove,
-  setDoc,
   collection,
   getDocs,
   query,
   where,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { MessageProps } from "@/lib/types";
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
@@ -100,13 +100,6 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
         "messages",
         msg.id
       );
-      const deletedRef = doc(db, "users", user.uid, "deletedMessages", msg.id);
-
-      await setDoc(deletedRef, {
-        ...msg,
-        deletedAt: new Date(),
-        conversationId,
-      });
 
       await deleteDoc(messageRef);
     };
@@ -200,9 +193,11 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     <p className="font-semibold opacity-80">
                       {msg.replyTo.senderId === user?.uid
                         ? "You"
-                        : msg.replyTo.senderId}
+                        : msg.replyTo.senderName || "Them"}
                     </p>
-                    <p className="truncate opacity-70">{msg.replyTo.text}</p>
+                    <p className="truncate opacity-70">
+                      <RichText text={msg.replyTo.text} />
+                    </p>
                   </div>
                 )}
 
@@ -228,7 +223,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                   </div>
                 )}
 
-                {msg.text}
+                <RichText text={msg.text} />
 
                 <span className="block text-[10px] opacity-70 mt-1 text-right">
                   {msg.createdAt?.toDate
@@ -250,15 +245,20 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     </span>
                   ))}
 
-                {/* Desktop Actions */}
+                {/* Desktop Actions — anchored above the bubble and aligned
+                    to the same edge it's already aligned to (right for your
+                    own messages, left for theirs), instead of pushed 128px
+                    out to the side. That offset assumed more free horizontal
+                    space than a narrow chat pane or mobile viewport
+                    actually has, routinely pushing these off-screen. */}
                 <div
-                  className={`absolute top-1 opacity-0 group-hover:opacity-100 transition flex gap-x-1.5 items-center ${
-                    isMe ? "-left-32" : "-right-32"
+                  className={`absolute -top-9 z-20 opacity-0 group-hover:opacity-100 transition flex gap-x-1.5 items-center ${
+                    isMe ? "right-0" : "left-0"
                   } ${chatTouched === msg.id ? "opacity-100" : ""}`}
                 >
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="secondary" size="icon">
+                      <Button variant="secondary" size="icon" aria-label="More options">
                         <MoreHorizontal className="w-5 h-5" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -307,6 +307,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     }
                     variant="secondary"
                     size="icon"
+                    aria-label="Add reaction"
                   >
                     <SmileIcon className="w-5 h-5" />
                   </Button>
@@ -315,24 +316,24 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
                     onClick={() => onReply(msg)}
                     variant="secondary"
                     size="icon"
+                    aria-label="Reply"
                   >
                     <ReplyIcon className="h-5 w-5" />
                   </Button>
-
                   {pickerFor === msg.id && (
                     <div
                       ref={pickerRef}
-                      className={`absolute z-auto left-1/2 -translate-x-1/2 flex flex-row gap-1 p-2 rounded-xl shadow-lg bg-white ${
+                      className={`absolute z-auto left-1/2 -translate-x-1/2 flex flex-row gap-1 p-2 rounded-xl shadow-lg bg-popover text-popover-foreground border ${
                         pickerPosition === "top"
                           ? "bottom-full mb-2"
                           : "top-full mt-2"
                       }`}
                     >
-                      {["👍", "❤️", "😂", "😮", "😢", "👏"].map(emoji => (
+                      {["👍", "❤️", "😂", "😮", "😢", "🔥"].map(emoji => (
                         <button
                           key={emoji}
                           onClick={() => handleReact(msg, emoji)}
-                          className="text-base p-1 rounded-md hover:bg-gray-100 transition"
+                          className="text-base p-1 rounded-md hover:bg-accent transition"
                         >
                           {emoji}
                         </button>
@@ -352,3 +353,4 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
 
 Messages.displayName = "Messages";
 export default Messages;
+

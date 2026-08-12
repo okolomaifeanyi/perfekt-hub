@@ -1,53 +1,57 @@
-
 "use client";
 
-import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/lib/supabase";
+import { doc, getDoc, serverTimestamp, setDoc } from "@/lib/supabase";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { canUsePrivateData } from "@/lib/private-data-access.mjs";
+import {
+  buildDirectConversationId,
+  parseDirectConversationId,
+} from "@/lib/conversation-utils.mjs";
 
 export function useDirectMessage() {
-  const { user } = useUserStore();
+  const { user, authReady } = useUserStore();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const startDM = async (targetUid: string) => {
-    if (!user?.uid) return toast.error("Please sign in to message");
+    if (!canUsePrivateData(authReady, user?.uid)) {
+      toast.error("Please sign in to message");
+      return;
+    }
 
     setLoading(true);
+
     try {
-      const currentUserUid = user.uid;
-      const participants = [currentUserUid, targetUid].sort();
-      const conversationId = participants.join("_");
+      const currentUserUid = user?.uid ?? "";
+      const conversationId = buildDirectConversationId(
+        currentUserUid,
+        targetUid
+      );
+      const participants =
+        parseDirectConversationId(conversationId) ?? [
+          currentUserUid,
+          targetUid,
+        ];
 
       const ref = doc(db, "conversations", conversationId);
       const snap = await getDoc(ref);
 
       if (!snap.exists()) {
-        const newConversationData = {
-          participants: participants,
-          type: "direct",
-          createdAt: new Date(),
-          createdBy: currentUserUid,
+        await setDoc(ref, {
+          participants,
+          createdAt: serverTimestamp(),
           lastMessage: "",
-          lastMessageAt: new Date(),
-        };
-
-        // ✅ LOG THE DATA RIGHT BEFORE THE WRITE
-        console.log(
-          "Attempting to CREATE document with this data:",
-          newConversationData
-        );
-        await setDoc(ref, newConversationData);
-      } else {
-        console.log("Document already exists. Navigating...");
+          lastMessageAt: serverTimestamp(),
+        });
       }
 
       router.push(`/messages/${conversationId}`);
-    } catch (err) {
-      console.error("Firebase Error:", err);
+    } catch (error) {
+      console.error("Direct message start failed:", error);
       toast.error("Could not start conversation");
     } finally {
       setLoading(false);

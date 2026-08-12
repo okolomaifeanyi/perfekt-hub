@@ -4,7 +4,7 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { Loader2, X } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
-import { db } from "@/lib/firebase";
+import { db } from "@/lib/supabase";
 import {
   addDoc,
   collection,
@@ -12,7 +12,7 @@ import {
   updateDoc,
   doc,
   increment,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { Dispatch, SetStateAction, useState } from "react";
 import { DraftMessage, UserProps } from "@/lib/types";
 import Emoji from "../post-composer/Emoji";
@@ -76,6 +76,10 @@ const Composer = ({
             <span className="font-medium">{newMsg.replyTo.text}</span>
           </div>
           <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Cancel reply"
             onClick={() => setNewMsg(p => ({ ...p, replyTo: undefined }))}
           >
             <X className="w-4 h-4 text-muted-foreground" />
@@ -108,10 +112,12 @@ const Composer = ({
         />
 
         <Button
+          type="button"
           disabled={sending || !newMsg.text.trim()}
           onClick={() => sendMessage(newMsg.text.trim())}
           variant="secondary"
           size="sm"
+          aria-label="Send message"
         >
           {sending ? (
             <Loader2 className="animate-spin" />

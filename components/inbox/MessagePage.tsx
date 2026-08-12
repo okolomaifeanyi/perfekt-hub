@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { db } from "@/lib/firebase";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { db } from "@/lib/supabase";
 import {
   collection,
   doc,
@@ -12,8 +12,9 @@ import {
   setDoc,
   updateDoc,
   getDoc,
-} from "firebase/firestore";
+} from "@/lib/supabase";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { canUsePrivateData } from "@/lib/private-data-access.mjs";
 import { useUser } from "@/hooks/useUser";
 import NavBar from "@/app/(dashboard)/[username]/components/NavBar";
 import MyAvatar from "../feed/post/MyAvatar";
@@ -21,6 +22,10 @@ import Messages from "./Messages";
 import { DraftMessage, MessageProps } from "@/lib/types";
 import Composer from "./Composer";
 import ForwardModal from "./ForwardModal";
+import {
+  getOtherConversationParticipant,
+  parseDirectConversationId,
+} from "@/lib/conversation-utils.mjs";
 
 export default function MessagePage({
   conversationId,
@@ -28,39 +33,73 @@ export default function MessagePage({
   conversationId: string;
 }) {
   const { user } = useUserStore();
+  const authReady = useUserStore(state => state.authReady);
   const [messages, setMessages] = useState<MessageProps[]>([]);
   const [newMsg, setNewMsg] = useState<DraftMessage>({ text: "" });
   const bottomRef = useRef<HTMLDivElement>(null);
   const [forwardMsg, setForwardMsg] = useState<MessageProps | null>(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
+  const [conversationParticipants, setConversationParticipants] = useState<
+    string[]
+  >([]);
 
-  const [uidA, uidB] = conversationId.split("_");
-  const targetUid = uidA === user?.uid ? uidB : uidA;
+  const parsedParticipants = useMemo(
+    () => parseDirectConversationId(conversationId),
+    [conversationId]
+  );
+  const effectiveParticipants =
+    conversationParticipants.length > 0
+      ? conversationParticipants
+      : parsedParticipants ?? [];
+  const targetUid = getOtherConversationParticipant(
+    effectiveParticipants,
+    user?.uid ?? ""
+  );
   const targetUser = useUser(targetUid);
 
   /* ---- ensure conversation doc ---- */
   useEffect(() => {
-    if (!user) return;
+    const currentUid = user?.uid ?? "";
+    if (!canUsePrivateData(authReady, currentUid)) return;
     const ref = doc(db, "conversations", conversationId);
     (async () => {
       const snap = await getDoc(ref);
       if (!snap.exists()) {
+        if (!parsedParticipants) {
+          return;
+        }
+
+        const otherUid = getOtherConversationParticipant(
+          parsedParticipants,
+          currentUid
+        );
+        if (!otherUid) {
+          return;
+        }
+
         await setDoc(ref, {
-          participants: [user.uid, targetUid],
-          createdBy: user.uid,
-          type: "direct",
+          participants: parsedParticipants,
           createdAt: serverTimestamp(),
           lastMessage: "",
           lastMessageAt: serverTimestamp(),
-          unreadCount: { [user.uid]: 0, [targetUid]: 0 },
+          unreadCount: { [currentUid]: 0, [otherUid]: 0 },
         });
+        setConversationParticipants(parsedParticipants);
+        return;
+      }
+
+      const storedParticipants = snap.data()?.participants;
+      if (Array.isArray(storedParticipants) && storedParticipants.length > 0) {
+        setConversationParticipants(storedParticipants);
+      } else if (parsedParticipants) {
+        setConversationParticipants(parsedParticipants);
       }
     })();
-  }, [conversationId, user, targetUid]);
+  }, [authReady, conversationId, parsedParticipants, user?.uid]);
 
   /* ---- listen to messages ---- */
   useEffect(() => {
-    if (!conversationId) return;
+    if (!canUsePrivateData(authReady, user?.uid) || !conversationId) return;
     const q = query(
       collection(db, "conversations", conversationId, "messages"),
       orderBy("createdAt", "asc")
@@ -73,11 +112,11 @@ export default function MessagePage({
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     });
     return () => unsub();
-  }, [conversationId]);
+  }, [authReady, conversationId, user?.uid]);
 
   /* ---- mark as read ---- */
   useEffect(() => {
-    if (!conversationId || !user) return;
+    if (!canUsePrivateData(authReady, user?.uid) || !conversationId || !user) return;
     const ref = doc(db, "conversations", conversationId);
     const mark = async () => {
       await updateDoc(ref, { [`unreadCount.${user.uid}`]: 0 });
@@ -96,7 +135,15 @@ export default function MessagePage({
       document.removeEventListener("visibilitychange", vis);
       handler();
     };
-  }, [conversationId, user]);
+  }, [authReady, conversationId, user]);
+
+  if (!authReady) {
+    return <div className="p-4">Loading conversation...</div>;
+  }
+
+  if (!user) {
+    return <div className="p-4">Please login</div>;
+  }
 
   return (
     <>
@@ -140,6 +187,10 @@ export default function MessagePage({
                 id: msg.id,
                 text: msg.text ?? "",
                 senderId: msg.senderId,
+                senderName:
+                  msg.senderId === user?.uid
+                    ? user?.fullName || user?.username
+                    : targetUser?.fullName || targetUser?.username,
               },
             }))
           }
@@ -159,7 +210,7 @@ export default function MessagePage({
           setNewMsg={setNewMsg}
           user={user}
           conversationId={conversationId}
-          targetUid={targetUid}
+          targetUid={targetUid ?? parsedParticipants?.find(id => id !== user?.uid) ?? ""}
         />
       </div>
 
