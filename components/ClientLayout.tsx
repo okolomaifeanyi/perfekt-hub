@@ -30,6 +30,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     setDismissedProfileModal,
     startUserListener,
     startMessageListener,
+    startNotificationListener,
     stopListeners,
     setUser,
   } = useUserStore(state => state);
@@ -115,6 +116,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         if (hasAuthenticatedSession(session) && canSync) {
           startUserListener(currentUser.id);
           startMessageListener(currentUser.id);
+          startNotificationListener(currentUser.id);
           setAuthReady(true);
         }
 
@@ -181,6 +183,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       if (hasAuthenticatedSession(session) && canSync) {
         startUserListener(session.user.id);
         startMessageListener(session.user.id);
+        startNotificationListener(session.user.id);
       }
 
       setAuthReady(hasAuthenticatedSession(session) && canSync);
@@ -199,6 +202,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     setGlobalLoading,
     setUser,
     startMessageListener,
+    startNotificationListener,
     startUserListener,
     stopListeners,
   ]);

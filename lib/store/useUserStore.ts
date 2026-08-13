@@ -49,8 +49,11 @@ type UserState = {
 };
 
 let unsubUser: (() => void) | null = null;
+let unsubUserUid: string | null = null;
 let unsubMessages: (() => void) | null = null;
+let unsubMessagesUid: string | null = null;
 let unsubNotifications: (() => void) | null = null;
+let unsubNotificationsUid: string | null = null;
 
 const ITEMS_TO_SHOW = 3;
 
@@ -90,6 +93,10 @@ export const useUserStore = create<UserState>()(
                 suggestions: [],
                 visibleSuggestions: [],
                 currentIndex: 0,
+                // Otherwise the previous account's counts stayed on screen
+                // until the new account's listeners caught up.
+                messageBadge: 0,
+                notificationBadge: 0,
               }
             : {}),
         });
@@ -174,8 +181,17 @@ export const useUserStore = create<UserState>()(
       },
 
       // ────── LISTENERS ──────
+      // Each start*Listener guards against redundant re-subscription for the
+      // SAME uid (e.g. an effect re-running), but must still tear down and
+      // restart when called for a DIFFERENT uid — otherwise switching
+      // accounts left these bound to the previous account forever (the old
+      // guard was just `if (unsub) return`, which also blocked restarting
+      // for a new user), so messages/notifications/profile updates silently
+      // kept reflecting whichever account was logged in first.
       startUserListener: uid => {
-        if (unsubUser) return;
+        if (unsubUser && unsubUserUid === uid) return;
+        unsubUser?.();
+        unsubUserUid = uid;
         const ref = doc(db, "users", uid);
         unsubUser = onSnapshot(ref, snap => {
           if (snap.exists()) {
@@ -211,7 +227,9 @@ export const useUserStore = create<UserState>()(
       },
 
       startMessageListener: uid => {
-        if (unsubMessages) return;
+        if (unsubMessages && unsubMessagesUid === uid) return;
+        unsubMessages?.();
+        unsubMessagesUid = uid;
         const q = query(
           collection(db, "conversations"),
           where("participants", "array-contains", uid)
@@ -227,7 +245,9 @@ export const useUserStore = create<UserState>()(
       },
 
       startNotificationListener: uid => {
-        if (unsubNotifications) return;
+        if (unsubNotifications && unsubNotificationsUid === uid) return;
+        unsubNotifications?.();
+        unsubNotificationsUid = uid;
         const q = query(
           collection(db, "notifications"),
           where("recipientUid", "==", uid)
@@ -245,10 +265,13 @@ export const useUserStore = create<UserState>()(
       stopListeners: () => {
         unsubUser?.();
         unsubUser = null;
+        unsubUserUid = null;
         unsubMessages?.();
         unsubMessages = null;
+        unsubMessagesUid = null;
         unsubNotifications?.();
         unsubNotifications = null;
+        unsubNotificationsUid = null;
       },
     }),
     {
