@@ -180,14 +180,29 @@ export const useUserStore = create<UserState>()(
         unsubUser = onSnapshot(ref, snap => {
           if (snap.exists()) {
             const data = snap.data() as UserProps;
+            // This listener polls the DB every 3s (see the onSnapshot shim)
+            // rather than pushing true realtime updates. A poll request that
+            // was already in flight when the user submitted the
+            // complete-profile form can resolve *after* that submit's local
+            // optimistic update, still carrying the pre-submit
+            // completedProfile:false snapshot — clobbering the fresh state
+            // and popping the modal back open moments after it was
+            // dismissed. completedProfile only ever legitimately goes
+            // false -> true, never back, so once we've observed true
+            // (from this snapshot or an earlier one) a stale false can't
+            // downgrade it.
+            const previousUser = get().user;
+            const completedProfile =
+              !!data.completedProfile ||
+              (previousUser?.uid === snap.id && !!previousUser.completedProfile);
             set({
-              user: { ...data, uid: snap.id },
+              user: { ...data, uid: snap.id, completedProfile },
               // Only reopen the modal when the profile is genuinely
               // incomplete — this fires on every change to the row
               // (including unrelated fields like lastSeen), so
               // unconditionally clearing the dismissal here reopened the
               // modal for users who'd already completed their profile.
-              ...(data.completedProfile ? {} : { dismissedProfileModal: false }),
+              ...(completedProfile ? {} : { dismissedProfileModal: false }),
             });
           } else {
             get().clearUser();
