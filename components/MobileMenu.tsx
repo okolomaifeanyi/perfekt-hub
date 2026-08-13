@@ -48,9 +48,6 @@ type NavGroup = { label: string; items: NavGroupItem[] };
 
 const navGroups = rawNavGroups as NavGroup[];
 const PRIMARY_GROUP = navGroups.find(group => group.label === "Primary");
-const MORE_GROUPS = navGroups.filter(
-  group => group.label !== "Primary" && group.label !== "Account"
-);
 
 export function MobileMenu() {
   const currentUser = useUserStore(state => state.user);
@@ -170,26 +167,6 @@ export function MobileMenu() {
                 </li>
               );
             })}
-          </List>
-
-          {/* More */}
-          <div className="px-1 text-xs font-medium text-muted-foreground">
-            Explore
-          </div>
-          <List className="list-none mx-0!">
-            {MORE_GROUPS.flatMap(group => group.items).map(item => (
-              <li key={item.label}>
-                <SheetClose asChild>
-                  <Link
-                    href={item.href}
-                    className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-accent/50"
-                  >
-                    <span>{item.label}</span>
-                    <ChevronRightIcon className="size-5" />
-                  </Link>
-                </SheetClose>
-              </li>
-            ))}
           </List>
 
           {/* Accounts */}
