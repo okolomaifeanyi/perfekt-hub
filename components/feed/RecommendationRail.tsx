@@ -86,12 +86,14 @@ function RailShell({
   description,
   icon: Icon,
   headerAction,
+  seeMoreHref,
   children,
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   headerAction?: React.ReactNode;
+  seeMoreHref?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -107,6 +109,16 @@ function RailShell({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-1">{children}</CardContent>
+      {seeMoreHref && (
+        <CardContent className="pt-1">
+          <Link
+            href={seeMoreHref}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            See more
+          </Link>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -179,7 +191,7 @@ function PeopleRail({ title, description, icon }: { title: string; description: 
   const people = suggestions.slice(0, 5);
 
   return (
-    <RailShell title={title} description={description} icon={icon}>
+    <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/people">
       {loading ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : people.length === 0 ? (
@@ -305,7 +317,7 @@ function SavesRail({ title, description, icon }: { title: string; description: s
   }, [currentUser?.uid]);
 
   return (
-    <RailShell title={title} description={description} icon={icon}>
+    <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/saves">
       {posts === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : posts.length === 0 ? (
@@ -346,7 +358,7 @@ function MatchesRail({ title, description, icon }: { title: string; description:
   }, [currentUser?.uid]);
 
   return (
-    <RailShell title={title} description={description} icon={icon}>
+    <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/match">
       {matches === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : matches.length === 0 ? (
@@ -408,6 +420,7 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
       description={description}
       icon={icon}
       headerAction={<CreateGroupDialog />}
+      seeMoreHref="/discover/groups"
     >
       {groups === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
@@ -473,6 +486,7 @@ function EventsRail({ title, description, icon }: { title: string; description: 
       description={description}
       icon={icon}
       headerAction={<CreateEventDialog />}
+      seeMoreHref="/discover/events"
     >
       {events === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)

@@ -39,6 +39,62 @@ export async function getTopSavedPosts(limit = 5): Promise<PostProps[]> {
   });
 }
 
+export async function listSavesPage(params: {
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<PostProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const { data, error } =
+      params.sortMode === "time"
+        ? await client.rpc("get_recently_saved_posts", {
+            result_limit: params.limit,
+            result_offset: params.offset,
+          })
+        : await client.rpc("get_top_saved_posts_page", {
+            result_limit: params.limit,
+            result_offset: params.offset,
+          });
+    if (error) throw error;
+
+    const posts = await Promise.all(
+      (data ?? []).map((row: { postid: string }) => getPost(row.postid))
+    );
+    return posts.filter((post): post is PostProps => Boolean(post));
+  });
+}
+
+export async function listPeoplePage(params: {
+  currentUid: string;
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<UserProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const query = client
+      .from("users")
+      .select("uid, username, fullname, photourl, followerscount, followingcount, friendscount, completedprofile, createdat")
+      .neq("uid", params.currentUid)
+      .range(params.offset, params.offset + params.limit - 1);
+    const { data, error } =
+      params.sortMode === "time"
+        ? await query.order("createdat", { ascending: false })
+        : await query.order("followerscount", { ascending: false });
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      uid: row.uid as string,
+      username: row.username as string,
+      fullName: (row.fullname as string) ?? "",
+      photoURL: (row.photourl as string) ?? "",
+      followersCount: (row.followerscount as number) ?? 0,
+      followingCount: (row.followingcount as number) ?? 0,
+      friendsCount: (row.friendscount as number) ?? 0,
+      completedProfile: Boolean(row.completedprofile),
+    }));
+  });
+}
+
 function calculateAge(dob: string | null | undefined): number | null {
   if (!dob) return null;
   const [year] = dob.split("-");
@@ -93,6 +149,93 @@ export async function getSuggestedMatches(
 
     return ranked
       .slice(0, limit)
+      .map(entry => candidateByUid.get(entry.id))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .map(row => ({
+        uid: row.uid as string,
+        username: row.username as string,
+        fullName: (row.fullname as string) ?? "",
+        photoURL: (row.photourl as string) ?? "",
+        gender: row.gender as UserProps["gender"],
+        followersCount: (row.followerscount as number) ?? 0,
+        followingCount: (row.followingcount as number) ?? 0,
+        friendsCount: (row.friendscount as number) ?? 0,
+        completedProfile: Boolean(row.completedprofile),
+      }));
+  });
+}
+
+export async function listMatchesPage(params: {
+  currentUid: string;
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<UserProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const { data: me, error: meError } = await client
+      .from("users")
+      .select("gender, dob")
+      .eq("uid", params.currentUid)
+      .maybeSingle();
+    if (meError) throw meError;
+    if (!me) return [];
+
+    const genderPreference =
+      me.gender === "male" ? "female" : me.gender === "female" ? "male" : "female";
+
+    if (params.sortMode === "time") {
+      const { data, error } = await client
+        .from("users")
+        .select("uid, username, fullname, photourl, gender, followerscount, followingcount, friendscount, completedprofile, createdat")
+        .neq("uid", params.currentUid)
+        .eq("gender", genderPreference)
+        .order("createdat", { ascending: false })
+        .range(params.offset, params.offset + params.limit - 1);
+      if (error) throw error;
+      return (data ?? []).map(row => ({
+        uid: row.uid as string,
+        username: row.username as string,
+        fullName: (row.fullname as string) ?? "",
+        photoURL: (row.photourl as string) ?? "",
+        gender: row.gender as UserProps["gender"],
+        followersCount: (row.followerscount as number) ?? 0,
+        followingCount: (row.followingcount as number) ?? 0,
+        friendsCount: (row.friendscount as number) ?? 0,
+        completedProfile: Boolean(row.completedprofile),
+      }));
+    }
+
+    // Engagement mode: match-score ranking doesn't have a DB-level sort
+    // column, so rank a reasonably large pool once and slice it for the
+    // requested page — approximate pagination, same tradeoff as the rest
+    // of these offset-paginated lists.
+    const myAge = calculateAge(me.dob as string | null);
+    const { data: candidates, error } = await client
+      .from("users")
+      .select("uid, username, fullname, photourl, gender, dob, followerscount, followingcount, friendscount, completedprofile")
+      .neq("uid", params.currentUid)
+      .eq("gender", genderPreference)
+      .limit(300);
+    if (error) throw error;
+    if (!candidates || candidates.length === 0) return [];
+
+    const ranked = rankMatchCandidates(
+      candidates.map(candidate => ({
+        id: candidate.uid,
+        gender: candidate.gender,
+        ageDiff: myAge && candidate.dob ? Math.abs(myAge - (calculateAge(candidate.dob as string) ?? myAge)) : 0,
+        workMatch: 0,
+        interestMatch: 0,
+        likeMatch: 0,
+        friendOfFriend: 0,
+      })),
+      { genderPreference, ageRange: [18, 99] }
+    );
+
+    const candidateByUid = new Map(candidates.map(c => [c.uid, c]));
+
+    return ranked
+      .slice(params.offset, params.offset + params.limit)
       .map(entry => candidateByUid.get(entry.id))
       .filter((row): row is NonNullable<typeof row> => Boolean(row))
       .map(row => ({

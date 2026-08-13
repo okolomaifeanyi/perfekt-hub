@@ -85,6 +85,25 @@ export async function listGroups(limit = 20): Promise<GroupProps[]> {
   });
 }
 
+export async function listGroupsPage(params: {
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<GroupProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const query = client
+      .from("groups")
+      .select("*")
+      .range(params.offset, params.offset + params.limit - 1);
+    const { data, error } =
+      params.sortMode === "time"
+        ? await query.order("createdat", { ascending: false })
+        : await query.order("memberscount", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapGroupRow);
+  });
+}
+
 export async function getUserGroups(uid: string): Promise<GroupProps[]> {
   return withSupabaseRequestContext(async client => {
     const { data: memberships, error: memberError } = await client

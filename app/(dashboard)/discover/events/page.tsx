@@ -1,11 +1,8 @@
 import NavBar from "../../[username]/components/NavBar";
-import { listUpcomingEvents } from "@/app/actions/events";
 import { EventsListClient } from "./EventsListClient";
 import { CreateEventDialog } from "@/components/CreateEventDialog";
 
-export default async function EventsDiscoverPage() {
-  const events = await listUpcomingEvents(30);
-
+export default function EventsDiscoverPage() {
   return (
     <>
       <NavBar title="Events" />
@@ -21,7 +18,7 @@ export default async function EventsDiscoverPage() {
           <CreateEventDialog />
         </div>
 
-        <EventsListClient events={events} />
+        <EventsListClient />
       </main>
     </>
   );

@@ -62,6 +62,26 @@ export async function listUpcomingEvents(limit = 20): Promise<EventProps[]> {
   });
 }
 
+export async function listUpcomingEventsPage(params: {
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<EventProps[]> {
+  return withSupabaseRequestContext(async client => {
+    const query = client
+      .from("events")
+      .select("*")
+      .gte("starttime", new Date().toISOString())
+      .range(params.offset, params.offset + params.limit - 1);
+    const { data, error } =
+      params.sortMode === "time"
+        ? await query.order("starttime", { ascending: true })
+        : await query.order("attendeescount", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapEventRow);
+  });
+}
+
 export async function createEvent(input: {
   title: string;
   description?: string;

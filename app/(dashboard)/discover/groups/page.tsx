@@ -1,11 +1,8 @@
 import NavBar from "../../[username]/components/NavBar";
-import { listGroups } from "@/app/actions/groups";
 import { GroupsListClient } from "./GroupsListClient";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 
-export default async function GroupsDiscoverPage() {
-  const groups = await listGroups(30);
-
+export default function GroupsDiscoverPage() {
   return (
     <>
       <NavBar title="Groups" />
@@ -21,7 +18,7 @@ export default async function GroupsDiscoverPage() {
           <CreateGroupDialog />
         </div>
 
-        <GroupsListClient groups={groups} />
+        <GroupsListClient />
       </main>
     </>
   );
