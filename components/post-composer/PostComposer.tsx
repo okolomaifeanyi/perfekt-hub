@@ -393,30 +393,37 @@ const PostComposer = ({
 
           {linkPreviewUrl && !pollMode && !sellMode && <LinkPreviewCard url={linkPreviewUrl} />}
 
-          <div className="flex justify-between items-center flex-wrap">
-            <Buttons
-              setText={setText}
-              setMedia={handleSetMedia}
-              setGifDialogOpen={setGifDialogOpen}
-              gifDialogOpen={gifDialogOpen}
-              media={media}
-              showEvent={!parentPostId && !quotePostId}
-              showPoll={!parentPostId && !quotePostId}
-              pollMode={pollMode}
-              onTogglePoll={handleTogglePoll}
-              showSell={!parentPostId && !quotePostId}
-              sellMode={sellMode}
-              onToggleSell={handleToggleSell}
-            />
+          <div className="flex items-center gap-2">
+            {/* The toolbar can hold up to 6 icon buttons (media, emoji, gif,
+                poll, sell, event) — flex-wrap let it push Share onto its own
+                row on narrow screens, sometimes off to one side by itself.
+                Scrolling horizontally instead keeps Share pinned in place. */}
+            <div className="flex flex-1 min-w-0 items-center gap-1.5 overflow-x-auto scrollbar-none">
+              <Buttons
+                setText={setText}
+                setMedia={handleSetMedia}
+                setGifDialogOpen={setGifDialogOpen}
+                gifDialogOpen={gifDialogOpen}
+                media={media}
+                showEvent={!parentPostId && !quotePostId}
+                showPoll={!parentPostId && !quotePostId}
+                pollMode={pollMode}
+                onTogglePoll={handleTogglePoll}
+                showSell={!parentPostId && !quotePostId}
+                sellMode={sellMode}
+                onToggleSell={handleToggleSell}
+              />
+            </div>
 
             {text.length > 0 && (
-              <p className="text-xs text-muted-foreground">
+              <p className="shrink-0 text-xs text-muted-foreground">
                 {text.length}/{MAX_TEXT}
               </p>
             )}
 
             <Button
               size="sm"
+              className="shrink-0"
               onClick={handleSend}
               disabled={isSending || !canSend || text.length > MAX_TEXT}
             >
