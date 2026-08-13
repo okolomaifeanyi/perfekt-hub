@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { db } from "@/lib/supabase";
 import {
   collection,
@@ -26,9 +27,14 @@ import {
   getOtherConversationParticipant,
   parseDirectConversationId,
 } from "@/lib/conversation-utils.mjs";
-import { Phone } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useStartCall } from "@/hooks/useStartCall";
+
+// @stream-io/video-react-sdk (imported transitively via useStartCall) is a
+// WebRTC client library — this page is server-rendered on first load like
+// any other route, so a static import here would pull that module into the
+// server render pass too. ssr:false keeps it out of that path entirely.
+const DirectCallButton = dynamic(() => import("@/components/calls/DirectCallButton"), {
+  ssr: false,
+});
 
 export default function MessagePage({
   conversationId,
@@ -59,7 +65,6 @@ export default function MessagePage({
     user?.uid ?? ""
   );
   const targetUser = useUser(targetUid);
-  const { startDirectCall, ready: callReady } = useStartCall();
 
   /* ---- ensure conversation doc ---- */
   useEffect(() => {
@@ -180,18 +185,7 @@ export default function MessagePage({
                 <span className="text-muted">Offline</span>
               )}
 
-              {targetUid && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-8"
-                  title="Call"
-                  disabled={!callReady}
-                  onClick={() => void startDirectCall(targetUid)}
-                >
-                  <Phone className="size-4" />
-                </Button>
-              )}
+              {targetUid && <DirectCallButton targetUid={targetUid} />}
             </div>
           }
         />

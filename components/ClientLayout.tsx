@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import CompleteProfileModal from "./CompleteProfileModal";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -17,9 +18,17 @@ import {
   buildSavedAccountFromSession,
   rememberSavedAccount,
 } from "@/lib/saved-accounts.mjs";
-import { StreamVideoProvider } from "@/components/calls/StreamVideoProvider";
-import { IncomingCallBanner } from "@/components/calls/IncomingCallBanner";
-import { ActiveCallBar } from "@/components/calls/ActiveCallBar";
+
+// @stream-io/video-react-sdk is a WebRTC client library — loading it during
+// Next's server-side render pass (which runs even for "use client"
+// components on the initial request) risks touching browser-only globals
+// server-side. ssr:false keeps the whole module out of the server bundle
+// for this component entirely, only ever loading it after hydration in
+// the browser.
+const CallingFeature = dynamic(
+  () => import("@/components/calls/CallingFeature"),
+  { ssr: false }
+);
 
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const {
@@ -238,12 +247,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
       {(isAuthPage || !globalLoading) && children}
 
-      {!isAuthPage && user && (
-        <StreamVideoProvider>
-          <IncomingCallBanner />
-          <ActiveCallBar />
-        </StreamVideoProvider>
-      )}
+      {!isAuthPage && user && <CallingFeature />}
 
       <Toaster />
     </ThemeProvider>

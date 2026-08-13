@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -37,7 +38,15 @@ import { GroupSettingsDialog } from "./GroupSettingsDialog";
 import { GroupPostComposer } from "./GroupPostComposer";
 import { GroupPostsFeed } from "./GroupPostsFeed";
 import { GroupFiles } from "./GroupFiles";
-import { GroupAudioRoom } from "@/components/groups/GroupAudioRoom";
+
+// @stream-io/video-react-sdk (imported transitively via useStartCall) is a
+// WebRTC client library — this page is server-rendered on first load like
+// any other route, so a static import here would pull that module into the
+// server render pass too. ssr:false keeps it out of that path entirely.
+const GroupAudioRoom = dynamic(
+  () => import("@/components/groups/GroupAudioRoom").then(m => m.GroupAudioRoom),
+  { ssr: false }
+);
 
 export function GroupDetailClient({
   detail,
