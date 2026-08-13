@@ -59,7 +59,7 @@ export function GroupDetailClient({
   const [joinRequests, setJoinRequests] = useState<JoinRequestProps[]>(initialJoinRequests);
   const [posts, setPosts] = useState<GroupPostProps[]>(initialPosts);
   const [polls, setPolls] = useState<PollProps[]>(initialPolls);
-  const [files, setFiles] = useState<GroupFileProps[]>(initialFiles);
+  const [files] = useState<GroupFileProps[]>(initialFiles);
   const [busy, setBusy] = useState(false);
   const [requestPending, setRequestPending] = useState(false);
   // localMyRole is derived from the server data; it starts as the server-known
@@ -85,18 +85,14 @@ export function GroupDetailClient({
     return (a.fullName || a.username).localeCompare(b.fullName || b.username);
   });
 
-  // Push group context to the aside store on mount, clear on unmount
+  // Push group context to the aside store on mount, clear on unmount.
+  // Pinning a file afterward updates the store directly from GroupFiles
+  // (see its handlePin) rather than round-tripping through this state.
   useEffect(() => {
     setGroupContext(detail.group, sortedMembers, detail.myRole, files);
     return () => clearGroupContext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Keep the Aside's file list in sync whenever GroupFiles reports a change
-  // (upload/pin/delete) — no manual refresh needed.
-  useEffect(() => {
-    useGroupStore.getState().updateFiles(files);
-  }, [files]);
 
   const myRole = localMyRole;
   const isMember = !!myRole;
@@ -224,8 +220,12 @@ export function GroupDetailClient({
         <div className="h-24 w-full rounded-xl bg-gradient-to-br from-primary/20 to-primary/5" />
       )}
 
-      {/* Identity bar: avatar + name + actions */}
-      <div className="flex flex-col gap-3 px-1 pt-0 sm:flex-row sm:items-end sm:justify-between -mt-10 sm:-mt-12">
+      {/* Identity bar: avatar + name + actions. The avatar-over-cover overlap
+          only works once avatar and text sit side by side (sm: and up) —
+          on mobile they stack vertically via flex-col, so pulling the whole
+          block up with the same negative margin dragged the text (member
+          count, join date) up underneath the cover image too. */}
+      <div className="flex flex-col gap-3 px-1 pt-3 sm:flex-row sm:items-end sm:justify-between sm:pt-0 sm:-mt-12">
         <div className="flex items-end gap-4">
           <Avatar className="size-20 sm:size-24 shrink-0 border-4 border-background ring-2 ring-background shadow-md">
             {detail.group.photoURL && (
@@ -376,11 +376,11 @@ export function GroupDetailClient({
           <TabsContent value="files" className="mt-4">
             <GroupFiles
               groupId={detail.group.id}
-              initialFiles={initialFiles}
+              posts={posts}
+              pinnedFiles={files}
               isAdmin={isAdmin}
               currentUid={currentUid}
               isMember={isMember}
-              onFilesChange={setFiles}
             />
           </TabsContent>
         )}

@@ -369,12 +369,14 @@ export async function deleteGroup(groupId: string): Promise<void> {
 
 export type GroupPostVisibility = "public" | "private";
 
+export type GroupPostMediaItem = { url: string; type: string; name?: string };
+
 export type GroupPostProps = {
   id: string;
   groupId: string;
   userId: string;
   text: string;
-  media: Array<{ url: string; type: string }>;
+  media: GroupPostMediaItem[];
   visibility: GroupPostVisibility;
   isPinned: boolean;
   createdAt: string;
@@ -385,7 +387,7 @@ export type GroupPostProps = {
 
 function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
   const author = (row.users ?? {}) as Record<string, unknown>;
-  const media = Array.isArray(row.media) ? (row.media as Array<{ url: string; type: string }>) : [];
+  const media = Array.isArray(row.media) ? (row.media as GroupPostMediaItem[]) : [];
   return {
     id: row.id as string,
     groupId: (row.groupid ?? row.groupId) as string,
@@ -404,7 +406,7 @@ function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
 export async function createGroupPost(input: {
   groupId: string;
   text: string;
-  media?: Array<{ url: string; type: string }>;
+  media?: GroupPostMediaItem[];
   visibility?: GroupPostVisibility;
 }): Promise<GroupPostProps> {
   const { uid } = await getUserFromSession();
@@ -595,45 +597,6 @@ function mapGroupFileRow(row: Record<string, unknown>): GroupFileProps {
   };
 }
 
-export async function uploadGroupFile(input: {
-  groupId: string;
-  name: string;
-  url: string;
-  fileType: GroupFileType;
-  size?: number;
-}): Promise<GroupFileProps> {
-  const { uid } = await getUserFromSession();
-  if (!uid) throw new Error("Unauthorized");
-
-  return withSupabaseRequestContext(async client => {
-    const id = crypto.randomUUID();
-    const { error } = await client.from("group_files").insert({
-      id,
-      groupid: input.groupId,
-      uploaderuid: uid,
-      name: input.name,
-      url: input.url,
-      filetype: input.fileType,
-      size: input.size ?? 0,
-      ispinned: false,
-      createdat: new Date().toISOString(),
-    });
-    if (error) throw error;
-
-    return {
-      id,
-      groupId: input.groupId,
-      uploaderUid: uid,
-      name: input.name,
-      url: input.url,
-      fileType: input.fileType,
-      size: input.size ?? 0,
-      isPinned: false,
-      createdAt: new Date().toISOString(),
-    };
-  });
-}
-
 export async function listGroupFiles(groupId: string): Promise<GroupFileProps[]> {
   return withSupabaseRequestContext(async client => {
     const { data, error } = await client
@@ -679,6 +642,33 @@ export async function deleteGroupFile(fileId: string): Promise<void> {
 
   await withSupabaseRequestContext(async client => {
     const { error } = await client.from("group_files").delete().eq("id", fileId);
+    if (error) throw error;
+  });
+}
+
+// Files aren't uploaded separately anymore — an admin pins an existing
+// group post's attachment to feature it in the Files tab. Attribution
+// (uploaderUid) stays the original poster, not the admin doing the
+// pinning, which the RPC handles via security definer since the direct
+// insert policy only allows uploading your own files.
+export async function pinPostAttachment(input: {
+  groupId: string;
+  url: string;
+  name: string;
+  fileType: GroupFileType;
+  uploaderUid: string;
+}): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { error } = await client.rpc("pin_group_post_attachment", {
+      p_group_id: input.groupId,
+      p_url: input.url,
+      p_name: input.name,
+      p_file_type: input.fileType,
+      p_uploader_uid: input.uploaderUid,
+    });
     if (error) throw error;
   });
 }

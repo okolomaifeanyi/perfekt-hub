@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { BarChart3, Globe, ImagePlus, Loader2, Lock, Plus, X } from "lucide-react";
+import { BarChart3, FileText, Globe, ImagePlus, Loader2, Lock, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import { createPoll, type PollProps, type PollVisibility } from "@/app/actions/p
 import { uploadToCloudinary } from "@/components/post-composer/utils";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 
-type MediaItem = { url: string; type: "image" | "video" };
+type MediaItem = { url: string; type: "image" | "video" | "pdf"; name?: string };
 
 export function GroupPostComposer({
   groupId,
@@ -60,8 +60,12 @@ export function GroupPostComposer({
       const uploads = await Promise.all(
         Array.from(files).map(async file => {
           const res = await uploadToCloudinary(file);
-          const type: "image" | "video" = file.type.startsWith("video") ? "video" : "image";
-          return { url: res.secure_url as string, type };
+          const type: MediaItem["type"] = file.type.startsWith("video")
+            ? "video"
+            : file.type === "application/pdf"
+              ? "pdf"
+              : "image";
+          return { url: res.secure_url as string, type, name: file.name };
         })
       );
       setMedia(prev => [...prev, ...uploads]);
@@ -149,8 +153,13 @@ export function GroupPostComposer({
                   {m.type === "image" ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={m.url} alt="" className="size-full object-cover" />
-                  ) : (
+                  ) : m.type === "video" ? (
                     <video src={m.url} className="size-full object-cover" muted />
+                  ) : (
+                    <div className="flex size-full flex-col items-center justify-center gap-1 bg-muted p-1 text-center">
+                      <FileText className="size-6 text-red-500" />
+                      <span className="line-clamp-2 text-[9px] leading-tight">{m.name}</span>
+                    </div>
                   )}
                   <button
                     type="button"
@@ -179,7 +188,7 @@ export function GroupPostComposer({
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/*,application/pdf"
                 multiple
                 className="hidden"
                 onChange={e => {

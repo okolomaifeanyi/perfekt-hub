@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Globe, Lock, MoreVertical, Pin } from "lucide-react";
+import { FileText, Globe, Lock, MoreVertical, Pin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -174,6 +174,19 @@ function GroupPostCard({
                 controls
                 className="w-full max-h-80 object-cover rounded-lg"
               />
+            ) : m.type === "pdf" ? (
+              <a
+                key={i}
+                href={m.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 border p-3 text-sm hover:bg-muted/50"
+              >
+                <FileText className="size-5 shrink-0 text-red-500" />
+                <span className="truncate underline">
+                  {(m as { name?: string }).name || "PDF document"}
+                </span>
+              </a>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
