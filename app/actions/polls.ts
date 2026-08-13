@@ -6,17 +6,28 @@ import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export type PollVoter = {
+  uid: string;
+  username: string;
+  fullName: string;
+  photoURL: string | null;
+};
+
 export type PollOption = {
   id: string;
   label: string;
   voteCount: number;
+  voters?: PollVoter[];
 };
+
+export type PollVisibility = "public" | "private";
 
 export type PollProps = {
   id: string;
   groupId: string;
   question: string;
   anonymous: boolean;
+  visibility: PollVisibility;
   createdBy: string;
   createdAt: string;
   closed: boolean;
@@ -79,10 +90,54 @@ async function hydratePoll(
     myVoteOptionId = myVoteRows?.[0]?.optionid ?? null;
   }
 
+  // Non-anonymous polls show who voted for what — get_poll_voters()
+  // itself refuses to return rows for an anonymous poll (checked at the
+  // database level, not just skipped here), so this is safe to always
+  // attempt rather than needing to trust the `anonymous` flag client-side.
+  const votersByOption = new Map<string, PollVoter[]>();
+  if (!pollRow.anonymous) {
+    const { data: voterRows, error: voterError } = await client.rpc(
+      "get_poll_voters",
+      { poll_id: pollId }
+    );
+    if (voterError) throw voterError;
+
+    const voterUids = Array.from(
+      new Set((voterRows ?? []).map((row: { uid: string }) => row.uid))
+    );
+    if (voterUids.length > 0) {
+      const { data: profileRows, error: profileError } = await client
+        .from("users")
+        .select("uid, username, fullname, photourl")
+        .in("uid", voterUids);
+      if (profileError) throw profileError;
+
+      const profileByUid = new Map(
+        (profileRows ?? []).map(row => [row.uid as string, row])
+      );
+
+      for (const row of (voterRows ?? []) as { optionid: string; uid: string }[]) {
+        const profile = profileByUid.get(row.uid) as
+          | { uid: string; username: string; fullname: string; photourl: string | null }
+          | undefined;
+        const voter: PollVoter = {
+          uid: row.uid,
+          username: profile?.username ?? "",
+          fullName: profile?.fullname ?? "",
+          photoURL: profile?.photourl ?? null,
+        };
+        const existing = votersByOption.get(row.optionid) ?? [];
+        existing.push(voter);
+        votersByOption.set(row.optionid, existing);
+      }
+    }
+  }
+
   const options: PollOption[] = (optionRows ?? []).map(row => ({
     id: row.id as string,
     label: row.label as string,
     voteCount: countByOption.get(row.id as string) ?? 0,
+    voters: votersByOption.get(row.id as string) ?? [],
   }));
 
   return {
@@ -90,6 +145,7 @@ async function hydratePoll(
     groupId: pollRow.groupid as string,
     question: pollRow.question as string,
     anonymous: Boolean(pollRow.anonymous),
+    visibility: (pollRow.visibility as PollVisibility) ?? "public",
     createdBy: pollRow.createdby as string,
     createdAt: pollRow.createdat as string,
     closed: Boolean(pollRow.closed),
@@ -99,18 +155,26 @@ async function hydratePoll(
   };
 }
 
-export async function listGroupPolls(groupId: string): Promise<PollProps[]> {
+export async function listGroupPolls(groupId: string, memberUid: string | null = null): Promise<PollProps[]> {
   const { uid } = await getUserFromSession();
+  const effectiveUid = uid ?? memberUid;
 
   return withSupabaseRequestContext(async client => {
-    const { data: pollRows, error } = await client
+    let query = client
       .from("group_polls")
       .select("*")
       .eq("groupid", groupId)
       .order("createdat", { ascending: false });
+
+    // Non-members only see public polls
+    if (!effectiveUid) {
+      query = query.eq("visibility", "public");
+    }
+
+    const { data: pollRows, error } = await query;
     if (error) throw error;
 
-    return Promise.all((pollRows ?? []).map(row => hydratePoll(client, row, uid)));
+    return Promise.all((pollRows ?? []).map(row => hydratePoll(client, row, effectiveUid)));
   });
 }
 
@@ -119,6 +183,7 @@ export async function createPoll(input: {
   question: string;
   options: string[];
   anonymous: boolean;
+  visibility?: PollVisibility;
 }): Promise<PollProps> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
@@ -136,6 +201,7 @@ export async function createPoll(input: {
       groupid: input.groupId,
       question,
       anonymous: input.anonymous,
+      visibility: input.visibility ?? "public",
       createdby: uid,
     });
     if (pollError) throw pollError;

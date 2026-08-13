@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Globe, Lock, MoreVertical, Pin, Trash2 } from "lucide-react";
+import { Globe, Lock, MoreVertical, Pin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,12 @@ import {
   type GroupPostProps,
   type GroupPostVisibility,
 } from "@/app/actions/groups";
+import { votePoll, type PollProps } from "@/app/actions/polls";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
+
+type TimelineItem =
+  | { type: "post"; data: GroupPostProps }
+  | { type: "poll"; data: PollProps };
 
 function GroupPostCard({
   post,
@@ -185,36 +190,159 @@ function GroupPostCard({
   );
 }
 
+function InlinePollCard({
+  poll,
+  onVoted,
+}: {
+  poll: PollProps;
+  onVoted: (updated: PollProps) => void;
+}) {
+  const [voting, setVoting] = useState<string | null>(null);
+  const hasVoted = !!poll.myVoteOptionId;
+
+  const handleVote = async (optionId: string) => {
+    setVoting(optionId);
+    try {
+      await votePoll(poll.id, optionId);
+      onVoted({
+        ...poll,
+        myVoteOptionId: optionId,
+        options: poll.options.map(o => {
+          if (o.id === optionId && poll.myVoteOptionId !== optionId) {
+            return { ...o, voteCount: o.voteCount + 1 };
+          }
+          if (o.id === poll.myVoteOptionId && poll.myVoteOptionId !== optionId) {
+            return { ...o, voteCount: Math.max(0, o.voteCount - 1) };
+          }
+          return o;
+        }),
+        totalVotes: poll.myVoteOptionId ? poll.totalVotes : poll.totalVotes + 1,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to vote");
+    } finally {
+      setVoting(null);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-xs">Poll</Badge>
+        {poll.visibility === "private" && (
+          <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+            <Lock className="size-2.5" />
+            Members only
+          </Badge>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground">
+          {format(new Date(poll.createdAt), "MMM d, yyyy · h:mm a")}
+        </span>
+      </div>
+
+      <p className="font-medium text-sm">{poll.question}</p>
+
+      <div className="space-y-2">
+        {poll.options.map(option => {
+          const pct =
+            poll.totalVotes > 0
+              ? Math.round((option.voteCount / poll.totalVotes) * 100)
+              : 0;
+          const isMine = option.id === poll.myVoteOptionId;
+
+          return (
+            <button
+              key={option.id}
+              type="button"
+              disabled={poll.closed || !!voting}
+              onClick={() => handleVote(option.id)}
+              className="relative w-full overflow-hidden rounded-lg border text-left transition disabled:cursor-default"
+            >
+              {(hasVoted || poll.closed) && (
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary/15"
+                  style={{ width: `${pct}%` }}
+                />
+              )}
+              <div className="relative flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                <span className={isMine ? "font-semibold" : undefined}>
+                  {option.label}
+                  {isMine && " ✓"}
+                </span>
+                {(hasVoted || poll.closed) && (
+                  <span className="text-xs text-muted-foreground">
+                    {pct}% ({option.voteCount})
+                  </span>
+                )}
+              </div>
+              {!poll.anonymous && (hasVoted || poll.closed) && option.voters && option.voters.length > 0 && (
+                <div className="relative flex items-center gap-1.5 px-3 pb-2">
+                  <div className="flex -space-x-1.5">
+                    {option.voters.slice(0, 5).map(voter => (
+                      <Avatar key={voter.uid} className="size-5 border border-background">
+                        <AvatarImage
+                          src={voter.photoURL || userAltImageUrl({ name: voter.fullName || voter.username })}
+                          alt=""
+                        />
+                        <AvatarFallback className="text-[9px]">
+                          {(voter.fullName || voter.username || "U").slice(0, 1).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {option.voters
+                      .slice(0, 3)
+                      .map(v => v.fullName || v.username)
+                      .join(", ")}
+                    {option.voters.length > 3 && ` +${option.voters.length - 3} more`}
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {poll.anonymous ? "Anonymous poll · " : ""}{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}
+        {poll.closed ? " · Closed" : ""}
+      </p>
+    </div>
+  );
+}
+
 export function GroupPostsFeed({
-  groupId,
-  initialPosts,
+  groupId: _groupId,
+  timeline,
   isAdmin,
   currentUid,
+  onPollVoted,
 }: {
   groupId: string;
-  initialPosts: GroupPostProps[];
+  timeline: TimelineItem[];
   isAdmin: boolean;
   currentUid?: string;
+  onPollVoted?: (updated: PollProps) => void;
 }) {
-  const [posts, setPosts] = useState<GroupPostProps[]>(initialPosts);
+  const [localPosts, setLocalPosts] = useState<Record<string, GroupPostProps>>({});
 
-  const handleUpdate = (updated: GroupPostProps) => {
-    setPosts(prev => {
-      const next = prev.map(p => (p.id === updated.id ? updated : p));
-      // Keep pinned on top
-      return [
-        ...next.filter(p => p.isPinned),
-        ...next.filter(p => !p.isPinned),
-      ];
-    });
+  const getPost = (post: GroupPostProps) => localPosts[post.id] ?? post;
+
+  const handlePostUpdate = (updated: GroupPostProps) => {
+    setLocalPosts(prev => ({ ...prev, [updated.id]: updated }));
   };
 
-  // Expose addPost so composer can prepend
-  (GroupPostsFeed as unknown as { addPost?: (p: GroupPostProps) => void }).addPost = (p: GroupPostProps) => {
-    setPosts(prev => [p, ...prev]);
-  };
+  // Pinned posts bubble to top
+  const sorted = [...timeline].sort((a, b) => {
+    const aPinned = a.type === "post" && a.data.isPinned;
+    const bPinned = b.type === "post" && b.data.isPinned;
+    if (aPinned && !bPinned) return -1;
+    if (!aPinned && bPinned) return 1;
+    return 0;
+  });
 
-  if (posts.length === 0) {
+  if (sorted.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
         No posts yet — be the first to share something.
@@ -224,15 +352,23 @@ export function GroupPostsFeed({
 
   return (
     <div className="space-y-4">
-      {posts.map(post => (
-        <GroupPostCard
-          key={post.id}
-          post={post}
-          isAdmin={isAdmin}
-          currentUid={currentUid}
-          onUpdate={handleUpdate}
-        />
-      ))}
+      {sorted.map(item =>
+        item.type === "post" ? (
+          <GroupPostCard
+            key={`post-${item.data.id}`}
+            post={getPost(item.data)}
+            isAdmin={isAdmin}
+            currentUid={currentUid}
+            onUpdate={handlePostUpdate}
+          />
+        ) : (
+          <InlinePollCard
+            key={`poll-${item.data.id}`}
+            poll={item.data}
+            onVoted={updated => onPollVoted?.(updated)}
+          />
+        )
+      )}
     </div>
   );
 }
