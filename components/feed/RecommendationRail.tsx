@@ -22,7 +22,8 @@ import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { getFeedAction } from "@/app/actions/feed";
 import { getSuggestedMatches, getTopSavedPosts } from "@/app/actions/discover";
-import { listGroups, joinGroup, type GroupProps } from "@/app/actions/groups";
+import { getMyGroupMemberships, listGroups, joinGroup, type GroupProps } from "@/app/actions/groups";
+import { useGroupMembershipStore } from "@/lib/store/useGroupMembershipStore";
 import { listUpcomingEvents, rsvpToEvent, type EventProps } from "@/app/actions/events";
 import { listProductsPage, type PostProductProps } from "@/app/actions/posts";
 import { hasVideoMedia } from "@/lib/video-viewer-queue.mjs";
@@ -390,7 +391,12 @@ function MatchesRail({ title, description, icon }: { title: string; description:
 function GroupsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
   const currentUser = useUserStore(state => state.user);
   const [groups, setGroups] = useState<GroupProps[] | null>(null);
-  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+  // Shared across this rail, the /discover/groups list, and the group
+  // detail page — without it, joining here didn't show up on the list (or
+  // vice versa), and a fresh mount always showed "Join" even for groups
+  // already joined, same bug already fixed on GroupsListClient.
+  const joinedIds = useGroupMembershipStore(state => state.joinedIds);
+  const requestedIds = useGroupMembershipStore(state => state.requestedIds);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -402,22 +408,27 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
       .catch(() => {
         if (active) setGroups([]);
       });
+    void getMyGroupMemberships()
+      .then(({ joinedIds, requestedIds }) => {
+        if (active) useGroupMembershipStore.getState().setInitial(joinedIds, requestedIds);
+      })
+      .catch(err => console.error("getMyGroupMemberships failed:", err));
     return () => {
       active = false;
     };
   }, [currentUser?.uid]);
 
   const handleJoin = async (groupId: string) => {
-    setJoinedIds(prev => new Set(prev).add(groupId));
     try {
-      await joinGroup(groupId);
-      toast.success("Joined group");
+      const result = await joinGroup(groupId);
+      if (result.status === "requested") {
+        useGroupMembershipStore.getState().markRequested(groupId);
+        toast.success("Join request sent");
+      } else {
+        useGroupMembershipStore.getState().markJoined(groupId);
+        toast.success("Joined group");
+      }
     } catch {
-      setJoinedIds(prev => {
-        const next = new Set(prev);
-        next.delete(groupId);
-        return next;
-      });
       toast.error("Failed to join group");
     }
   };
@@ -443,8 +454,12 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
             avatarFallback={group.name}
             title={group.name}
             subtitle={`${group.membersCount} member${group.membersCount === 1 ? "" : "s"}`}
-            actionLabel="Join"
-            actionDone={joinedIds.has(group.id) || group.ownerUid === currentUser?.uid}
+            actionLabel={group.joinPolicy === "open" ? "Join" : "Request"}
+            actionDone={
+              joinedIds.has(group.id) ||
+              requestedIds.has(group.id) ||
+              group.ownerUid === currentUser?.uid
+            }
             onAction={() => handleJoin(group.id)}
           />
         ))
