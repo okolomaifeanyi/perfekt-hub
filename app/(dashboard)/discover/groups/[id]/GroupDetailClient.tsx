@@ -376,6 +376,7 @@ export function GroupDetailClient({
           <GroupPostsFeed
             timeline={timeline}
             isAdmin={isAdmin}
+            isMember={isMember}
             currentUid={currentUid}
             onPollVoted={(updatedPoll) =>
               setPolls(prev => prev.map(p => p.id === updatedPoll.id ? updatedPoll : p))

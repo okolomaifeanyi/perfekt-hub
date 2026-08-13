@@ -205,15 +205,21 @@ function GroupPostCard({
 
 function InlinePollCard({
   poll,
+  isMember,
   onVoted,
 }: {
   poll: PollProps;
+  isMember: boolean;
   onVoted: (updated: PollProps) => void;
 }) {
   const [voting, setVoting] = useState<string | null>(null);
   const hasVoted = !!poll.myVoteOptionId;
 
   const handleVote = async (optionId: string) => {
+    if (!isMember) {
+      toast.error("Join the group to vote on this poll");
+      return;
+    }
     setVoting(optionId);
     try {
       await votePoll(poll.id, optionId);
@@ -319,7 +325,7 @@ function InlinePollCard({
 
       <p className="text-xs text-muted-foreground">
         {poll.anonymous ? "Anonymous poll · " : ""}{poll.totalVotes} vote{poll.totalVotes === 1 ? "" : "s"}
-        {poll.closed ? " · Closed" : ""}
+        {poll.closed ? " · Closed" : !isMember ? " · Join the group to vote" : ""}
       </p>
     </div>
   );
@@ -328,11 +334,13 @@ function InlinePollCard({
 export function GroupPostsFeed({
   timeline,
   isAdmin,
+  isMember,
   currentUid,
   onPollVoted,
 }: {
   timeline: TimelineItem[];
   isAdmin: boolean;
+  isMember: boolean;
   currentUid?: string;
   onPollVoted?: (updated: PollProps) => void;
 }) {
@@ -376,6 +384,7 @@ export function GroupPostsFeed({
           <InlinePollCard
             key={`poll-${item.data.id}`}
             poll={item.data}
+            isMember={isMember}
             onVoted={updated => onPollVoted?.(updated)}
           />
         )

@@ -232,6 +232,31 @@ export async function votePoll(pollId: string, optionId: string): Promise<void> 
   if (!uid) throw new Error("Unauthorized");
 
   await withSupabaseRequestContext(async client => {
+    // The DB already refuses this vote via RLS/constraints when the poll is
+    // closed or the caller isn't a group member (group_poll_votes_own_insert
+    // requires both), but that surfaces as a raw "row-level security policy"
+    // Postgres error. Check both up front so the UI can show something a
+    // user can actually act on instead.
+    const { data: pollRow, error: pollError } = await client
+      .from("group_polls")
+      .select("groupid, closed")
+      .eq("id", pollId)
+      .maybeSingle();
+    if (pollError) throw pollError;
+    if (!pollRow) throw new Error("Poll not found");
+    if ((pollRow as { closed: boolean }).closed) {
+      throw new Error("This poll is closed");
+    }
+
+    const { data: membership, error: membershipError } = await client
+      .from("group_members")
+      .select("uid")
+      .eq("groupid", (pollRow as { groupid: string }).groupid)
+      .eq("uid", uid)
+      .maybeSingle();
+    if (membershipError) throw membershipError;
+    if (!membership) throw new Error("Join the group to vote on this poll");
+
     // Belt and suspenders alongside the composite FK + RLS check on
     // group_poll_votes: confirm the option actually belongs to this poll
     // before writing, so a mismatched pair fails with a clear message here
