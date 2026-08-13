@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Settings, Trash2 } from "lucide-react";
+import { Settings, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { deleteGroup, updateGroupSettings, type GroupProps } from "@/app/actions/groups";
-import { uploadToCloudinary } from "@/components/post-composer/utils";
+import EditImageButton from "@/app/(dashboard)/[username]/components/EditImageButton";
 
 export function GroupSettingsDialog({ group }: { group: GroupProps }) {
   const router = useRouter();
@@ -34,43 +34,14 @@ export function GroupSettingsDialog({ group }: { group: GroupProps }) {
   const [photoURL, setPhotoURL] = useState(group.photoURL);
   const [wallURL, setWallURL] = useState(group.wallURL);
   const [joinPolicy, setJoinPolicy] = useState<"open" | "admin">(group.joinPolicy ?? "open");
+  const [defaultPostVisibility, setDefaultPostVisibility] = useState<"public" | "private">(group.defaultPostVisibility ?? "public");
   const [saving, setSaving] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [uploadingWall, setUploadingWall] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const wallInputRef = useRef<HTMLInputElement>(null);
-
-  const handlePhotoSelected = async (file: File | undefined) => {
-    if (!file) return;
-    setUploadingPhoto(true);
-    try {
-      const result = await uploadToCloudinary(file);
-      setPhotoURL(result.secure_url);
-    } catch {
-      toast.error("Failed to upload photo");
-    } finally {
-      setUploadingPhoto(false);
-    }
-  };
-
-  const handleWallSelected = async (file: File | undefined) => {
-    if (!file) return;
-    setUploadingWall(true);
-    try {
-      const result = await uploadToCloudinary(file);
-      setWallURL(result.secure_url);
-    } catch {
-      toast.error("Failed to upload wall image");
-    } finally {
-      setUploadingWall(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateGroupSettings(group.id, { name, description, photoURL, wallURL, joinPolicy });
+      await updateGroupSettings(group.id, { name, description, photoURL, wallURL, joinPolicy, defaultPostVisibility });
       toast.success("Group settings updated");
       setOpen(false);
       router.refresh();
@@ -111,75 +82,36 @@ export function GroupSettingsDialog({ group }: { group: GroupProps }) {
           {/* Wall / cover image */}
           <div className="space-y-1.5">
             <Label>Cover image</Label>
-            <button
-              type="button"
-              onClick={() => wallInputRef.current?.click()}
-              className="relative h-28 w-full overflow-hidden rounded-lg border bg-muted flex items-center justify-center text-xs text-muted-foreground hover:bg-muted/80 transition-colors"
-              aria-label="Change cover image"
-            >
+            <div className="relative h-28 w-full overflow-hidden rounded-lg border bg-muted">
               {wallURL ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={wallURL} alt="" className="size-full object-cover" />
               ) : (
-                "Click to upload cover image"
-              )}
-              {uploadingWall && (
-                <span className="absolute inset-0 flex items-center justify-center bg-background/70">
-                  <Loader2 className="size-5 animate-spin" />
+                <span className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                  Click the camera to upload cover image
                 </span>
               )}
-            </button>
-            <input
-              ref={wallInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={e => {
-                void handleWallSelected(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
+              <EditImageButton
+                onChange={url => setWallURL(url)}
+                uid={`${group.id}-wall`}
+                type="coverImage"
+                position="bottom-right"
+              />
+            </div>
           </div>
 
           {/* Avatar */}
           <div className="space-y-1.5">
             <Label>Group photo</Label>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                className="relative size-16 shrink-0 overflow-hidden rounded-full border bg-muted"
-                aria-label="Change group photo"
-              >
-                {photoURL && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photoURL} alt="" className="size-full object-cover" />
-                )}
-                {uploadingPhoto && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-background/70">
-                    <Loader2 className="size-5 animate-spin" />
-                  </span>
-                )}
-              </button>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => {
-                  void handlePhotoSelected(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
+            <div className="relative size-16">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {photoURL && <img src={photoURL} alt="" className="size-16 rounded-full object-cover" />}
+              <EditImageButton
+                onChange={url => setPhotoURL(url)}
+                uid={group.id}
+                type="avatar"
+                position="bottom-right"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={uploadingPhoto}
-              >
-                Change photo
-              </Button>
             </div>
           </div>
 
@@ -212,6 +144,19 @@ export function GroupSettingsDialog({ group }: { group: GroupProps }) {
               <SelectContent>
                 <SelectItem value="open">Anyone can join</SelectItem>
                 <SelectItem value="admin">Requires admin approval</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Default post visibility</Label>
+            <Select value={defaultPostVisibility} onValueChange={v => setDefaultPostVisibility(v as "public" | "private")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public (visible to everyone)</SelectItem>
+                <SelectItem value="private">Members only</SelectItem>
               </SelectContent>
             </Select>
           </div>

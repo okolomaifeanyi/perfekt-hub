@@ -144,7 +144,7 @@ const Messages = forwardRef<HTMLDivElement, MessagesProps>(
     const [chatTouched, setChatTouched] = useState("");
 
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-2 w-full pt-2">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-2 w-full pt-12">
         <a href={`#${pinnedMessage?.id}`} className="bg-secondary! mb-2! block">
           {pinnedMessage && (
             <div className="px-3 py-2 flex items-center gap-2 text-sm">

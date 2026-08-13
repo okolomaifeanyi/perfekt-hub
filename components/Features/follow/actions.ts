@@ -152,7 +152,7 @@ export async function getSmartSuggestions(
           );
           if (nameScore > 0.5) score += nameScore > 0.7 ? 12 : 8;
 
-          // Age match (Â±10 years)
+          // Age match (±10 years)
           if (myAge && data.dob) {
             const theirAge = calculateAge(data.dob);
             if (theirAge) {

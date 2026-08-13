@@ -1,20 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CalendarDays,
   Check,
-  ChevronDown,
-  Crown,
   Globe,
   Lock,
   LogOut,
-  MoreVertical,
-  ShieldMinus,
-  ShieldPlus,
-  UserMinus,
   Users,
   X,
 } from "lucide-react";
@@ -22,13 +16,8 @@ import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGroupStore } from "@/lib/store/useGroupStore";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import {
@@ -36,8 +25,6 @@ import {
   joinGroup,
   leaveGroup,
   rejectJoinRequest,
-  removeMember,
-  setMemberRole,
   type GroupDetail,
   type GroupFileProps,
   type GroupMemberProps,
@@ -46,12 +33,9 @@ import {
 } from "@/app/actions/groups";
 import type { PollProps } from "@/app/actions/polls";
 import { GroupSettingsDialog } from "./GroupSettingsDialog";
-import { GroupPolls } from "./GroupPolls";
 import { GroupPostComposer } from "./GroupPostComposer";
 import { GroupPostsFeed } from "./GroupPostsFeed";
 import { GroupFiles } from "./GroupFiles";
-
-const MEMBERS_PREVIEW = 5;
 
 export function GroupDetailClient({
   detail,
@@ -69,26 +53,47 @@ export function GroupDetailClient({
   const router = useRouter();
   const currentUid = useUserStore(state => state.user?.uid);
   const currentUser = useUserStore(state => state.user);
-  const [members, setMembers] = useState<GroupMemberProps[]>(
-    // Sort: online first, then admins, then by name
-    [...detail.members].sort((a, b) => {
-      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
-      if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
-      return (a.fullName || a.username).localeCompare(b.fullName || b.username);
-    })
-  );
+  const { setGroupContext, clearGroupContext } = useGroupStore();
+
   const [membersCount, setMembersCount] = useState(detail.group.membersCount);
   const [joinRequests, setJoinRequests] = useState<JoinRequestProps[]>(initialJoinRequests);
   const [posts, setPosts] = useState<GroupPostProps[]>(initialPosts);
+  const [polls, setPolls] = useState<PollProps[]>(initialPolls);
   const [busy, setBusy] = useState(false);
-  const [showAllMembers, setShowAllMembers] = useState(false);
   const [requestPending, setRequestPending] = useState(false);
+  // localMyRole is derived from the server data; it starts as the server-known
+  // role (or null) and is updated optimistically after join/leave actions.
+  // We also fall back to detail.myRole (passed directly from the server) which
+  // is already resolved, so if the user store is slow to hydrate we still have it.
+  const [localMyRole, setLocalMyRole] = useState<"admin" | "member" | null>(
+    detail.myRole ?? detail.members.find(m => m.uid === currentUid)?.role ?? null
+  );
 
-  const myRole = members.find(m => m.uid === currentUid)?.role ?? null;
+  // If the user store was not hydrated at initial render, sync once it is.
+  useEffect(() => {
+    if (localMyRole !== null || !currentUid) return;
+    const roleFromMembers = detail.members.find(m => m.uid === currentUid)?.role ?? detail.myRole ?? null;
+    if (roleFromMembers !== null) setLocalMyRole(roleFromMembers);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUid]);
+
+  // Sorted: online first, then admins, then alphabetical
+  const sortedMembers = [...detail.members].sort((a, b) => {
+    if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+    if (a.role !== b.role) return a.role === "admin" ? -1 : 1;
+    return (a.fullName || a.username).localeCompare(b.fullName || b.username);
+  });
+
+  // Push group context to the aside store on mount, clear on unmount
+  useEffect(() => {
+    setGroupContext(detail.group, sortedMembers, detail.myRole);
+    return () => clearGroupContext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const myRole = localMyRole;
   const isMember = !!myRole;
   const isAdmin = myRole === "admin";
-
-  const displayedMembers = showAllMembers ? members : members.slice(0, MEMBERS_PREVIEW);
 
   const handleJoin = async () => {
     setBusy(true);
@@ -98,8 +103,21 @@ export function GroupDetailClient({
         setRequestPending(true);
         toast.success("Join request sent — waiting for admin approval");
       } else {
+        // Optimistic update — no page refresh needed
+        setLocalMyRole("member");
+        setMembersCount(prev => prev + 1);
+        const newMember = {
+          uid: currentUid ?? "",
+          role: "member" as const,
+          joinedAt: new Date().toISOString(),
+          username: currentUser?.username ?? "",
+          fullName: currentUser?.fullName ?? "",
+          photoURL: currentUser?.photoURL ?? null,
+          isOnline: true,
+        };
+        const updatedMembers = [newMember, ...useGroupStore.getState().members];
+        useGroupStore.getState().updateMembers(updatedMembers);
         toast.success("Joined group");
-        router.refresh();
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to join group");
@@ -113,34 +131,16 @@ export function GroupDetailClient({
     setBusy(true);
     try {
       await leaveGroup(detail.group.id);
+      // Optimistic update
+      setLocalMyRole(null);
+      setMembersCount(prev => Math.max(0, prev - 1));
+      const updatedMembers = useGroupStore.getState().members.filter(m => m.uid !== currentUid);
+      useGroupStore.getState().updateMembers(updatedMembers);
       toast.success("Left group");
       router.push("/discover/groups");
-      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to leave group");
       setBusy(false);
-    }
-  };
-
-  const handleRemove = async (targetUid: string) => {
-    if (!confirm("Remove this member from the group?")) return;
-    try {
-      await removeMember(detail.group.id, targetUid);
-      setMembers(prev => prev.filter(m => m.uid !== targetUid));
-      setMembersCount(prev => Math.max(0, prev - 1));
-      toast.success("Member removed");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to remove member");
-    }
-  };
-
-  const handleRoleChange = async (targetUid: string, role: "admin" | "member") => {
-    try {
-      await setMemberRole(detail.group.id, targetUid, role);
-      setMembers(prev => prev.map(m => (m.uid === targetUid ? { ...m, role } : m)));
-      toast.success(role === "admin" ? "Promoted to admin" : "Removed as admin");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update role");
     }
   };
 
@@ -149,8 +149,27 @@ export function GroupDetailClient({
       await approveJoinRequest(detail.group.id, req.uid);
       setJoinRequests(prev => prev.filter(r => r.uid !== req.uid));
       setMembersCount(prev => prev + 1);
+      // Update Zustand store so the aside members list reflects immediately
+      const newMember: GroupMemberProps = {
+        uid: req.uid,
+        role: "member",
+        joinedAt: new Date().toISOString(),
+        username: req.username ?? "",
+        fullName: req.fullName ?? "",
+        photoURL: req.photoURL ?? null,
+        isOnline: false,
+      };
+      const currentMembers = useGroupStore.getState().members;
+      const alreadyInList = currentMembers.some(m => m.uid === req.uid);
+      if (!alreadyInList) {
+        useGroupStore.getState().updateMembers([...currentMembers, newMember]);
+      } else {
+        // Was pending/unapproved — already showing but was pending; refresh list
+        useGroupStore.getState().updateMembers(
+          currentMembers.map(m => m.uid === req.uid ? { ...m, role: "member" } : m)
+        );
+      }
       toast.success(`${req.username ?? "User"} approved`);
-      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
     }
@@ -166,277 +185,200 @@ export function GroupDetailClient({
     }
   };
 
+  // Unified timeline: posts and polls interleaved by creation date (newest first)
+  type TimelineItem =
+    | { type: "post"; data: GroupPostProps }
+    | { type: "poll"; data: PollProps };
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [
+      ...posts.map(p => ({ type: "post" as const, data: p })),
+      ...polls.map(p => ({ type: "poll" as const, data: p })),
+    ];
+    items.sort((a, b) => {
+      const da = new Date(a.data.createdAt).getTime();
+      const db = new Date(b.data.createdAt).getTime();
+      return db - da;
+    });
+    return items;
+  }, [posts, polls]);
+
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      {/* Main column */}
-      <div className="min-w-0 flex-1 space-y-6">
-        {/* Group header with wall image */}
-        <div className="overflow-hidden rounded-xl border bg-card">
-          {detail.group.wallURL && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={detail.group.wallURL}
-              alt=""
-              className="h-36 w-full object-cover sm:h-48"
-            />
-          )}
-          <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-end gap-4">
-              <Avatar
-                className={`size-20 shrink-0 border-4 border-background ${detail.group.wallURL ? "-mt-10" : ""}`}
-              >
-                {detail.group.photoURL && (
-                  <AvatarImage src={detail.group.photoURL} alt="" />
+    <div className="space-y-0">
+      {/* Cover / wall image — full bleed */}
+      {detail.group.wallURL ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={detail.group.wallURL}
+          alt=""
+          className="h-44 w-full object-cover sm:h-56 rounded-xl"
+        />
+      ) : (
+        <div className="h-24 w-full rounded-xl bg-gradient-to-br from-primary/20 to-primary/5" />
+      )}
+
+      {/* Identity bar: avatar + name + actions */}
+      <div className="flex flex-col gap-3 px-1 pt-0 sm:flex-row sm:items-end sm:justify-between -mt-10 sm:-mt-12">
+        <div className="flex items-end gap-4">
+          <Avatar className="size-20 sm:size-24 shrink-0 border-4 border-background ring-2 ring-background shadow-md">
+            {detail.group.photoURL && (
+              <AvatarImage src={detail.group.photoURL} alt="" />
+            )}
+            <AvatarFallback className="text-3xl font-bold bg-primary/10">
+              {detail.group.name.slice(0, 1).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="pb-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg font-bold leading-tight sm:text-xl">
+                {detail.group.name}
+              </h1>
+              <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                {detail.group.joinPolicy === "open" ? (
+                  <Globe className="size-3" />
+                ) : (
+                  <Lock className="size-3" />
                 )}
-                <AvatarFallback className="text-2xl font-bold">
-                  {detail.group.name.slice(0, 1).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-semibold">{detail.group.name}</h1>
-                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-                    {detail.group.joinPolicy === "open" ? (
-                      <Globe className="size-3" />
-                    ) : (
-                      <Lock className="size-3" />
-                    )}
-                    {detail.group.joinPolicy === "open" ? "Open" : "Admin approval"}
-                  </Badge>
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="size-3.5" />
-                    {membersCount} member{membersCount === 1 ? "" : "s"}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <CalendarDays className="size-3.5" />
-                    Created {format(new Date(detail.group.createdAt), "MMM d, yyyy")}
-                  </span>
-                </div>
-                {detail.group.description && (
-                  <p className="mt-1.5 max-w-lg text-sm text-muted-foreground">
-                    {detail.group.description}
-                  </p>
-                )}
-              </div>
+                {detail.group.joinPolicy === "open" ? "Open" : "Admin approval"}
+              </Badge>
             </div>
 
-            <div className="flex shrink-0 gap-2">
-              {isAdmin && <GroupSettingsDialog group={detail.group} />}
-              {isMember ? (
-                <Button variant="destructive" size="sm" onClick={handleLeave} disabled={busy}>
-                  <LogOut className="mr-1.5 size-4" />
-                  Leave
-                </Button>
-              ) : requestPending ? (
-                <Button size="sm" variant="outline" disabled>
-                  Request pending
-                </Button>
-              ) : (
-                <Button size="sm" onClick={handleJoin} disabled={busy}>
-                  Join group
-                </Button>
-              )}
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Users className="size-3" />
+                {membersCount} member{membersCount === 1 ? "" : "s"}
+              </span>
+              <span className="flex items-center gap-1">
+                <CalendarDays className="size-3" />
+                {format(new Date(detail.group.createdAt), "MMM d, yyyy")}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Admin: join requests */}
-        {isAdmin && joinRequests.length > 0 && (
-          <div className="rounded-xl border bg-card p-4 space-y-3">
-            <h2 className="text-sm font-semibold">
-              Join requests ({joinRequests.length})
-            </h2>
-            <div className="space-y-2">
-              {joinRequests.map(req => (
-                <div key={req.uid} className="flex items-center gap-3">
-                  <Avatar className="size-8 shrink-0">
-                    <AvatarImage
-                      src={
-                        req.photoURL ||
-                        userAltImageUrl({ name: req.fullName || req.username || "" })
-                      }
-                      alt=""
-                    />
-                    <AvatarFallback>
-                      {(req.fullName || req.username || "U").slice(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {req.fullName || req.username}
-                    </p>
-                    <p className="text-xs text-muted-foreground">@{req.username}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7 text-green-600 border-green-600"
-                    onClick={() => void handleApproveRequest(req)}
-                  >
-                    <Check className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="size-7 text-destructive border-destructive"
-                    onClick={() => void handleRejectRequest(req)}
-                  >
-                    <X className="size-3.5" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tabs: Posts / Polls / Files */}
-        <Tabs defaultValue="posts">
-          <TabsList>
-            <TabsTrigger value="posts">Posts</TabsTrigger>
-            {isMember && <TabsTrigger value="polls">Polls</TabsTrigger>}
-            {isMember && <TabsTrigger value="files">Files</TabsTrigger>}
-          </TabsList>
-
-          <TabsContent value="posts" className="mt-4 space-y-4">
-            {isMember && (
-              <GroupPostComposer
-                groupId={detail.group.id}
-                myPhotoURL={currentUser?.photoURL}
-                myName={currentUser?.fullName || currentUser?.username}
-                onPosted={post => setPosts(prev => [post, ...prev])}
-              />
-            )}
-            <GroupPostsFeed
-              groupId={detail.group.id}
-              initialPosts={posts}
-              isAdmin={isAdmin}
-              currentUid={currentUid}
-            />
-          </TabsContent>
-
-          {isMember && (
-            <TabsContent value="polls" className="mt-4">
-              <GroupPolls groupId={detail.group.id} initialPolls={initialPolls} />
-            </TabsContent>
-          )}
-
-          {isMember && (
-            <TabsContent value="files" className="mt-4">
-              <GroupFiles
-                groupId={detail.group.id}
-                initialFiles={initialFiles}
-                isAdmin={isAdmin}
-                currentUid={currentUid}
-                isMember={isMember}
-              />
-            </TabsContent>
-          )}
-        </Tabs>
-      </div>
-
-      {/* Members sidebar */}
-      <aside className="lg:w-72 xl:w-80 shrink-0">
-        <div className="rounded-xl border bg-card p-4 space-y-3">
-          <h2 className="text-sm font-semibold flex items-center gap-1.5">
-            <Users className="size-4" />
-            Members ({membersCount})
-            {members.filter(m => m.isOnline).length > 0 && (
-              <span className="ml-auto flex items-center gap-1 text-xs text-green-500 font-normal">
-                <span className="size-1.5 rounded-full bg-green-500 inline-block" />
-                {members.filter(m => m.isOnline).length} online
-              </span>
-            )}
-          </h2>
-          <div className="space-y-2">
-            {displayedMembers.map(member => (
-              <div key={member.uid} className="flex items-center gap-2.5">
-                <div className="relative shrink-0">
-                  <Avatar className="size-8">
-                    <AvatarImage
-                      src={
-                        member.photoURL ||
-                        userAltImageUrl({ name: member.fullName || member.username })
-                      }
-                      alt=""
-                    />
-                    <AvatarFallback className="text-xs">
-                      {(member.fullName || member.username || "U").slice(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {member.isOnline && (
-                    <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-green-500 ring-2 ring-background" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">
-                    {member.fullName || member.username}
-                  </p>
-                  {member.role === "admin" && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-primary">
-                      <Crown className="size-2.5" />
-                      Admin
-                    </span>
-                  )}
-                </div>
-                {isAdmin && member.uid !== currentUid && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-6 shrink-0">
-                        <MoreVertical className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {member.role === "admin" ? (
-                        <DropdownMenuItem
-                          className="gap-2 text-xs"
-                          onClick={() => handleRoleChange(member.uid, "member")}
-                        >
-                          <ShieldMinus className="size-3.5" />
-                          Remove as admin
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          className="gap-2 text-xs"
-                          onClick={() => handleRoleChange(member.uid, "admin")}
-                        >
-                          <ShieldPlus className="size-3.5" />
-                          Make admin
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem
-                        variant="destructive"
-                        className="gap-2 text-xs"
-                        onClick={() => handleRemove(member.uid)}
-                      >
-                        <UserMinus className="size-3.5" />
-                        Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {members.length > MEMBERS_PREVIEW && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-xs"
-              onClick={() => setShowAllMembers(v => !v)}
-            >
-              <ChevronDown
-                className={`mr-1.5 size-3.5 transition-transform ${showAllMembers ? "rotate-180" : ""}`}
-              />
-              {showAllMembers
-                ? "Show less"
-                : `Show ${members.length - MEMBERS_PREVIEW} more`}
+        <div className="flex shrink-0 items-center gap-2 pb-1">
+          {isAdmin && <GroupSettingsDialog group={detail.group} />}
+          {isMember ? (
+            <Button variant="destructive" size="sm" onClick={handleLeave} disabled={busy}>
+              <LogOut className="mr-1.5 size-4" />
+              Leave
+            </Button>
+          ) : requestPending ? (
+            <Button size="sm" variant="outline" disabled>
+              Request pending…
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleJoin} disabled={busy}>
+              Join group
             </Button>
           )}
         </div>
-      </aside>
+      </div>
+
+      {/* Description */}
+      {detail.group.description && (
+        <p className="px-1 pt-3 text-sm text-muted-foreground leading-relaxed">
+          {detail.group.description}
+        </p>
+      )}
+
+      {/* Divider */}
+      <div className="my-4 border-t" />
+
+      {/* Admin: join requests */}
+      {isAdmin && joinRequests.length > 0 && (
+        <div className="mb-4 rounded-xl border bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold">
+            Join requests ({joinRequests.length})
+          </h2>
+          <div className="space-y-2">
+            {joinRequests.map(req => (
+              <div key={req.uid} className="flex items-center gap-3">
+                <Avatar className="size-9 shrink-0">
+                  <AvatarImage
+                    src={
+                      req.photoURL ||
+                      userAltImageUrl({ name: req.fullName || req.username || "" })
+                    }
+                    alt=""
+                  />
+                  <AvatarFallback>
+                    {(req.fullName || req.username || "U").slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {req.fullName || req.username}
+                  </p>
+                  <p className="text-xs text-muted-foreground">@{req.username}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8 text-green-600 border-green-600 hover:bg-green-50"
+                  onClick={() => void handleApproveRequest(req)}
+                  title="Approve"
+                >
+                  <Check className="size-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8 text-destructive border-destructive hover:bg-destructive/10"
+                  onClick={() => void handleRejectRequest(req)}
+                  title="Reject"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tabs: Posts / Files */}
+      <Tabs defaultValue="posts">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="posts">Posts</TabsTrigger>
+          {isMember && <TabsTrigger value="files">Files</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="posts" className="mt-4 space-y-4">
+          {isMember && (
+            <GroupPostComposer
+              groupId={detail.group.id}
+              myPhotoURL={currentUser?.photoURL}
+              myName={currentUser?.fullName || currentUser?.username}
+              defaultVisibility={detail.group.defaultPostVisibility ?? "public"}
+              onPosted={post => setPosts(prev => [post, ...prev])}
+              onPollCreated={poll => setPolls(prev => [poll, ...prev])}
+            />
+          )}
+          <GroupPostsFeed
+            groupId={detail.group.id}
+            timeline={timeline}
+            isAdmin={isAdmin}
+            currentUid={currentUid}
+            onPollVoted={(updatedPoll) =>
+              setPolls(prev => prev.map(p => p.id === updatedPoll.id ? updatedPoll : p))
+            }
+          />
+        </TabsContent>
+
+        {isMember && (
+          <TabsContent value="files" className="mt-4">
+            <GroupFiles
+              groupId={detail.group.id}
+              initialFiles={initialFiles}
+              isAdmin={isAdmin}
+              currentUid={currentUid}
+              isMember={isMember}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

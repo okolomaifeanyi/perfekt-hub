@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, Phone } from "lucide-react";
+import { ChevronDown, Crown, MessageCircle, MoreVertical, Phone, ShieldMinus, ShieldPlus, UserMinus, Users } from "lucide-react";
 
 import WhoToFollow from "./Features/follow/WhoToFollow";
 import RecommendationRail from "@/components/feed/RecommendationRail";
@@ -16,10 +16,20 @@ import { getUser } from "@/lib/data";
 import { useUserConnections } from "@/hooks/UserConnections";
 import { useConversations } from "@/hooks/useConversations";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { useGroupStore } from "@/lib/store/useGroupStore";
+import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { UserProps } from "@/lib/types";
 import ConversationRow from "@/app/(dashboard)/messages/Conversation";
 import NewConversationDialog from "@/components/inbox/NewConversationDialog";
+import { removeMember, setMemberRole } from "@/app/actions/groups";
+import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function MessagesAside() {
   const { conversations, loaded, user } = useConversations();
@@ -83,6 +93,189 @@ function getFriendStatus(user: UserProps): FriendPreview["status"] {
   return "offline";
 }
 
+const MEMBERS_PREVIEW = 8;
+
+function VideoQueueAside() {
+  const { queue, activeIndex, setActiveIndex } = useVideoQueueStore();
+
+  if (queue.length === 0) {
+    return (
+      <div className="flex w-full flex-col items-center justify-center p-6 text-center">
+        <p className="text-sm text-muted-foreground">Loading queue…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+        <p className="text-sm font-semibold">Up next</p>
+        <span className="text-xs text-muted-foreground">{queue.length} videos</span>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {queue.map((post, index) => {
+          const thumb = post.media?.find(m => m.type === "video")?.src ?? null;
+          const isActive = index === activeIndex;
+          return (
+            <button
+              key={post.id}
+              type="button"
+              onClick={() => {
+                setActiveIndex(index);
+                // Scroll the video feed section into view via a custom event
+                window.dispatchEvent(new CustomEvent("video-queue-jump", { detail: { index } }));
+              }}
+              className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-muted/50 ${isActive ? "bg-muted" : ""}`}
+            >
+              <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+                {thumb && (
+                  <video
+                    src={thumb}
+                    className="h-full w-full object-cover"
+                    muted
+                    preload="metadata"
+                  />
+                )}
+                {isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <span className="size-3 rounded-full bg-primary animate-pulse" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="truncate text-xs font-medium">@{post.username}</p>
+                <p className="line-clamp-2 mt-0.5 text-xs leading-snug text-muted-foreground">
+                  {post.content || "Video"}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GroupMembersAside() {
+  const currentUid = useUserStore(state => state.user?.uid);
+  const { group, members, myRole, updateMembers } = useGroupStore();
+  const [showAll, setShowAll] = useState(false);
+
+  const isAdmin = myRole === "admin";
+  const displayed = showAll ? members : members.slice(0, MEMBERS_PREVIEW);
+  const onlineCount = members.filter(m => m.isOnline).length;
+
+  const handleRemove = async (targetUid: string) => {
+    if (!group) return;
+    if (!confirm("Remove this member?")) return;
+    try {
+      await removeMember(group.id, targetUid);
+      updateMembers(members.filter(m => m.uid !== targetUid));
+      toast.success("Member removed");
+    } catch {
+      toast.error("Failed to remove member");
+    }
+  };
+
+  const handleRoleChange = async (targetUid: string, role: "admin" | "member") => {
+    if (!group) return;
+    try {
+      await setMemberRole(group.id, targetUid, role);
+      updateMembers(members.map(m => m.uid === targetUid ? { ...m, role } : m));
+      toast.success(role === "admin" ? "Promoted to admin" : "Removed as admin");
+    } catch {
+      toast.error("Failed to update role");
+    }
+  };
+
+  if (!group) return null;
+
+  return (
+    <div className="flex w-full flex-col p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
+          <Users className="size-4" />
+          Members
+          <span className="text-sm font-normal text-muted-foreground">({group.membersCount})</span>
+        </h2>
+        {onlineCount > 0 && (
+          <span className="flex items-center gap-1 text-xs text-green-500">
+            <span className="size-1.5 rounded-full bg-green-500 inline-block" />
+            {onlineCount} online
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-1">
+        {displayed.map(member => (
+          <div key={member.uid} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors">
+            <div className="relative shrink-0">
+              <Avatar className="size-8">
+                <AvatarImage
+                  src={member.photoURL || userAltImageUrl({ name: member.fullName || member.username })}
+                  alt=""
+                />
+                <AvatarFallback className="text-xs">
+                  {(member.fullName || member.username || "U").slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {member.isOnline && (
+                <span className="absolute bottom-0 right-0 size-2 rounded-full bg-green-500 ring-1.5 ring-background" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium leading-tight">
+                {member.fullName || member.username}
+              </p>
+              <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                {member.role === "admin" && (
+                  <><Crown className="size-2.5 text-primary" /> Admin · </>
+                )}
+                @{member.username}
+              </p>
+            </div>
+            {isAdmin && member.uid !== currentUid && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-6 shrink-0 opacity-60 hover:opacity-100">
+                    <MoreVertical className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="text-xs">
+                  {member.role === "admin" ? (
+                    <DropdownMenuItem className="gap-2" onClick={() => void handleRoleChange(member.uid, "member")}>
+                      <ShieldMinus className="size-3.5" /> Remove as admin
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem className="gap-2" onClick={() => void handleRoleChange(member.uid, "admin")}>
+                      <ShieldPlus className="size-3.5" /> Make admin
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => void handleRemove(member.uid)}>
+                    <UserMinus className="size-3.5" /> Remove from group
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {members.length > MEMBERS_PREVIEW && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-xs"
+          onClick={() => setShowAll(v => !v)}
+        >
+          <ChevronDown className={`mr-1.5 size-3.5 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          {showAll ? "Show less" : `Show ${members.length - MEMBERS_PREVIEW} more`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export default function Aside() {
   const pathname = usePathname();
   const currentUser = useUserStore(state => state.user);
@@ -123,6 +316,14 @@ export default function Aside() {
 
   if (pathname?.startsWith("/messages")) {
     return <MessagesAside />;
+  }
+
+  if (pathname?.match(/^\/discover\/groups\/[^/]+/)) {
+    return <GroupMembersAside />;
+  }
+
+  if (pathname?.startsWith("/watch")) {
+    return <VideoQueueAside />;
   }
 
   return (
