@@ -482,7 +482,7 @@ function EventsRail({ title, description, icon }: { title: string; description: 
         events.map(event => (
           <ActionRow
             key={event.id}
-            href="/discover/events"
+            href={`/discover/events/${event.id}`}
             avatarFallback={event.title}
             title={event.title}
             subtitle={`${new Date(event.startTime).toLocaleDateString(undefined, {

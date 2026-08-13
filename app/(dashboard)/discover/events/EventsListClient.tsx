@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,28 +44,30 @@ export function EventsListClient({ events }: { events: EventProps[] }) {
         const isDone = rsvpedIds.has(event.id) || event.ownerUid === currentUid;
         return (
           <Card key={event.id} className="py-5">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-base">{event.title}</CardTitle>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p className="flex items-center gap-1.5">
-                  <CalendarDays className="size-3.5" />
-                  {new Date(event.startTime).toLocaleString(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
-                {event.location && (
+            <Link href={`/discover/events/${event.id}`} className="block">
+              <CardHeader className="space-y-2">
+                <CardTitle className="text-base hover:underline">{event.title}</CardTitle>
+                <div className="space-y-1 text-xs text-muted-foreground">
                   <p className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5" />
-                    {event.location}
+                    <CalendarDays className="size-3.5" />
+                    {new Date(event.startTime).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
-                )}
-                <p className="flex items-center gap-1.5">
-                  <Users className="size-3.5" />
-                  {event.attendeesCount} going
-                </p>
-              </div>
-            </CardHeader>
+                  {event.location && (
+                    <p className="flex items-center gap-1.5">
+                      <MapPin className="size-3.5" />
+                      {event.location}
+                    </p>
+                  )}
+                  <p className="flex items-center gap-1.5">
+                    <Users className="size-3.5" />
+                    {event.attendeesCount} going
+                  </p>
+                </div>
+              </CardHeader>
+            </Link>
             <CardContent className="space-y-3">
               {event.description && (
                 <p className="line-clamp-3 text-sm text-muted-foreground">

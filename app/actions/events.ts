@@ -148,3 +148,110 @@ export async function cancelRsvp(eventId: string): Promise<void> {
     await syncAttendeesCount(client, eventId);
   });
 }
+
+export type EventAttendeeProps = {
+  uid: string;
+  username: string;
+  fullName: string;
+  photoURL: string | null;
+};
+
+export type EventDetail = {
+  event: EventProps;
+  attendees: EventAttendeeProps[];
+  isAttending: boolean;
+};
+
+export async function getEventDetail(eventId: string): Promise<EventDetail | null> {
+  const { uid } = await getUserFromSession();
+
+  return withSupabaseRequestContext(async client => {
+    const { data: eventRow, error: eventError } = await client
+      .from("events")
+      .select("*")
+      .eq("id", eventId)
+      .maybeSingle();
+    if (eventError) throw eventError;
+    if (!eventRow) return null;
+
+    const { data: rsvpRows, error: rsvpError } = await client
+      .from("event_rsvps")
+      .select("uid, rsvpat, users:uid(username, fullname, photourl)")
+      .eq("eventid", eventId)
+      .order("rsvpat", { ascending: true });
+    if (rsvpError) throw rsvpError;
+
+    const attendees: EventAttendeeProps[] = (rsvpRows ?? []).map(row => {
+      const profile = (row.users ?? {}) as unknown as Record<string, unknown>;
+      return {
+        uid: row.uid as string,
+        username: (profile.username as string) ?? "",
+        fullName: (profile.fullname as string) ?? "",
+        photoURL: (profile.photourl as string) ?? null,
+      };
+    });
+
+    return {
+      event: mapEventRow(eventRow),
+      attendees,
+      isAttending: uid ? attendees.some(a => a.uid === uid) : false,
+    };
+  });
+}
+
+export async function updateEventSettings(
+  eventId: string,
+  input: {
+    title?: string;
+    description?: string;
+    location?: string;
+    startTime?: string;
+    isPrivate?: boolean;
+  }
+): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) {
+    if (!input.title.trim()) throw new Error("Event title is required");
+    patch.title = input.title.trim();
+  }
+  if (input.description !== undefined) patch.description = input.description.trim();
+  if (input.location !== undefined) patch.location = input.location.trim();
+  if (input.startTime !== undefined) {
+    if (Number.isNaN(new Date(input.startTime).getTime())) {
+      throw new Error("A valid start time is required");
+    }
+    patch.starttime = input.startTime;
+  }
+  if (input.isPrivate !== undefined) patch.isprivate = input.isPrivate;
+  if (Object.keys(patch).length === 0) return;
+
+  await withSupabaseRequestContext(async client => {
+    // RLS (events_update_owner) restricts this to the event's owner; an
+    // unauthorized caller's update simply matches zero rows.
+    const { data, error } = await client
+      .from("events")
+      .update(patch)
+      .eq("id", eventId)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only the event owner can edit it");
+  });
+}
+
+export async function deleteEvent(eventId: string): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withSupabaseRequestContext(async client => {
+    const { data, error } = await client
+      .from("events")
+      .delete()
+      .eq("id", eventId)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error("Only the event owner can delete it");
+  });
+}
