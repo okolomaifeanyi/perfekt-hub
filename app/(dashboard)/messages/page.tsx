@@ -7,6 +7,7 @@ import Conversation from "./Conversation";
 import NewConversationDialog from "@/components/inbox/NewConversationDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConversations } from "@/hooks/useConversations";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 function ConversationRowSkeleton() {
   return (
@@ -23,13 +24,19 @@ function ConversationRowSkeleton() {
 export default function InboxPage() {
   const { conversations, loaded, user, authReady } = useConversations();
   const router = useRouter();
+  // Matches Main.tsx's `hidden lg:block` on the Aside — auto-opening a
+  // conversation only makes sense in the two-pane desktop layout where the
+  // list stays visible in the sidebar. Below that breakpoint there's no
+  // sidebar list, so redirecting immediately away from this page left
+  // mobile users unable to see their conversation list at all.
+  const isDesktopTwoPane = useMediaQuery("(min-width: 1024px)");
 
-  // Redirect to the latest conversation once loaded
+  // Redirect to the latest conversation once loaded, desktop only
   useEffect(() => {
-    if (loaded && conversations.length > 0) {
+    if (isDesktopTwoPane && loaded && conversations.length > 0) {
       router.replace(`/messages/${conversations[0].id}`);
     }
-  }, [loaded, conversations, router]);
+  }, [isDesktopTwoPane, loaded, conversations, router]);
 
   if (!authReady || !user) {
     return (
