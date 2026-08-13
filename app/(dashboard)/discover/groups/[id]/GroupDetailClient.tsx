@@ -37,6 +37,7 @@ import { GroupSettingsDialog } from "./GroupSettingsDialog";
 import { GroupPostComposer } from "./GroupPostComposer";
 import { GroupPostsFeed } from "./GroupPostsFeed";
 import { GroupFiles } from "./GroupFiles";
+import { GroupAudioRoom } from "@/components/groups/GroupAudioRoom";
 
 export function GroupDetailClient({
   detail,
@@ -299,6 +300,13 @@ export function GroupDetailClient({
         <p className="px-1 pt-3 text-sm text-muted-foreground leading-relaxed">
           {detail.group.description}
         </p>
+      )}
+
+      {/* Audio room — members only, same as posting */}
+      {isMember && (
+        <div className="pt-3">
+          <GroupAudioRoom groupId={detail.group.id} />
+        </div>
       )}
 
       {/* Divider */}

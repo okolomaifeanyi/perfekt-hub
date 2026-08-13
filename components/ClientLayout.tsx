@@ -17,6 +17,9 @@ import {
   buildSavedAccountFromSession,
   rememberSavedAccount,
 } from "@/lib/saved-accounts.mjs";
+import { StreamVideoProvider } from "@/components/calls/StreamVideoProvider";
+import { IncomingCallBanner } from "@/components/calls/IncomingCallBanner";
+import { ActiveCallBar } from "@/components/calls/ActiveCallBar";
 
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const {
@@ -234,6 +237,13 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
         )}
 
       {(isAuthPage || !globalLoading) && children}
+
+      {!isAuthPage && user && (
+        <StreamVideoProvider>
+          <IncomingCallBanner />
+          <ActiveCallBar />
+        </StreamVideoProvider>
+      )}
 
       <Toaster />
     </ThemeProvider>

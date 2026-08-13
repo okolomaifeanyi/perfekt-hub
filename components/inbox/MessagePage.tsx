@@ -26,6 +26,9 @@ import {
   getOtherConversationParticipant,
   parseDirectConversationId,
 } from "@/lib/conversation-utils.mjs";
+import { Phone } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useStartCall } from "@/hooks/useStartCall";
 
 export default function MessagePage({
   conversationId,
@@ -56,6 +59,7 @@ export default function MessagePage({
     user?.uid ?? ""
   );
   const targetUser = useUser(targetUid);
+  const { startDirectCall, ready: callReady } = useStartCall();
 
   /* ---- ensure conversation doc ---- */
   useEffect(() => {
@@ -159,21 +163,36 @@ export default function MessagePage({
           }
           title={targetUser?.fullName || targetUser?.username || "Someone"}
           extra={
-            targetUser?.online ? (
-              <span className="text-green-500">Online</span>
-            ) : targetUser?.lastSeen ? (
-              <span className="text-muted">
-                Last seen{" "}
-                {(targetUser.lastSeen instanceof Date
-                  ? targetUser.lastSeen
-                  : "toDate" in targetUser.lastSeen
-                  ? targetUser.lastSeen.toDate()
-                  : null
-                )?.toLocaleString() ?? "Unknown"}
-              </span>
-            ) : (
-              <span className="text-muted">Offline</span>
-            )
+            <div className="flex items-center gap-3">
+              {targetUser?.online ? (
+                <span className="text-green-500">Online</span>
+              ) : targetUser?.lastSeen ? (
+                <span className="text-muted">
+                  Last seen{" "}
+                  {(targetUser.lastSeen instanceof Date
+                    ? targetUser.lastSeen
+                    : "toDate" in targetUser.lastSeen
+                    ? targetUser.lastSeen.toDate()
+                    : null
+                  )?.toLocaleString() ?? "Unknown"}
+                </span>
+              ) : (
+                <span className="text-muted">Offline</span>
+              )}
+
+              {targetUid && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  title="Call"
+                  disabled={!callReady}
+                  onClick={() => void startDirectCall(targetUid)}
+                >
+                  <Phone className="size-4" />
+                </Button>
+              )}
+            </div>
           }
         />
 
