@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
 
 const authRoutes = ["/login", "/signup"];
-const publicRoutes = [...authRoutes, "/auth/callback"];
+// icon-192/icon-512 are the PWA manifest's icons and /offline is the
+// service worker's offline fallback — the matcher below only skips paths
+// with a file extension (sw.js, manifest.webmanifest), so these
+// extension-less routes still hit this middleware. Without this, a logged-
+// out visitor's manifest icon fetches (and the offline page itself, whose
+// whole point is working without a session) got redirected to /login
+// instead of returning the icon/page.
+const publicRoutes = [...authRoutes, "/auth/callback", "/icon-192", "/icon-512", "/offline"];
 // "Add another account" (see components/AccountMenu.tsx) sends an already
 // signed-in user to /login on purpose, to authenticate a second account
 // without disturbing the current session. Without this escape hatch, the

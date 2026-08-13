@@ -1,7 +1,8 @@
 import "./globals.css";
-import { Metadata } from "next";
+import { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import ClientLayout from "@/components/ClientLayout";
+import PwaRegister from "@/components/PwaRegister";
 import { appInfo } from "@/lib/appInfo";
 import { BUTTON_SHADOW_VARS } from "@/lib/button-shadow.mjs";
 import { BODY_BACKGROUND_STYLE } from "@/lib/theme-background.mjs";
@@ -33,6 +34,15 @@ export const metadata: Metadata = {
     siteName: appInfo.title,
     type: "website",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: appInfo.name,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
@@ -58,6 +68,7 @@ export default function RootLayout({
         style={{ ...BUTTON_SHADOW_VARS, ...BODY_BACKGROUND_STYLE } as CSSProperties}
       >
         <ClientLayout>{children}</ClientLayout>
+        <PwaRegister />
       </body>
     </html>
   );
