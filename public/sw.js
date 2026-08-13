@@ -48,3 +48,35 @@ self.addEventListener("fetch", event => {
     );
   }
 });
+
+self.addEventListener("push", event => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "Perfekthub", body: event.data.text() };
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "Perfekthub", {
+      body: payload.body,
+      icon: "/icon-192",
+      badge: "/icon-192",
+      data: { url: payload.url || "/notifications" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/notifications";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(clients => {
+      for (const client of clients) {
+        if (client.url.includes(url) && "focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
