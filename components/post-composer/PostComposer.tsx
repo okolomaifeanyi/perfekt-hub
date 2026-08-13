@@ -166,6 +166,7 @@ const PostComposer = ({
               setGifDialogOpen={setGifDialogOpen}
               gifDialogOpen={gifDialogOpen}
               media={media}
+              showEvent={!parentPostId && !quotePostId}
             />
 
             {text.length > 0 && (

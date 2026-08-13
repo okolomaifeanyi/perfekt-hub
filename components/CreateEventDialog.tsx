@@ -16,9 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createEvent } from "@/app/actions/events";
+import { createEvent, type EventProps } from "@/app/actions/events";
 
-export function CreateEventDialog() {
+export function CreateEventDialog({
+  trigger,
+  onCreated,
+}: {
+  trigger?: React.ReactNode;
+  onCreated?: (event: EventProps) => void;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -38,7 +44,7 @@ export function CreateEventDialog() {
     }
     setLoading(true);
     try {
-      await createEvent({
+      const event = await createEvent({
         title,
         description,
         location,
@@ -50,6 +56,7 @@ export function CreateEventDialog() {
       setDescription("");
       setLocation("");
       setStartTime("");
+      onCreated?.(event);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create event");
@@ -61,10 +68,12 @@ export function CreateEventDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-1.5 size-4" />
-          Create event
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm">
+            <Plus className="mr-1.5 size-4" />
+            Create event
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

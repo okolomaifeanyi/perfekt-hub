@@ -3,6 +3,9 @@ import Emoji from "./Emoji";
 import GifPicker from "./Gif";
 import Media from "./Media";
 import { toast } from "sonner";
+import { CalendarPlus } from "lucide-react";
+import { Button } from "../ui/button";
+import { CreateEventDialog } from "../CreateEventDialog";
 
 const Buttons: React.FC<ButtonsProps> = ({
   setText,
@@ -10,6 +13,7 @@ const Buttons: React.FC<ButtonsProps> = ({
   setGifDialogOpen,
   gifDialogOpen,
   media,
+  showEvent = true,
 }) => {
   return (
     <div className="flex space-x-1.5 items-center">
@@ -20,6 +24,22 @@ const Buttons: React.FC<ButtonsProps> = ({
           setText(prev => prev + emoji.native);
         }}
       />
+
+      {showEvent && (
+        <CreateEventDialog
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              title="Create an event"
+            >
+              <CalendarPlus className="size-4.5" />
+            </Button>
+          }
+        />
+      )}
 
       <GifPicker
         onSelect={(gif, e) => {

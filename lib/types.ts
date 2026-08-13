@@ -92,6 +92,7 @@ export interface ButtonsProps {
   setGifDialogOpen: Dispatch<SetStateAction<boolean>>;
   gifDialogOpen: boolean;
   media: MediaProps[];
+  showEvent?: boolean;
 }
 
 export type NotificationType =
