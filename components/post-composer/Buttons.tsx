@@ -3,7 +3,7 @@ import Emoji from "./Emoji";
 import GifPicker from "./Gif";
 import Media from "./Media";
 import { toast } from "sonner";
-import { CalendarPlus, BarChart3 } from "lucide-react";
+import { CalendarPlus, BarChart3, Tag } from "lucide-react";
 import { Button } from "../ui/button";
 import { CreateEventDialog } from "../CreateEventDialog";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,9 @@ const Buttons: React.FC<ButtonsProps> = ({
   showPoll = true,
   pollMode = false,
   onTogglePoll,
+  showSell = true,
+  sellMode = false,
+  onToggleSell,
 }) => {
   return (
     <div className="flex space-x-1.5 items-center">
@@ -42,6 +45,22 @@ const Buttons: React.FC<ButtonsProps> = ({
           onClick={onTogglePoll}
         >
           <BarChart3 className="size-4.5" />
+        </Button>
+      )}
+
+      {showSell && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "size-8 text-muted-foreground hover:text-foreground",
+            sellMode && "bg-accent text-foreground"
+          )}
+          title={sellMode ? "Remove product listing" : "Sell a product"}
+          onClick={onToggleSell}
+        >
+          <Tag className="size-4.5" />
         </Button>
       )}
 

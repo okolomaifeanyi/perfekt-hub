@@ -34,6 +34,7 @@ import { deletePostAction } from "@/app/actions/posts";
 import { toast } from "sonner";
 import PostCardSkeleton from "./PostCardSkeleton";
 import PostPollCard from "./PostPollCard";
+import PostProductCard from "./PostProductCard";
 import { fallbackColorFromSrc } from "@/lib/image-colors.mjs";
 
 const PostCard = ({
@@ -204,6 +205,13 @@ const PostCard = ({
           {post.postType === "poll" && (
             <div onClick={stopPropagation}>
               <PostPollCard postId={post.id} />
+            </div>
+          )}
+
+          {/* Product listing */}
+          {post.postType === "product" && (
+            <div onClick={stopPropagation}>
+              <PostProductCard postId={post.id} isPostPage={isPostPage} />
             </div>
           )}
 

@@ -47,11 +47,12 @@ export type PostPollProps = {
   totalVotes: number;
 };
 
-// Post polls use the request-scoped, RLS-respecting client (unlike the rest
-// of this file, which writes through the firestoreAdmin shim) so they go
-// through the exact same defense-in-depth policies as group polls, rather
-// than relying solely on the getUserFromSession() checks in each function.
-async function withPostPollClient<T>(
+// Post polls/products use the request-scoped, RLS-respecting client (unlike
+// the rest of this file, which writes through the firestoreAdmin shim) so
+// they go through the exact same defense-in-depth policies as group polls,
+// rather than relying solely on the getUserFromSession() checks in each
+// function.
+async function withPostAttachmentClient<T>(
   callback: (client: SupabaseClient) => Promise<T>
 ): Promise<T> {
   const cookieStore = await cookies();
@@ -132,7 +133,7 @@ export async function createPostPoll(input: {
   const options = input.options.map(o => o.trim()).filter(Boolean);
   if (options.length < 2) throw new Error("A poll needs at least two options");
 
-  return withPostPollClient(async client => {
+  return withPostAttachmentClient(async client => {
     const pollId = crypto.randomUUID();
     const { error: pollError } = await client.from("post_polls").insert({
       id: pollId,
@@ -165,7 +166,7 @@ export async function createPostPoll(input: {
 export async function getPostPoll(postId: string): Promise<PostPollProps | null> {
   const { uid } = await getUserFromSession();
 
-  return withPostPollClient(async client => {
+  return withPostAttachmentClient(async client => {
     const { data: pollRow, error } = await client
       .from("post_polls")
       .select("*")
@@ -182,7 +183,7 @@ export async function votePostPoll(pollId: string, optionId: string): Promise<vo
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
 
-  await withPostPollClient(async client => {
+  await withPostAttachmentClient(async client => {
     // The DB already refuses this via RLS/constraints when the poll is
     // closed (group_poll_votes_own_insert-equivalent check), but surface a
     // clear message here instead of a raw RLS error.
@@ -225,7 +226,7 @@ export async function closePostPoll(pollId: string): Promise<void> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
 
-  await withPostPollClient(async client => {
+  await withPostAttachmentClient(async client => {
     const { data, error } = await client
       .from("post_polls")
       .update({ closed: true })
@@ -234,6 +235,142 @@ export async function closePostPoll(pollId: string): Promise<void> {
     if (error) throw error;
     if (!data || data.length === 0) {
       throw new Error("Only the poll creator can close it");
+    }
+  });
+}
+
+export type PostProductProps = {
+  id: string;
+  postId: string;
+  sellerUid: string;
+  name: string;
+  price: number;
+  currency: string;
+  images: string[];
+  sold: boolean;
+  createdAt: string;
+  // Only populated when fetched via a query that embeds the owning post
+  // (listProductsPage) — used for linking to the post without a second
+  // round trip. getPostProduct/createPostProduct leave these undefined.
+  sellerUsername?: string;
+  thumbnailUrl?: string | null;
+};
+
+function mapPostProductRow(row: Record<string, unknown>): PostProductProps {
+  const embeddedPost = (row.posts ?? null) as
+    | { username?: string; media?: { src?: string }[] }
+    | null;
+  const thumbnailUrl = embeddedPost?.media?.[0]?.src ?? null;
+
+  return {
+    id: row.id as string,
+    postId: row.postid as string,
+    sellerUid: row.selleruid as string,
+    name: row.name as string,
+    price: Number(row.price),
+    currency: (row.currency as string) ?? "USD",
+    images: (row.images as string[]) ?? [],
+    sold: Boolean(row.sold),
+    createdAt: row.createdat as string,
+    sellerUsername: embeddedPost?.username,
+    thumbnailUrl,
+  };
+}
+
+export async function createPostProduct(input: {
+  postId: string;
+  name: string;
+  price: number;
+  currency?: string;
+  images?: string[];
+}): Promise<PostProductProps> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  const name = input.name.trim();
+  if (!name) throw new Error("Product name is required");
+  if (!Number.isFinite(input.price) || input.price < 0) {
+    throw new Error("A valid price is required");
+  }
+  const currency = input.currency?.trim() || "USD";
+  const images = (input.images ?? []).filter(Boolean);
+
+  return withPostAttachmentClient(async client => {
+    const id = crypto.randomUUID();
+    const { error } = await client.from("post_products").insert({
+      id,
+      postid: input.postId,
+      selleruid: uid,
+      name,
+      price: input.price,
+      currency,
+      images,
+    });
+    if (error) throw error;
+
+    return {
+      id,
+      postId: input.postId,
+      sellerUid: uid,
+      name,
+      price: input.price,
+      currency,
+      images,
+      sold: false,
+      createdAt: new Date().toISOString(),
+    };
+  });
+}
+
+export async function getPostProduct(postId: string): Promise<PostProductProps | null> {
+  return withPostAttachmentClient(async client => {
+    const { data, error } = await client
+      .from("post_products")
+      .select("*")
+      .eq("postid", postId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return mapPostProductRow(data);
+  });
+}
+
+export async function listProductsPage(params: {
+  offset: number;
+  sortMode: "time" | "engagement";
+  limit: number;
+}): Promise<PostProductProps[]> {
+  return withPostAttachmentClient(async client => {
+    const query = client
+      .from("post_products")
+      .select("*, posts(username, media)")
+      .eq("sold", false)
+      .range(params.offset, params.offset + params.limit - 1);
+    // "engagement" doesn't map cleanly to a listing — lowest price first is
+    // the closest useful second sort for a marketplace list.
+    const { data, error } =
+      params.sortMode === "time"
+        ? await query.order("createdat", { ascending: false })
+        : await query.order("price", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(mapPostProductRow);
+  });
+}
+
+export async function markProductSold(postId: string, sold: boolean): Promise<void> {
+  const { uid } = await getUserFromSession();
+  if (!uid) throw new Error("Unauthorized");
+
+  await withPostAttachmentClient(async client => {
+    const { data, error } = await client
+      .from("post_products")
+      .update({ sold })
+      .eq("postid", postId)
+      .eq("selleruid", uid)
+      .select("id");
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new Error("Only the seller can update this listing");
     }
   });
 }

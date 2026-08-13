@@ -8,6 +8,7 @@ import {
   Clapperboard,
   HeartHandshake,
   Sparkles,
+  Tag,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { getFeedAction } from "@/app/actions/feed";
 import { getSuggestedMatches, getTopSavedPosts } from "@/app/actions/discover";
 import { listGroups, joinGroup, type GroupProps } from "@/app/actions/groups";
 import { listUpcomingEvents, rsvpToEvent, type EventProps } from "@/app/actions/events";
+import { listProductsPage, type PostProductProps } from "@/app/actions/posts";
 import { hasVideoMedia } from "@/lib/video-viewer-queue.mjs";
 import { buildVideoPostUrl } from "@/lib/video-url.mjs";
 import { PostProps, UserProps } from "@/lib/types";
@@ -38,7 +40,8 @@ type FeedRecommendationType =
   | "groups"
   | "events"
   | "videos"
-  | "matches";
+  | "matches"
+  | "products";
 
 const railCopy: Record<
   FeedRecommendationType,
@@ -78,6 +81,11 @@ const railCopy: Record<
     title: "Suggested match",
     description: "Compatibility-based suggestions for follow or relationship intent.",
     icon: Sparkles,
+  },
+  products: {
+    title: "Marketplace",
+    description: "Items people are selling right now.",
+    icon: Tag,
   },
 };
 
@@ -513,6 +521,55 @@ function EventsRail({ title, description, icon }: { title: string; description: 
   );
 }
 
+function formatRailPrice(price: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(price);
+  } catch {
+    return `${currency} ${price.toFixed(2)}`;
+  }
+}
+
+function ProductsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+  const currentUser = useUserStore(state => state.user);
+  const [products, setProducts] = useState<PostProductProps[] | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    let active = true;
+    void listProductsPage({ offset: 0, sortMode: "time", limit: 5 })
+      .then(result => {
+        if (active) setProducts(result);
+      })
+      .catch(() => {
+        if (active) setProducts([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid]);
+
+  return (
+    <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/products">
+      {products === null ? (
+        Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
+      ) : products.length === 0 ? (
+        <EmptyRow label="No listings yet — sell something from the composer." />
+      ) : (
+        products.map(product => (
+          <ListRow
+            key={product.id}
+            href={product.sellerUsername ? `/${product.sellerUsername}/${product.postId}` : "/discover/products"}
+            avatarSrc={product.thumbnailUrl ?? undefined}
+            avatarFallback={product.name}
+            title={product.name}
+            subtitle={formatRailPrice(product.price, product.currency)}
+          />
+        ))
+      )}
+    </RailShell>
+  );
+}
+
 export default function RecommendationRail({
   type,
 }: {
@@ -542,6 +599,10 @@ export default function RecommendationRail({
 
   if (type === "events") {
     return <EventsRail {...config} />;
+  }
+
+  if (type === "products") {
+    return <ProductsRail {...config} />;
   }
 
   return null;

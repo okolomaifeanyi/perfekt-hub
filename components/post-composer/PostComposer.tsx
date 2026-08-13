@@ -5,7 +5,7 @@ import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { extractFirstUrl } from "@/lib/url-pattern.mjs";
 import { cn } from "@/lib/utils";
-import { Loader2, Plus, X } from "lucide-react";
+import { ImagePlus, Loader2, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MediaProps, OptimisticCallbacks, PostProps } from "@/lib/types";
 import MediaGallery from "./MediaGallery";
@@ -14,11 +14,20 @@ import MyAvatar from "../feed/post/MyAvatar";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { handlePost } from "./utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { handlePost, type ProductDraft } from "./utils";
 
 const MAX_TEXT = 280;
 const MAX_MEDIA = 4;
 const MAX_POLL_OPTIONS = 6;
+const MAX_PRODUCT_GALLERY = 4;
+const CURRENCIES = ["USD", "NGN", "GBP", "EUR", "CAD"];
 
 const PostComposer = ({
   placeholder,
@@ -47,19 +56,53 @@ const PostComposer = ({
   const [loading, setLoading] = useState(false);
   const [pollMode, setPollMode] = useState(false);
   const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [sellMode, setSellMode] = useState(false);
+  const [productName, setProductName] = useState("");
+  const [productPrice, setProductPrice] = useState("");
+  const [productCurrency, setProductCurrency] = useState(CURRENCIES[0]);
+  const [productGallery, setProductGallery] = useState<MediaProps[]>([]);
   const linkPreviewUrl = extractFirstUrl(text);
   const isSending = loading || isSubmitting;
   const validPollOptions = pollOptions.map(o => o.trim()).filter(Boolean);
+  const parsedPrice = Number(productPrice);
+  const isValidPrice = productPrice.trim() !== "" && Number.isFinite(parsedPrice) && parsedPrice >= 0;
   const canSend = pollMode
     ? text.trim().length > 0 && validPollOptions.length >= 2
-    : text.trim().length > 0 || media.length > 0;
+    : sellMode
+      ? productName.trim().length > 0 && isValidPrice
+      : text.trim().length > 0 || media.length > 0;
+
+  const resetPoll = () => {
+    setPollMode(false);
+    setPollOptions(["", ""]);
+  };
+
+  const resetSell = () => {
+    setSellMode(false);
+    setProductName("");
+    setProductPrice("");
+    setProductCurrency(CURRENCIES[0]);
+    setProductGallery([]);
+  };
 
   const handleTogglePoll = () => {
-    setPollMode(prev => {
-      if (!prev) setMedia([]);
-      else setPollOptions(["", ""]);
-      return !prev;
-    });
+    if (pollMode) {
+      resetPoll();
+      return;
+    }
+    resetSell();
+    setMedia([]);
+    setPollMode(true);
+  };
+
+  const handleToggleSell = () => {
+    if (sellMode) {
+      resetSell();
+      return;
+    }
+    resetPoll();
+    setMedia(prev => prev.slice(0, 1));
+    setSellMode(true);
   };
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -90,6 +133,16 @@ const PostComposer = ({
 
   if (!user) return null;
 
+  const handleSetMedia: React.Dispatch<React.SetStateAction<MediaProps[]>> = update => {
+    setMedia(prev => {
+      const next = typeof update === "function" ? update(prev) : update;
+      // Only one image shows in the feed for a product listing — extra
+      // photos belong in the gallery uploader below, shown on the post's
+      // own detail page instead.
+      return sellMode ? next.slice(0, 1) : next;
+    });
+  };
+
   const handleSend = async () => {
     if (
       sendingRef.current ||
@@ -114,18 +167,26 @@ const PostComposer = ({
       quotePostId: quotePostId || "",
       replyCount: 0,
       quoteCount: 0,
-      postType: pollMode ? "poll" : "text",
+      postType: pollMode ? "poll" : sellMode ? "product" : "text",
     } as Partial<PostProps>;
 
     const tempId = optimistic?.addOptimisticPost?.(partial) ?? null;
 
     const sentPollOptions = pollMode ? validPollOptions : undefined;
+    const sentProduct: ProductDraft | undefined = sellMode
+      ? {
+          name: productName.trim(),
+          price: parsedPrice,
+          currency: productCurrency,
+          images: productGallery,
+        }
+      : undefined;
 
     setText("");
     setMedia([]);
     setGifDialogOpen(false);
-    setPollMode(false);
-    setPollOptions(["", ""]);
+    resetPoll();
+    resetSell();
     onSuccess?.();
 
     try {
@@ -136,6 +197,7 @@ const PostComposer = ({
         parentPostId,
         quotePostId,
         pollOptions: sentPollOptions,
+        product: sentProduct,
       });
 
       if (tempId && serverPost) {
@@ -150,6 +212,13 @@ const PostComposer = ({
       if (sentPollOptions) {
         setPollMode(true);
         setPollOptions(sentPollOptions);
+      }
+      if (sentProduct) {
+        setSellMode(true);
+        setProductName(sentProduct.name);
+        setProductPrice(String(sentProduct.price));
+        setProductCurrency(sentProduct.currency);
+        setProductGallery(sentProduct.images);
       }
     } finally {
       sendingRef.current = false;
@@ -172,7 +241,13 @@ const PostComposer = ({
             autoFocus={autoFocusTextArea}
             onChange={e => setText(e.target.value)}
             value={text}
-            placeholder={pollMode ? "Ask a question…" : placeholder || "What's on your mind?"}
+            placeholder={
+              pollMode
+                ? "Ask a question…"
+                : sellMode
+                  ? "Describe what you're selling…"
+                  : placeholder || "What's on your mind?"
+            }
             className="resize-none overflow-hidden rounded-lg wrap-break-word"
             onKeyDown={e => {
               if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -229,12 +304,99 @@ const PostComposer = ({
             </div>
           )}
 
-          {linkPreviewUrl && !pollMode && <LinkPreviewCard url={linkPreviewUrl} />}
+          {sellMode && (
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Item name</label>
+                  <Input
+                    value={productName}
+                    onChange={e => setProductName(e.target.value)}
+                    placeholder="e.g. Vintage camera"
+                    maxLength={100}
+                    disabled={isSending}
+                  />
+                </div>
+                <div className="w-24 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Price</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={productPrice}
+                    onChange={e => setProductPrice(e.target.value)}
+                    placeholder="0.00"
+                    disabled={isSending}
+                  />
+                </div>
+                <div className="w-24 space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Currency</label>
+                  <Select value={productCurrency} onValueChange={setProductCurrency}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map(c => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Additional photos (shown on the post page, not in the feed)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {productGallery.map((item, i) => (
+                    <div key={i} className="relative size-16 overflow-hidden rounded-md border">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.src} alt="" className="size-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setProductGallery(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {productGallery.length < MAX_PRODUCT_GALLERY && (
+                    <label
+                      htmlFor="product-gallery-input"
+                      className="flex size-16 cursor-pointer items-center justify-center rounded-md border border-dashed text-muted-foreground hover:bg-accent"
+                    >
+                      <ImagePlus className="size-5" />
+                    </label>
+                  )}
+                  <input
+                    id="product-gallery-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={e => {
+                      const files = e.target.files;
+                      if (!files) return;
+                      const additions = Array.from(files)
+                        .slice(0, MAX_PRODUCT_GALLERY - productGallery.length)
+                        .map(file => ({ file, src: URL.createObjectURL(file), type: "image" as const }));
+                      setProductGallery(prev => [...prev, ...additions]);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {linkPreviewUrl && !pollMode && !sellMode && <LinkPreviewCard url={linkPreviewUrl} />}
 
           <div className="flex justify-between items-center flex-wrap">
             <Buttons
               setText={setText}
-              setMedia={setMedia}
+              setMedia={handleSetMedia}
               setGifDialogOpen={setGifDialogOpen}
               gifDialogOpen={gifDialogOpen}
               media={media}
@@ -242,6 +404,9 @@ const PostComposer = ({
               showPoll={!parentPostId && !quotePostId}
               pollMode={pollMode}
               onTogglePoll={handleTogglePoll}
+              showSell={!parentPostId && !quotePostId}
+              sellMode={sellMode}
+              onToggleSell={handleToggleSell}
             />
 
             {text.length > 0 && (
@@ -262,7 +427,7 @@ const PostComposer = ({
         </div>
       </div>
 
-      <MediaGallery media={media} setMedia={setMedia} />
+      <MediaGallery media={media} setMedia={handleSetMedia} />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { MediaProps, PostProps, UserProps } from "@/lib/types";
 import { toast } from "sonner";
 import { sendPost } from "./actions";
-import { createPostPoll } from "@/app/actions/posts";
+import { createPostPoll, createPostProduct } from "@/app/actions/posts";
 
 // export const uploadToCloudinary = async (file: File) => {
 //   const formData = new FormData();
@@ -64,6 +64,13 @@ export const uploadToCloudinary = async (file: File, retryCount = 0): Promise<an
   }
 };
 
+export type ProductDraft = {
+  name: string;
+  price: number;
+  currency: string;
+  images: MediaProps[]; // additional gallery photos, beyond the post's own single media image
+};
+
 export async function handlePost({
   text,
   media,
@@ -72,6 +79,7 @@ export async function handlePost({
   parentPostId = null,
   quotePostId = null,
   pollOptions,
+  product,
 }: {
   text: string;
   media: MediaProps[];
@@ -80,6 +88,7 @@ export async function handlePost({
   parentPostId?: string | null;
   quotePostId?: string | null;
   pollOptions?: string[];
+  product?: ProductDraft;
 }): Promise<PostProps | null> {
   try {
     const uploadedMedia: MediaProps[] = await Promise.all(
@@ -92,6 +101,13 @@ export async function handlePost({
       })
     );
 
+    const postType: "text" | "poll" | "product" =
+      pollOptions && pollOptions.length >= 2
+        ? "poll"
+        : product
+          ? "product"
+          : "text";
+
     const post = await sendPost({
       text,
       media: uploadedMedia,
@@ -103,7 +119,7 @@ export async function handlePost({
       },
       parentPostId,
       quotePostId,
-      postType: pollOptions && pollOptions.length >= 2 ? "poll" : "text",
+      postType,
     });
 
     // The post itself is already live at this point — if attaching the poll
@@ -117,6 +133,30 @@ export async function handlePost({
       } catch (pollErr) {
         console.error("Poll options failed to save:", pollErr);
         toast.error("Post published, but the poll options failed to save.");
+      }
+    }
+
+    if (product) {
+      try {
+        const uploadedGallery = await Promise.all(
+          product.images.map(async item => {
+            if (item.file) {
+              const result = await uploadToCloudinary(item.file);
+              return result.secure_url as string;
+            }
+            return item.src;
+          })
+        );
+        await createPostProduct({
+          postId: post.id,
+          name: product.name,
+          price: product.price,
+          currency: product.currency,
+          images: uploadedGallery,
+        });
+      } catch (productErr) {
+        console.error("Product listing failed to save:", productErr);
+        toast.error("Post published, but the product listing failed to save.");
       }
     }
 

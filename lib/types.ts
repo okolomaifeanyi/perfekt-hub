@@ -97,6 +97,9 @@ export interface ButtonsProps {
   showPoll?: boolean;
   pollMode?: boolean;
   onTogglePoll?: () => void;
+  showSell?: boolean;
+  sellMode?: boolean;
+  onToggleSell?: () => void;
 }
 
 export type NotificationType =
