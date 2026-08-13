@@ -15,7 +15,12 @@ const ProfileTab = ({
   return (
     <>
       <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="w-full grid grid-cols-2 gap-1 sm:grid-cols-5">
+        {/* TabsList's base style is a fixed h-9 (one row) — on mobile these
+            5 triggers wrap into 3 rows via grid-cols-2, but nothing here
+            overrode that height, so rows 2-3 overflowed the reserved 36px
+            unclipped and rendered on top of the tab content starting right
+            after it. h-auto lets the container grow to fit every row. */}
+        <TabsList className="h-auto w-full grid grid-cols-2 gap-1 sm:grid-cols-5">
           <TabsTrigger id="posts" value="posts" className="cursor-pointer">
             Posts
           </TabsTrigger>
