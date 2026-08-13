@@ -44,6 +44,7 @@ export default async function VideoPage({ params }: PageProps) {
     currentPost,
     feedPosts,
     targetSize: 12,
+    seed: feedUserId,
   });
 
   return <VideoViewer currentUsername={username} currentPost={currentPost} queue={queue} />;

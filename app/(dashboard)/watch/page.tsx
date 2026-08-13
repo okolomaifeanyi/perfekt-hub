@@ -46,6 +46,7 @@ export default async function WatchPage() {
     currentPost,
     feedPosts: merged,
     targetSize: 12,
+    seed: uid,
   });
 
   return (
