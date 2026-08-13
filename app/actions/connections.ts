@@ -35,7 +35,7 @@ export async function followUser(currentUid: string, targetUid: string) {
 
   await onFollowAction(currentUid, targetUid);
 
-  // Notifications = non-critical â†’ run outside transaction
+  // Notifications = non-critical → run outside transaction
   await sendNotification({
     recipientUid: targetUid,
     actorUid: currentUid,
@@ -246,7 +246,7 @@ export async function acceptFriendRequest(
       tx.get(reverseFollowerRef),
     ]);
 
-    // âœ… Only accept if there was a valid pending request
+    // ✅ Only accept if there was a valid pending request
     if (receivedDoc.exists() && sentDoc.exists()) {
       tx.set(currentFriendRef, { since, initiatedBy: requesterUid });
       tx.set(requesterFriendRef, { since, initiatedBy: requesterUid });
@@ -254,7 +254,7 @@ export async function acceptFriendRequest(
       tx.delete(receivedRef);
       tx.delete(sentRef);
 
-      // âœ… Remove follow relations if they exist, and decrement counts safely
+      // ✅ Remove follow relations if they exist, and decrement counts safely
       if (followingDoc.exists()) {
         tx.delete(followingRef);
         tx.update(usersRef.doc(currentUid), {
@@ -280,7 +280,7 @@ export async function acceptFriendRequest(
         });
       }
 
-      // âœ… Always increment friends count
+      // ✅ Always increment friends count
       tx.update(usersRef.doc(currentUid), {
         friendsCount: FieldValue.increment(1),
       });
@@ -314,7 +314,7 @@ export async function unfriendUser(currentUid: string, targetUid: string) {
     const targetFriendDoc = await tx.get(targetUserFriendRef);
 
     if (currentFriendDoc.exists() && targetFriendDoc.exists()) {
-      // âœ… Only delete if they are actually friends
+      // ✅ Only delete if they are actually friends
       tx.delete(currentUserFriendRef);
       tx.delete(targetUserFriendRef);
 

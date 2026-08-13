@@ -30,7 +30,7 @@ export async function toggleLikeDislikeAdmin({
         transaction.get(postRef),
       ]);
 
-      if (!postDoc.exists()) throw new Error("âŒ Post not found");
+      if (!postDoc.exists()) throw new Error("❌ Post not found");
 
       const postData = postDoc.data();
       recipientUid = postData?.userId || null;
@@ -93,10 +93,10 @@ export async function toggleLikeDislikeAdmin({
     }
   );
 
-  // âœ… Recalculate engagementScore after successful transaction
+  // ✅ Recalculate engagementScore after successful transaction
   await scheduleEngagementScoreUpdate(postId);
 
-  // ðŸ”” notifications outside txn
+  // 🔔 notifications outside txn
   await runReactionNotificationSideEffects({
     recipientUid,
     actorUid: userId,
@@ -134,13 +134,13 @@ export async function addUniqueView(postId: string, userId: string) {
       viewCount: FieldValue.increment(1),
     });
 
-    // âœ… Update engagement score
+    // ✅ Update engagement score
     await scheduleEngagementScoreUpdate(postId);
   }
 }
 
 /**
- * ðŸ§® Engagement score formula â€” consistent with your backfill script.
+ * 🧮 Engagement score formula — consistent with your backfill script.
  */
 function calculateEngagementScore(data: {
   replyCount?: number;
@@ -164,7 +164,7 @@ function calculateEngagementScore(data: {
 }
 
 /**
- * ðŸ” Recalculate & update engagementScore for a given post.
+ * 🔁 Recalculate & update engagementScore for a given post.
  */
 export async function updateEngagementScore(
   postRef: DocumentReference
@@ -196,7 +196,7 @@ const pendingUpdates = new Map<string, NodeJS.Timeout>();
 // same calculateEngagementScore function from before
 
 /**
- * âš¡ Debounced engagementScore updater (memoized)
+ * ⚡ Debounced engagementScore updater (memoized)
  */
 export async function scheduleEngagementScoreUpdate(
   postId: string,

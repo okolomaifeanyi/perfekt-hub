@@ -54,7 +54,7 @@ export function useLiveFeed(
   const [pendingTempId, setPendingTempId] = useState<string | null>(null);
   const [posts, setPosts] = useState<PostProps[]>([]);
   const [addedPosts, setAddedPosts] = useState<PostProps[]>([]);
-  const [loading, setLoading] = useState(true); // â† NEW: Initial loading
+  const [loading, setLoading] = useState(true); // ← NEW: Initial loading
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [cursor, setCursor] = useState<PostProps | null>(null);
@@ -78,14 +78,14 @@ export function useLiveFeed(
     addedRef.current = addedPosts;
   }, [addedPosts]);
 
-  // â”€â”€â”€â”€â”€â”€ INITIAL LOAD â”€â”€â”€â”€â”€â”€
+  // ────── INITIAL LOAD ──────
   useEffect(() => {
     let active = true;
     setPosts([]);
     setAddedPosts([]);
     setHasMore(true);
     setCursor(null);
-    setLoading(true); // â† Start loading
+    setLoading(true); // ← Start loading
 
     if (!userId) {
       setLoading(false);
@@ -114,7 +114,7 @@ export function useLiveFeed(
       } catch (err) {
         console.error("useLiveFeed initial load error:", err);
       } finally {
-        if (active) setLoading(false); // â† End loading
+        if (active) setLoading(false); // ← End loading
       }
     })();
 
@@ -128,7 +128,7 @@ export function useLiveFeed(
     // pick up a newly-followed author's existing back-catalog on its own.
   }, [userId, pageSize, parentPostId, onlyUser, sortMode, feedRefreshSignal]);
 
-  // â”€â”€â”€â”€â”€â”€ POLLING FOR NEW POSTS â”€â”€â”€â”€â”€â”€
+  // ────── POLLING FOR NEW POSTS ──────
   useEffect(() => {
     if (!userId) return;
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -192,7 +192,7 @@ export function useLiveFeed(
     };
   }, [userId, onlyUser, sortMode]);
 
-  // â”€â”€â”€â”€â”€â”€ INFINITE SCROLL â”€â”€â”€â”€â”€â”€
+  // ────── INFINITE SCROLL ──────
   const loadMorePosts = useCallback(async () => {
     const { loadingMore, hasMore, cursor } = stateRef.current;
 
@@ -255,7 +255,7 @@ export function useLiveFeed(
     setIsMergingAdded(false);
   }, [sortPosts]);
 
-  // â”€â”€â”€â”€â”€â”€ OPTIMISTIC POSTS â”€â”€â”€â”€â”€â”€
+  // ────── OPTIMISTIC POSTS ──────
   const addOptimisticPost = useCallback(
     (partial: Partial<PostProps>): string => {
       const tempId = makeTempId();
@@ -342,7 +342,7 @@ export function useLiveFeed(
     posts,
     addedPosts,
     hasMore,
-    loading, // â† NOW RETURNED
+    loading, // ← NOW RETURNED
     loadingMore,
     addOptimisticPost,
     replaceOptimisticPost,

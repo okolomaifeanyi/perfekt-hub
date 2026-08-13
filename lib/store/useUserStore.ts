@@ -173,7 +173,7 @@ export const useUserStore = create<UserState>()(
         await get().fetchSmartSuggestions();
       },
 
-      // â”€â”€â”€â”€â”€â”€ LISTENERS â”€â”€â”€â”€â”€â”€
+      // ────── LISTENERS ──────
       startUserListener: uid => {
         if (unsubUser) return;
         const ref = doc(db, "users", uid);

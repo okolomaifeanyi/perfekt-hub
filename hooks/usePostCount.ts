@@ -10,7 +10,7 @@ export function useRealtimePostCounts(postId: string) {
   const { setCounts } = usePostCounts();
   const currentUser = useUserStore(state => state.user);
 
-  // ðŸ”´ Post-level counters (aggregates)
+  // 🔴 Post-level counters (aggregates)
   useEffect(() => {
     if (!postId) return;
 
@@ -30,7 +30,7 @@ export function useRealtimePostCounts(postId: string) {
     return () => unsub();
   }, [postId, setCounts]);
 
-  // ðŸ”µ User-specific engagement (flags)
+  // 🔵 User-specific engagement (flags)
   useEffect(() => {
     if (!postId || !currentUser?.uid) return;
 

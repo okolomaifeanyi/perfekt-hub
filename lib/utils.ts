@@ -72,7 +72,7 @@ export async function toggleReaction({
 
   const updatedCounts = await res.json();
 
-  // âš ï¸ Keep optimistic UI state â€” donâ€™t overwrite userReaction here.
+  // ⚠️ Keep optimistic UI state — don’t overwrite userReaction here.
   return updatedCounts;
 }
 
@@ -104,7 +104,7 @@ export async function getUserByUsername(username: string) {
 
     if (querySnapshot.empty) return null;
 
-    // Assuming usernames are unique â†’ take the first
+    // Assuming usernames are unique → take the first
     const doc = querySnapshot.docs[0];
 
     return { ...(doc.data() as UserProps) };

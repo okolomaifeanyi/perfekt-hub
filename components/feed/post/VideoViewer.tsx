@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Settings, X } from "lucide-react";
+import { Settings, X } from "lucide-react";
 
 import CommentFeed from "@/components/feed/post/CommentFeed";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { buildCanonicalPostUrl, buildVideoPostUrl } from "@/lib/video-url.mjs";
 import { applyVideoQuality, isCloudinaryVideoUrl, VIDEO_QUALITIES } from "@/lib/video-quality.mjs";
 import { cn } from "@/lib/utils";
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
-import JustAvatar from "@/components/JustAvatar";
+import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
 
 type VideoViewerProps = {
   currentUsername: string;
@@ -51,6 +51,19 @@ export default function VideoViewer({
   const [activeIndex, setActiveIndex] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [quality, setQuality] = useState<VideoQuality>("auto");
+
+  const { setQueue, setActiveIndex: syncActiveIndex, clearQueue } = useVideoQueueStore();
+
+  // Sync queue and active index to the store so Aside can read it
+  useEffect(() => {
+    setQueue(queue, 0);
+    return () => clearQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    syncActiveIndex(activeIndex);
+  }, [activeIndex, syncActiveIndex]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -94,6 +107,17 @@ export default function VideoViewer({
     return () => observer.disconnect();
   }, [queue.length]);
 
+  // Listen for jump events fired by the Aside queue panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const index = (e as CustomEvent<{ index: number }>).detail.index;
+      const section = sectionRefs.current[index];
+      section?.scrollIntoView({ behavior: "smooth" });
+    };
+    window.addEventListener("video-queue-jump", handler);
+    return () => window.removeEventListener("video-queue-jump", handler);
+  }, []);
+
   useEffect(() => {
     const active = queue[activeIndex];
     if (!active || active.id === currentPost.id) return;
@@ -107,14 +131,12 @@ export default function VideoViewer({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)] overflow-hidden bg-black text-white">
-      {/* Video feed */}
+    // Full-viewport reel container — no internal sidebar
+    <div className="relative flex h-[calc(100svh-3rem)] w-full overflow-hidden bg-black text-white sm:h-screen">
+      {/* Snap-scroll feed */}
       <div
         ref={scrollContainerRef}
-        className={cn(
-          "flex-1 min-w-0 overflow-y-auto overflow-x-hidden snap-y snap-mandatory",
-          "scroll-smooth"
-        )}
+        className="flex-1 overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth"
       >
         {queue.map((post, index) => {
           const videoSrc = getVideoSource(post);
@@ -127,8 +149,7 @@ export default function VideoViewer({
                 sectionRefs.current[index] = node;
               }}
               data-index={index}
-              className="group relative flex h-full snap-start items-center justify-center bg-black"
-              style={{ height: "calc(100vh - 3rem)" }}
+              className="group relative flex snap-start items-center justify-center bg-black h-[calc(100svh-3rem)] sm:h-screen"
             >
               <div className="absolute inset-0 bg-linear-to-b from-black/30 via-black/10 to-black/70" />
 
@@ -151,7 +172,8 @@ export default function VideoViewer({
                 </div>
               )}
 
-              <div className="pointer-events-none absolute left-4 bottom-4 z-20 max-w-[min(92vw,32rem)] space-y-2">
+              {/* Caption overlay */}
+              <div className="pointer-events-none absolute left-4 bottom-16 z-20 max-w-[min(92vw,28rem)] space-y-1.5">
                 <Link
                   href={buildCanonicalPostUrl(post.username || currentUsername, post.id)}
                   className="pointer-events-auto inline-flex rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white backdrop-blur-md transition hover:bg-black/60"
@@ -163,6 +185,7 @@ export default function VideoViewer({
                 </p>
               </div>
 
+              {/* Top-right controls */}
               <div
                 className={cn(
                   "absolute right-4 top-4 z-20 flex items-center gap-2 transition-opacity",
@@ -199,12 +222,12 @@ export default function VideoViewer({
                 <Button
                   type="button"
                   variant="secondary"
-                  className="pointer-events-auto"
+                  size="sm"
+                  className="pointer-events-auto rounded-full"
                   onClick={() => setDetailsOpen(open => !open)}
                   aria-pressed={detailsOpen}
                 >
-                  {detailsOpen ? "Hide post" : "View post"}
-                  <ChevronRight className="size-4" />
+                  {detailsOpen ? "Hide" : "Details"}
                 </Button>
               </div>
             </section>
@@ -212,65 +235,7 @@ export default function VideoViewer({
         })}
       </div>
 
-      {/* Right sidebar — video queue */}
-      <aside className="hidden lg:flex w-72 xl:w-80 flex-col border-l border-white/10 bg-black/80 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-          <p className="text-sm font-semibold">Up next</p>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {queue.map((post, index) => {
-            const thumb = post.media?.find(m => m.type === "video")?.src ?? null;
-            const isActive = index === activeIndex;
-            return (
-              <button
-                key={post.id}
-                type="button"
-                onClick={() => {
-                  setActiveIndex(index);
-                  const section = sectionRefs.current[index];
-                  section?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className={cn(
-                  "flex w-full items-start gap-3 px-3 py-2.5 text-left transition hover:bg-white/5",
-                  isActive && "bg-white/10"
-                )}
-              >
-                <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
-                  {thumb && (
-                    <video
-                      src={thumb}
-                      className="h-full w-full object-cover"
-                      muted
-                      preload="metadata"
-                    />
-                  )}
-                  {isActive && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <span className="size-3 rounded-full bg-white animate-pulse" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <JustAvatar
-                      size={16}
-                      username={post.username}
-                      photoURL={post.userPhotoURL}
-                      fullName={post.userFullName}
-                    />
-                    <span className="truncate text-xs text-white/70">@{post.username || currentUsername}</span>
-                  </div>
-                  <p className="line-clamp-2 text-xs leading-snug text-white/80">
-                    {post.content || "Video"}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </aside>
-
-      {/* Post details panel */}
+      {/* Post details slide-in panel */}
       <div
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 h-[70dvh] border-t bg-background/95 backdrop-blur-xl",
@@ -280,24 +245,16 @@ export default function VideoViewer({
         aria-hidden={!detailsOpen}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-foreground">Post details</p>
-            <p className="text-xs text-muted-foreground">
-              Scroll to move to the next video.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setDetailsOpen(false)}
-              aria-label="Close post details"
-            >
-              <X className="size-4" />
-            </Button>
-          </div>
+          <p className="text-sm font-medium text-foreground">Post details</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setDetailsOpen(false)}
+            aria-label="Close post details"
+          >
+            <X className="size-4" />
+          </Button>
         </div>
 
         <div className="h-[calc(70dvh-57px)] overflow-y-auto p-4 md:h-[calc(100dvh-57px)]">

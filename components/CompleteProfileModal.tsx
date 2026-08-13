@@ -36,7 +36,7 @@ import { INPUT_BOX_SHADOW_CLASS } from "@/lib/input-shadow.mjs";
 import { ResponsiveSheet } from "./ReponsiveSheet";
 import { ContainedImage } from "./media/ContainedImage";
 
-// âœ… Validation schema
+// ✅ Validation schema
 const schema = z.object({
   fullName: z
     .string()
@@ -111,7 +111,7 @@ export default function CompleteProfileModal({
 
   const photoURL = watch("photoURL");
 
-  // âœ… Populate form from Firestore `user`
+  // ✅ Populate form from Firestore `user`
   useEffect(() => {
     if (!user) return;
     if (!user.completedProfile) setShow(true);
@@ -178,7 +178,7 @@ export default function CompleteProfileModal({
     }
   };
 
-  // âœ… Save profile directly to Firestore
+  // ✅ Save profile directly to Firestore
   const onSubmit = async (form: FormData) => {
     if (!user?.uid) return;
     setLoading(true);

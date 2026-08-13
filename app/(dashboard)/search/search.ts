@@ -94,7 +94,7 @@ async function searchPosts(term: string) {
   );
 
   const snapshot = await getDocs(q);
-  // console.log(`[searchPosts] Term: "${term}" â†’ ${snapshot.size} posts`);
+  // console.log(`[searchPosts] Term: "${term}" → ${snapshot.size} posts`);
 
   return { docs: snapshot.docs, size: snapshot.size } as SearchSnapshot;
 }

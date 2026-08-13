@@ -145,7 +145,7 @@ export async function deleteAccountAction(
       message: "Account deleted with all media removed.",
     };
   } catch (error) {
-    console.error("âŒ Delete account error:", error);
+    console.error("❌ Delete account error:", error);
     return { success: false, message: "Failed to delete account" };
   }
 }

@@ -86,7 +86,7 @@ function normalizePost(
   } as PostProps;
 }
 
-/** âœ… Prewarm both usersâ€™ feed caches after relationship changes */
+/** ✅ Prewarm both users’ feed caches after relationship changes */
 export async function prewarmFeeds(userA: string, userB: string) {
   if (!canWarmOtherUsersFeedCache) {
     return;
@@ -107,13 +107,13 @@ async function getSubcollectionIds(
 ): Promise<string[]> {
   const snap = await firestoreAdmin
     .collection(`users/${userId}/${subcollection}`)
-    .select() // âœ… only retrieve document IDs (faster)
+    .select() // ✅ only retrieve document IDs (faster)
     .get();
 
   return snap.docs.map(d => d.id);
 }
 
-/** âœ… Centralized cache refresh logic â€” call this when friends/following change */
+/** ✅ Centralized cache refresh logic — call this when friends/following change */
 export async function refreshFeedCacheForUser(
   userId: string
 ): Promise<string[]> {
@@ -145,7 +145,7 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
   if (metaSnap.exists()) {
     const data = metaSnap.data();
     if (Array.isArray(data?.feedAuthorIds)) {
-      // âœ… Filter out empty, null, undefined, whitespace-only, duplicates
+      // ✅ Filter out empty, null, undefined, whitespace-only, duplicates
       const clean: string[] = Array.from(
         new Set(
           data.feedAuthorIds.filter(
@@ -164,10 +164,10 @@ async function getCachedFeedAuthorIds(userId: string): Promise<string[]> {
     }
   }
 
-  // ðŸ” Build fresh cache if not found
+  // 🔁 Build fresh cache if not found
   const ids = await refreshFeedCacheForUser(userId);
 
-  // âœ… Apply same cleaning logic before returning
+  // ✅ Apply same cleaning logic before returning
   return Array.from(
     new Set(
       ids.filter(
@@ -187,7 +187,7 @@ async function getDirectFeedAuthorIds(userId: string): Promise<string[]> {
   return mergeFeedAuthorIds(userId, friendIds, followingIds);
 }
 
-/** ðŸ§© Main feed loader */
+/** 🧩 Main feed loader */
 export async function getFeedForUser(
   currentUid: string,
   opts: {
@@ -204,7 +204,7 @@ export async function getFeedForUser(
   const onlyUser = opts.onlyUser ?? false;
   const sortMode = opts.sortMode ?? "latest";
 
-  // --- 1ï¸âƒ£ Replies/comments feed
+  // --- 1️⃣ Replies/comments feed
   if (parentPostId) {
     let q = firestoreAdmin
       .collection("posts")
@@ -218,7 +218,7 @@ export async function getFeedForUser(
     return snap.docs.map(normalizePost);
   }
 
-  // --- 2ï¸âƒ£ User-only feed
+  // --- 2️⃣ User-only feed
   if (onlyUser) {
     const queryLimit = sortMode === "trending" ? limit * 10 : limit;
     let q = firestoreAdmin
@@ -246,7 +246,7 @@ export async function getFeedForUser(
     return results.slice(0, limit);
   }
 
-  // --- 3ï¸âƒ£ Main home feed
+  // --- 3️⃣ Main home feed
   const authorIds = await getDirectFeedAuthorIds(currentUid);
   if (authorIds.length === 0) return [];
 
@@ -280,7 +280,7 @@ export async function getFeedForUser(
     })
   );
 
-  // âœ… Sort all results together in memory
+  // ✅ Sort all results together in memory
   posts.sort((a, b) => {
     if (sortMode === "trending") {
       const scoreDiff = (b.engagementScore ?? 0) - (a.engagementScore ?? 0);
@@ -291,7 +291,7 @@ export async function getFeedForUser(
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  // âœ… Deduplicate & limit *after* all fetches and sorting are complete
+  // ✅ Deduplicate & limit *after* all fetches and sorting are complete
   const seen = new Set<string>();
   const out: PostProps[] = [];
   for (const p of posts) {
@@ -351,7 +351,7 @@ export async function getFeedAction(
   }
 }
 
-/** ðŸ§© Auto-refresh cache actions (to be called when friends/following change) */
+/** 🧩 Auto-refresh cache actions (to be called when friends/following change) */
 export async function onFollowAction(
   currentUserId: string,
   targetUserId: string

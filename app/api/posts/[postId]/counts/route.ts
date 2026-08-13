@@ -32,7 +32,7 @@ export async function GET(
     shared: false,
   };
 
-  // ðŸ‘‡ check if this user has a reaction doc in subcollection
+  // 👇 check if this user has a reaction doc in subcollection
   if (currentUid) {
     const reactionSnap = await postRef
       .collection("reactions")
@@ -46,7 +46,7 @@ export async function GET(
       if (reactionData.type === "dislike") userReaction.disliked = true;
     }
 
-    // ðŸ‘€ check if user viewed
+    // 👀 check if user viewed
     const viewSnap = await postRef.collection("views").doc(currentUid).get();
 
     if (viewSnap.exists()) {

@@ -16,6 +16,7 @@ export type GroupProps = {
   membersCount: number;
   createdAt: string;
   joinPolicy: "open" | "admin";
+  defaultPostVisibility: "public" | "private";
   isMember?: boolean;
 };
 
@@ -68,6 +69,7 @@ function mapGroupRow(row: Record<string, unknown>): GroupProps {
     membersCount: (row.memberscount as number) ?? 0,
     createdAt: row.createdat as string,
     joinPolicy: (row.joinpolicy as "open" | "admin") ?? "open",
+    defaultPostVisibility: (row.defaultpostvisibility as "public" | "private") ?? "public",
   };
 }
 
@@ -131,6 +133,7 @@ export async function createGroup(input: { name: string; description?: string })
       membersCount: 1,
       createdAt: new Date().toISOString(),
       joinPolicy: "open",
+      defaultPostVisibility: "public",
     };
   });
 }
@@ -247,7 +250,7 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
 
 export async function updateGroupSettings(
   groupId: string,
-  input: { name?: string; description?: string; photoURL?: string | null; wallURL?: string | null; joinPolicy?: "open" | "admin" }
+  input: { name?: string; description?: string; photoURL?: string | null; wallURL?: string | null; joinPolicy?: "open" | "admin"; defaultPostVisibility?: "public" | "private" }
 ): Promise<void> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
@@ -261,6 +264,7 @@ export async function updateGroupSettings(
   if (input.photoURL !== undefined) patch.photourl = input.photoURL;
   if (input.wallURL !== undefined) patch.wallurl = input.wallURL;
   if (input.joinPolicy !== undefined) patch.joinpolicy = input.joinPolicy;
+  if (input.defaultPostVisibility !== undefined) patch.defaultpostvisibility = input.defaultPostVisibility;
   if (Object.keys(patch).length === 0) return;
 
   await withSupabaseRequestContext(async client => {
@@ -365,13 +369,13 @@ function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
   const media = Array.isArray(row.media) ? (row.media as Array<{ url: string; type: string }>) : [];
   return {
     id: row.id as string,
-    groupId: row.groupid as string,
-    userId: row.userid as string,
-    text: (row.text as string) ?? "",
+    groupId: (row.groupid ?? row.groupId) as string,
+    userId: (row.userid ?? row.userId) as string,
+    text: ((row.content ?? row.text) as string) ?? "",
     media,
     visibility: (row.visibility as GroupPostVisibility) ?? "public",
     isPinned: Boolean(row.ispinned),
-    createdAt: row.createdat as string,
+    createdAt: (row.createdAt ?? row.createdat) as string,
     authorUsername: (author.username as string) ?? undefined,
     authorFullName: (author.fullname as string) ?? undefined,
     authorPhotoURL: (author.photourl as string) ?? null,
@@ -390,12 +394,21 @@ export async function createGroupPost(input: {
     throw new Error("Post must have text or media");
 
   return withSupabaseRequestContext(async client => {
+    // Fetch the user's username — required non-null column on posts
+    const { data: userRow } = await client
+      .from("users")
+      .select("username")
+      .eq("uid", uid)
+      .maybeSingle();
+    const username = (userRow as { username: string } | null)?.username ?? "";
+
     const id = crypto.randomUUID();
     const { error } = await client.from("posts").insert({
       id,
       userid: uid,
+      username,
+      content: input.text.trim(),
       groupid: input.groupId,
-      text: input.text.trim(),
       media: input.media ?? [],
       visibility: input.visibility ?? "public",
       ispinned: false,
@@ -676,31 +689,13 @@ export async function approveJoinRequest(groupId: string, requestUid: string): P
   if (!uid) throw new Error("Unauthorized");
 
   await withSupabaseRequestContext(async client => {
-    const { data: membership } = await client
-      .from("group_members")
-      .select("role")
-      .eq("groupid", groupId)
-      .eq("uid", uid)
-      .maybeSingle();
-    const m = membership as { role: string } | null;
-    if (!m || m.role !== "admin") throw new Error("Only admins can approve requests");
-
-    const { error: insertError } = await client
-      .from("group_members")
-      .insert({ id: crypto.randomUUID(), groupid: groupId, uid: requestUid });
-    if (insertError && insertError.code !== "23505") throw insertError;
-
-    await client
-      .from("group_join_requests")
-      .delete()
-      .eq("groupid", groupId)
-      .eq("uid", requestUid);
-
-    const { count } = await client
-      .from("group_members")
-      .select("id", { count: "exact", head: true })
-      .eq("groupid", groupId);
-    await client.from("groups").update({ memberscount: count ?? 0 }).eq("id", groupId);
+    // Use the security-definer RPC which handles admin verification,
+    // member insert, request deletion, and count sync atomically.
+    const { error } = await client.rpc("approve_group_join_request", {
+      p_group_id: groupId,
+      p_request_uid: requestUid,
+    });
+    if (error) throw error;
   });
 }
 

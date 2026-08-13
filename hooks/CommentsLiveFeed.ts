@@ -21,7 +21,7 @@ export function useLiveComments(postId: string, limit = 10) {
         snapshot.docChanges().forEach(change => {
           if (change.type === "added") {
             const newComment = change.doc.data();
-            toast.success(`ðŸ—¨ï¸ New reply from @${newComment.username}`);
+            toast.success(`🗨️ New reply from @${newComment.username}`);
           }
         });
       } else {

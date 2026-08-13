@@ -16,7 +16,7 @@ function cleanText(str?: string) {
   return str ? decode(str).replace(/\s+/g, " ").trim() : "";
 }
 
-// Known sites that block scraping â†’ prefer LinkPreview directly
+// Known sites that block scraping → prefer LinkPreview directly
 const LINK_PREVIEW_DOMAINS = [
   "facebook.com",
   "instagram.com",
@@ -152,7 +152,7 @@ export async function fetchMetadata(rawUrl: string): Promise<LinkPreviewType | n
       return null;
     }
 
-    // If blocked domain â†’ go straight to LinkPreview
+    // If blocked domain → go straight to LinkPreview
     if (LINK_PREVIEW_DOMAINS.some(d => hostname.endsWith(d))) {
       return await fetchWithLinkPreview(normalized);
     }

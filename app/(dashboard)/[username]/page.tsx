@@ -19,7 +19,7 @@ export default async function Page({
   const userDoc = snapshot.docs[0];
   const data = userDoc.data();
 
-  // âœ… Safe createdAt handling
+  // ✅ Safe createdAt handling
   let createdAt: Date | null = null;
   if (data.createdAt) {
     if (typeof data.createdAt.toDate === "function") {

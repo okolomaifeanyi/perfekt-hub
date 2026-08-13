@@ -25,7 +25,7 @@ export function useUserFeed(username: string) {
   const [hasMore, setHasMore] = useState(true);
   const isInitialLoad = useRef(true);
 
-  // ðŸ”¹ Initial load + live updates
+  // 🔹 Initial load + live updates
   useEffect(() => {
     if (!username) return;
 
@@ -38,7 +38,7 @@ export function useUserFeed(username: string) {
 
     const unsubscribe = onSnapshot(q, snapshot => {
       if (isInitialLoad.current) {
-        // ðŸŸ¢ First snapshot = initial posts
+        // 🟢 First snapshot = initial posts
         const initial: PostProps[] = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -61,7 +61,7 @@ export function useUserFeed(username: string) {
         return;
       }
 
-      // ðŸŸ¡ Handle live updates
+      // 🟡 Handle live updates
       snapshot.docChanges().forEach(change => {
         const doc = change.doc;
         const data = doc.data();
@@ -85,7 +85,7 @@ export function useUserFeed(username: string) {
     return () => unsubscribe();
   }, [username]);
 
-  // ðŸ”¹ Pagination
+  // 🔹 Pagination
   const loadMorePosts = useCallback(async () => {
     if (!lastVisible || !hasMore || !username) return;
 

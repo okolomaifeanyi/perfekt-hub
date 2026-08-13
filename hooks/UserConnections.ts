@@ -14,7 +14,7 @@ export function useUserConnections() {
   useEffect(() => {
     if (!currentUser?.uid) return;
 
-    // ðŸ”¹ Subscriptions cleanup
+    // 🔹 Subscriptions cleanup
     const unsubs: (() => void)[] = [];
 
     // Friends listener

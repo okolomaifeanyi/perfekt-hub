@@ -11,7 +11,7 @@ export function usePostReactions(postId: string, userId?: string) {
   useEffect(() => {
     if (!postId) return;
 
-    // ðŸ”¥ Listen for post root counts
+    // 🔥 Listen for post root counts
     const postRef = doc(db, "posts", postId);
     const unsubPost = onSnapshot(postRef, snap => {
       if (!snap.exists()) return;
@@ -25,7 +25,7 @@ export function usePostReactions(postId: string, userId?: string) {
       });
     });
 
-    // ðŸ”¥ Listen for this user's engagement
+    // 🔥 Listen for this user's engagement
     let unsubUser: (() => void) | undefined;
     if (userId) {
       const engagementRef = doc(db, `posts/${postId}/engagements/${userId}`);

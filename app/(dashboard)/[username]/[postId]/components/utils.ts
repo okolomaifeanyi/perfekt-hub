@@ -65,22 +65,22 @@ export async function deletePost(postId: string, skipAuthCheck = false) {
       return;
     }
 
-    // ðŸ”½ Decrement parentâ€™s reply count
+    // 🔽 Decrement parent’s reply count
     if (post?.parentPostId) {
       const parentRef = doc(db, "posts", post.parentPostId);
       await updateDoc(parentRef, { replyCount: increment(-1) });
     }
 
-    // ðŸ”½ Decrement quoted postâ€™s quote count
+    // 🔽 Decrement quoted post’s quote count
     if (post?.quotePostId) {
       const quotedRef = doc(db, "posts", post.quotePostId);
       await updateDoc(quotedRef, { quoteCount: increment(-1) });
     }
 
-    // ðŸ” Recursively delete children replies & quotes
+    // 🔁 Recursively delete children replies & quotes
     await deleteChildrenPosts(postId);
 
-    // âŒ Delete actual post
+    // ❌ Delete actual post
     await deleteDoc(postRef);
 
     if (!skipAuthCheck)
