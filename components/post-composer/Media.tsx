@@ -8,11 +8,14 @@ import { PhotoIcon } from "@heroicons/react/24/solid";
 export default function Media({
   setMedia,
   media,
+  disabled = false,
 }: {
   setMedia: React.Dispatch<React.SetStateAction<MediaProps[]>>;
   media: MediaProps[];
+  disabled?: boolean;
 }) {
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const files = e.target.files;
     if (!files) return;
 
@@ -70,7 +73,7 @@ export default function Media({
         className={`${buttonVariants({
           variant: "secondary",
           size: "icon",
-        })} cursor-pointer`}
+        })} ${disabled ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
       >
         <PhotoIcon className="text-primary size-4" />
       </Label>
@@ -81,6 +84,7 @@ export default function Media({
         type="file"
         accept="image/*,video/*"
         multiple
+        disabled={disabled}
         onChange={handleFiles}
       />
 

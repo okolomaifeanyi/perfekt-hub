@@ -3,9 +3,10 @@ import Emoji from "./Emoji";
 import GifPicker from "./Gif";
 import Media from "./Media";
 import { toast } from "sonner";
-import { CalendarPlus } from "lucide-react";
+import { CalendarPlus, BarChart3 } from "lucide-react";
 import { Button } from "../ui/button";
 import { CreateEventDialog } from "../CreateEventDialog";
+import { cn } from "@/lib/utils";
 
 const Buttons: React.FC<ButtonsProps> = ({
   setText,
@@ -14,16 +15,35 @@ const Buttons: React.FC<ButtonsProps> = ({
   gifDialogOpen,
   media,
   showEvent = true,
+  showPoll = true,
+  pollMode = false,
+  onTogglePoll,
 }) => {
   return (
     <div className="flex space-x-1.5 items-center">
-      <Media setMedia={setMedia} media={media} />
+      <Media setMedia={setMedia} media={media} disabled={pollMode} />
 
       <Emoji
         onSelect={(emoji: EmojiProps) => {
           setText(prev => prev + emoji.native);
         }}
       />
+
+      {showPoll && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "size-8 text-muted-foreground hover:text-foreground",
+            pollMode && "bg-accent text-foreground"
+          )}
+          title={pollMode ? "Remove poll" : "Create a poll"}
+          onClick={onTogglePoll}
+        >
+          <BarChart3 className="size-4.5" />
+        </Button>
+      )}
 
       {showEvent && (
         <CreateEventDialog

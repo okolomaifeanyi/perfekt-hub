@@ -119,6 +119,7 @@ export async function sendPost({
   user,
   parentPostId = null,
   quotePostId = null,
+  postType = "text",
 }: {
   text: string;
   media: { src: string; type: "video" | "image" }[];
@@ -126,6 +127,7 @@ export async function sendPost({
   parentPostId?: string | null;
   quotePostId?: string | null;
   linkPreview?: LinkPreviewType;
+  postType?: "text" | "poll" | "product";
 }): Promise<PostProps> {
   if (!user || (!text.trim() && media.length === 0)) {
     throw new Error("User or content is missing");
@@ -185,6 +187,7 @@ export async function sendPost({
       replyCount: 0,
       quoteCount: 0,
       linkPreview: linkPreview || {},
+      postType,
     };
 
     const batch = firestoreAdmin.batch();

@@ -33,6 +33,7 @@ import { safeGetHostname } from "@/components/post-composer/utils";
 import { deletePostAction } from "@/app/actions/posts";
 import { toast } from "sonner";
 import PostCardSkeleton from "./PostCardSkeleton";
+import PostPollCard from "./PostPollCard";
 import { fallbackColorFromSrc } from "@/lib/image-colors.mjs";
 
 const PostCard = ({
@@ -198,6 +199,13 @@ const PostCard = ({
           <div onClick={stopPropagation}>
             <PostMedia post={post} />
           </div>
+
+          {/* Poll */}
+          {post.postType === "poll" && (
+            <div onClick={stopPropagation}>
+              <PostPollCard postId={post.id} />
+            </div>
+          )}
 
           {/* Quoted Post */}
           <div className="px-4" onClick={stopPropagation}>

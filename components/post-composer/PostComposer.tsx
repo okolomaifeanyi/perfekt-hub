@@ -5,7 +5,7 @@ import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { extractFirstUrl } from "@/lib/url-pattern.mjs";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MediaProps, OptimisticCallbacks, PostProps } from "@/lib/types";
 import MediaGallery from "./MediaGallery";
@@ -13,10 +13,12 @@ import Buttons from "./Buttons";
 import MyAvatar from "../feed/post/MyAvatar";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { handlePost } from "./utils";
 
 const MAX_TEXT = 280;
 const MAX_MEDIA = 4;
+const MAX_POLL_OPTIONS = 6;
 
 const PostComposer = ({
   placeholder,
@@ -43,9 +45,22 @@ const PostComposer = ({
   const [media, setMedia] = useState<MediaProps[]>([]);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pollMode, setPollMode] = useState(false);
+  const [pollOptions, setPollOptions] = useState(["", ""]);
   const linkPreviewUrl = extractFirstUrl(text);
   const isSending = loading || isSubmitting;
-  const canSend = text.trim().length > 0 || media.length > 0;
+  const validPollOptions = pollOptions.map(o => o.trim()).filter(Boolean);
+  const canSend = pollMode
+    ? text.trim().length > 0 && validPollOptions.length >= 2
+    : text.trim().length > 0 || media.length > 0;
+
+  const handleTogglePoll = () => {
+    setPollMode(prev => {
+      if (!prev) setMedia([]);
+      else setPollOptions(["", ""]);
+      return !prev;
+    });
+  };
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // `loading` state doesn't apply until the next render, so a rapid
@@ -99,13 +114,18 @@ const PostComposer = ({
       quotePostId: quotePostId || "",
       replyCount: 0,
       quoteCount: 0,
+      postType: pollMode ? "poll" : "text",
     } as Partial<PostProps>;
 
     const tempId = optimistic?.addOptimisticPost?.(partial) ?? null;
 
+    const sentPollOptions = pollMode ? validPollOptions : undefined;
+
     setText("");
     setMedia([]);
     setGifDialogOpen(false);
+    setPollMode(false);
+    setPollOptions(["", ""]);
     onSuccess?.();
 
     try {
@@ -115,6 +135,7 @@ const PostComposer = ({
         user,
         parentPostId,
         quotePostId,
+        pollOptions: sentPollOptions,
       });
 
       if (tempId && serverPost) {
@@ -126,6 +147,10 @@ const PostComposer = ({
       if (tempId) optimistic?.replaceOptimisticPost?.(tempId, null);
       setText(text);
       setMedia(media);
+      if (sentPollOptions) {
+        setPollMode(true);
+        setPollOptions(sentPollOptions);
+      }
     } finally {
       sendingRef.current = false;
       setLoading(false);
@@ -147,7 +172,7 @@ const PostComposer = ({
             autoFocus={autoFocusTextArea}
             onChange={e => setText(e.target.value)}
             value={text}
-            placeholder={placeholder || "What's on your mind?"}
+            placeholder={pollMode ? "Ask a question…" : placeholder || "What's on your mind?"}
             className="resize-none overflow-hidden rounded-lg wrap-break-word"
             onKeyDown={e => {
               if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -157,7 +182,54 @@ const PostComposer = ({
             maxLength={MAX_TEXT}
           />
 
-          {linkPreviewUrl && <LinkPreviewCard url={linkPreviewUrl} />}
+          {pollMode && (
+            <div className="space-y-2 rounded-lg border p-3">
+              {pollOptions.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    value={option}
+                    onChange={e =>
+                      setPollOptions(prev =>
+                        prev.map((o, i) => (i === index ? e.target.value : o))
+                      )
+                    }
+                    placeholder={`Option ${index + 1}`}
+                    maxLength={100}
+                    disabled={isSending}
+                  />
+                  {pollOptions.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={() =>
+                        setPollOptions(prev => prev.filter((_, i) => i !== index))
+                      }
+                      disabled={isSending}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < MAX_POLL_OPTIONS && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setPollOptions(prev => [...prev, ""])}
+                  disabled={isSending}
+                >
+                  <Plus className="mr-1 size-3.5" />
+                  Add option
+                </Button>
+              )}
+            </div>
+          )}
+
+          {linkPreviewUrl && !pollMode && <LinkPreviewCard url={linkPreviewUrl} />}
 
           <div className="flex justify-between items-center flex-wrap">
             <Buttons
@@ -167,6 +239,9 @@ const PostComposer = ({
               gifDialogOpen={gifDialogOpen}
               media={media}
               showEvent={!parentPostId && !quotePostId}
+              showPoll={!parentPostId && !quotePostId}
+              pollMode={pollMode}
+              onTogglePoll={handleTogglePoll}
             />
 
             {text.length > 0 && (

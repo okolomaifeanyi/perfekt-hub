@@ -1,6 +1,7 @@
 import { MediaProps, PostProps, UserProps } from "@/lib/types";
 import { toast } from "sonner";
 import { sendPost } from "./actions";
+import { createPostPoll } from "@/app/actions/posts";
 
 // export const uploadToCloudinary = async (file: File) => {
 //   const formData = new FormData();
@@ -70,6 +71,7 @@ export async function handlePost({
   onSuccess,
   parentPostId = null,
   quotePostId = null,
+  pollOptions,
 }: {
   text: string;
   media: MediaProps[];
@@ -77,6 +79,7 @@ export async function handlePost({
   onSuccess?: () => void;
   parentPostId?: string | null;
   quotePostId?: string | null;
+  pollOptions?: string[];
 }): Promise<PostProps | null> {
   try {
     const uploadedMedia: MediaProps[] = await Promise.all(
@@ -100,7 +103,22 @@ export async function handlePost({
       },
       parentPostId,
       quotePostId,
+      postType: pollOptions && pollOptions.length >= 2 ? "poll" : "text",
     });
+
+    // The post itself is already live at this point — if attaching the poll
+    // options fails, don't report the whole post as failed, just surface it
+    // as a bare post (postType is still "poll" with nothing to vote on yet
+    // rather than silently dropping to "text", so this is visible/fixable
+    // rather than a silent partial failure).
+    if (pollOptions && pollOptions.length >= 2) {
+      try {
+        await createPostPoll({ postId: post.id, options: pollOptions });
+      } catch (pollErr) {
+        console.error("Poll options failed to save:", pollErr);
+        toast.error("Post published, but the poll options failed to save.");
+      }
+    }
 
     toast.success("Post published");
     onSuccess?.();

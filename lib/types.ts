@@ -74,6 +74,7 @@ export interface PostProps {
   __optimistic?: boolean;
   engagementScore?: number;
   content_lowercase?: string;
+  postType?: "text" | "poll" | "product";
 }
 
 export interface EmojiProps {
@@ -93,6 +94,9 @@ export interface ButtonsProps {
   gifDialogOpen: boolean;
   media: MediaProps[];
   showEvent?: boolean;
+  showPoll?: boolean;
+  pollMode?: boolean;
+  onTogglePoll?: () => void;
 }
 
 export type NotificationType =
