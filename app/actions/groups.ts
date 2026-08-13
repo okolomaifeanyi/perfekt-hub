@@ -445,7 +445,13 @@ export async function listGroupPosts(
       .order("createdat", { ascending: false })
       .limit(limit);
 
-    // Non-members only see public posts
+    // Non-members only see public posts, and only if the group's own
+    // admin-controlled default also allows public visibility — an
+    // individual member marking their post "public" doesn't override the
+    // group's setting. RLS (posts_read_all) enforces this as the source
+    // of truth; this mirrors it so non-members don't pay for rows that
+    // would just get filtered out anyway.
+    let isMember = false;
     if (uid) {
       const { data: membership } = await client
         .from("group_members")
@@ -453,11 +459,21 @@ export async function listGroupPosts(
         .eq("groupid", groupId)
         .eq("uid", uid)
         .maybeSingle();
-      if (!membership) {
-        query = query.eq("visibility", "public");
-      }
-    } else {
-      query = query.eq("visibility", "public");
+      isMember = !!membership;
+    }
+
+    if (!isMember) {
+      const { data: groupRow } = await client
+        .from("groups")
+        .select("defaultpostvisibility")
+        .eq("id", groupId)
+        .maybeSingle();
+      const groupAllowsPublic =
+        (groupRow as { defaultpostvisibility: string } | null)?.defaultpostvisibility === "public";
+
+      query = groupAllowsPublic
+        ? query.eq("visibility", "public")
+        : query.eq("id", "__none__"); // group defaults to private — no post is visible to non-members
     }
 
     if (cursor) query = query.lt("createdat", cursor);

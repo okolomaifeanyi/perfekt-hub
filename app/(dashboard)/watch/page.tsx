@@ -64,10 +64,11 @@ async function fetchPublicGroupVideoPosts(): Promise<PostProps[]> {
       .from("posts")
       .select(`
         *,
-        groups ( name )
+        groups!inner ( name, defaultpostvisibility )
       `)
       .not("groupid", "is", null)
       .eq("visibility", "public")
+      .eq("groups.defaultpostvisibility", "public")
       .order("createdat", { ascending: false })
       .limit(30);
 
