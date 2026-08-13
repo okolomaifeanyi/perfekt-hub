@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { CalendarDays, Globe, Loader2, Lock, Users } from "lucide-react";
@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SortToggle, type ListSortMode } from "@/components/discover/SortToggle";
 import { useInfiniteList } from "@/hooks/useInfiniteList";
-import { joinGroup, listGroupsPage, type GroupProps } from "@/app/actions/groups";
+import { getMyGroupMemberships, joinGroup, listGroupsPage, type GroupProps } from "@/app/actions/groups";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { useGroupMembershipStore } from "@/lib/store/useGroupMembershipStore";
 
 function GroupCardSkeleton() {
   return (
@@ -33,12 +34,16 @@ function GroupCard({
   isOwner,
   isDone,
   hasRequested,
+  joining,
+  membersCount,
   onJoin,
 }: {
   group: GroupProps;
   isOwner: boolean;
   isDone: boolean;
   hasRequested: boolean;
+  joining: boolean;
+  membersCount: number;
   onJoin: () => void;
 }) {
   return (
@@ -67,7 +72,7 @@ function GroupCard({
               <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="size-3" />
-                  {group.membersCount} member{group.membersCount === 1 ? "" : "s"}
+                  {membersCount} member{membersCount === 1 ? "" : "s"}
                 </span>
                 <span className="flex items-center gap-1">
                   <CalendarDays className="size-3" />
@@ -83,7 +88,8 @@ function GroupCard({
           <p className="line-clamp-2 text-sm text-muted-foreground">{group.description}</p>
         )}
         {!isOwner && !isDone && !hasRequested && (
-          <Button size="sm" onClick={onJoin}>
+          <Button size="sm" onClick={onJoin} disabled={joining}>
+            {joining && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
             {group.joinPolicy === "open" ? "Join" : "Request to join"}
           </Button>
         )}
@@ -104,8 +110,10 @@ function GroupCard({
 
 export function GroupsListClient() {
   const currentUid = useUserStore(state => state.user?.uid);
-  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
-  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  const joinedIds = useGroupMembershipStore(state => state.joinedIds);
+  const requestedIds = useGroupMembershipStore(state => state.requestedIds);
+  const countDeltas = useGroupMembershipStore(state => state.countDeltas);
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [sortMode, setSortMode] = useState<ListSortMode>("time");
 
   const { items: groups, loading, loadingMore, hasMore, sentinelRef } = useInfiniteList<GroupProps>({
@@ -115,24 +123,45 @@ export function GroupsListClient() {
       listGroupsPage({ offset, sortMode: mode as ListSortMode, limit }),
   });
 
+  // Seed which groups the user has already joined / requested to join —
+  // without this the list has no idea, since listGroupsPage doesn't (and
+  // can't cheaply) return per-user membership for every group in the page.
+  // Runs once per mount; a fresh fetch always supersedes any stale deltas.
+  useEffect(() => {
+    let active = true;
+    getMyGroupMemberships()
+      .then(({ joinedIds, requestedIds }) => {
+        if (active) useGroupMembershipStore.getState().setInitial(joinedIds, requestedIds);
+      })
+      .catch(err => console.error("getMyGroupMemberships failed:", err));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loading) useGroupMembershipStore.getState().clearCountDeltas();
+  }, [loading]);
+
   const handleJoin = async (groupId: string) => {
-    setJoinedIds(prev => new Set(prev).add(groupId));
+    setPendingIds(prev => new Set(prev).add(groupId));
     try {
       const result = await joinGroup(groupId);
       if (result.status === "requested") {
-        setJoinedIds(prev => { const n = new Set(prev); n.delete(groupId); return n; });
-        setRequestedIds(prev => new Set(prev).add(groupId));
+        useGroupMembershipStore.getState().markRequested(groupId);
         toast.success("Join request sent");
       } else {
+        useGroupMembershipStore.getState().markJoined(groupId);
         toast.success("Joined group");
       }
     } catch {
-      setJoinedIds(prev => {
+      toast.error("Failed to join group");
+    } finally {
+      setPendingIds(prev => {
         const next = new Set(prev);
         next.delete(groupId);
         return next;
       });
-      toast.error("Failed to join group");
     }
   };
 
@@ -161,6 +190,8 @@ export function GroupsListClient() {
               isOwner={group.ownerUid === currentUid}
               isDone={joinedIds.has(group.id) || group.ownerUid === currentUid}
               hasRequested={requestedIds.has(group.id)}
+              joining={pendingIds.has(group.id)}
+              membersCount={Math.max(0, group.membersCount + (countDeltas[group.id] ?? 0))}
               onJoin={() => void handleJoin(group.id)}
             />
           ))}

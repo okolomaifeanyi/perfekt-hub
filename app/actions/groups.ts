@@ -36,6 +36,7 @@ export type GroupDetail = {
   group: GroupProps;
   members: GroupMemberProps[];
   myRole: GroupRole | null;
+  hasPendingRequest: boolean;
 };
 
 async function withSupabaseRequestContext<T>(
@@ -157,11 +158,38 @@ export async function createGroup(input: { name: string; description?: string })
   });
 }
 
+export async function getMyGroupMemberships(): Promise<{ joinedIds: string[]; requestedIds: string[] }> {
+  const { uid } = await getUserFromSession();
+  if (!uid) return { joinedIds: [], requestedIds: [] };
+
+  return withSupabaseRequestContext(async client => {
+    const [memberResult, requestResult] = await Promise.all([
+      client.from("group_members").select("groupid").eq("uid", uid),
+      client.from("group_join_requests").select("groupid").eq("uid", uid),
+    ]);
+    if (memberResult.error) throw memberResult.error;
+    if (requestResult.error) throw requestResult.error;
+    return {
+      joinedIds: (memberResult.data ?? []).map(row => row.groupid as string),
+      requestedIds: (requestResult.data ?? []).map(row => row.groupid as string),
+    };
+  });
+}
+
 export async function joinGroup(groupId: string): Promise<{ status: "joined" | "requested" }> {
   const { uid } = await getUserFromSession();
   if (!uid) throw new Error("Unauthorized");
 
   return withSupabaseRequestContext(async client => {
+    const { data: existingMember, error: existingMemberError } = await client
+      .from("group_members")
+      .select("id")
+      .eq("groupid", groupId)
+      .eq("uid", uid)
+      .maybeSingle();
+    if (existingMemberError) throw existingMemberError;
+    if (existingMember) return { status: "joined" };
+
     const { data: groupRow, error: groupError } = await client
       .from("groups")
       .select("joinpolicy")
@@ -253,17 +281,33 @@ export async function getGroupDetail(groupId: string): Promise<GroupDetail | nul
     if (groupError) throw groupError;
     if (!groupRow) return null;
 
-    const { data: memberRows, error: memberError } = await client
-      .from("group_members")
-      .select("uid, role, joinedat, users:uid(username, fullname, photourl, lastseen)")
-      .eq("groupid", groupId)
-      .order("joinedat", { ascending: true });
-    if (memberError) throw memberError;
+    const [memberResult, requestResult] = await Promise.all([
+      client
+        .from("group_members")
+        .select("uid, role, joinedat, users:uid(username, fullname, photourl, lastseen)")
+        .eq("groupid", groupId)
+        .order("joinedat", { ascending: true }),
+      uid
+        ? client
+            .from("group_join_requests")
+            .select("id")
+            .eq("groupid", groupId)
+            .eq("uid", uid)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (memberResult.error) throw memberResult.error;
+    if (requestResult.error) throw requestResult.error;
 
-    const members = (memberRows ?? []).map(mapMemberRow);
+    const members = (memberResult.data ?? []).map(mapMemberRow);
     const myRole = uid ? members.find(m => m.uid === uid)?.role ?? null : null;
 
-    return { group: mapGroupRow(groupRow), members, myRole };
+    return {
+      group: mapGroupRow(groupRow),
+      members,
+      myRole,
+      hasPendingRequest: !!requestResult.data,
+    };
   });
 }
 

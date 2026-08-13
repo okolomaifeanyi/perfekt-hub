@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGroupStore } from "@/lib/store/useGroupStore";
+import { useGroupMembershipStore } from "@/lib/store/useGroupMembershipStore";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import {
@@ -61,7 +62,7 @@ export function GroupDetailClient({
   const [polls, setPolls] = useState<PollProps[]>(initialPolls);
   const [files] = useState<GroupFileProps[]>(initialFiles);
   const [busy, setBusy] = useState(false);
-  const [requestPending, setRequestPending] = useState(false);
+  const [requestPending, setRequestPending] = useState(detail.hasPendingRequest);
   // localMyRole is derived from the server data; it starts as the server-known
   // role (or null) and is updated optimistically after join/leave actions.
   // We also fall back to detail.myRole (passed directly from the server) which
@@ -90,6 +91,13 @@ export function GroupDetailClient({
   // (see its handlePin) rather than round-tripping through this state.
   useEffect(() => {
     setGroupContext(detail.group, sortedMembers, detail.myRole, files);
+    // Seed the cross-page membership store from this fresh server fetch so
+    // the /discover/groups list (if visited next) already knows this group's
+    // status instead of showing "Join" again.
+    useGroupMembershipStore.getState().setInitial(
+      detail.myRole ? [detail.group.id] : [],
+      detail.hasPendingRequest ? [detail.group.id] : []
+    );
     return () => clearGroupContext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,11 +112,13 @@ export function GroupDetailClient({
       const result = await joinGroup(detail.group.id);
       if (result.status === "requested") {
         setRequestPending(true);
+        useGroupMembershipStore.getState().markRequested(detail.group.id);
         toast.success("Join request sent — waiting for admin approval");
       } else {
         // Optimistic update — no page refresh needed
         setLocalMyRole("member");
         setMembersCount(prev => prev + 1);
+        useGroupMembershipStore.getState().markJoined(detail.group.id);
         const newMember = {
           uid: currentUid ?? "",
           role: "member" as const,
@@ -137,6 +147,7 @@ export function GroupDetailClient({
       // Optimistic update
       setLocalMyRole(null);
       setMembersCount(prev => Math.max(0, prev - 1));
+      useGroupMembershipStore.getState().markLeft(detail.group.id);
       const updatedMembers = useGroupStore.getState().members.filter(m => m.uid !== currentUid);
       useGroupStore.getState().updateMembers(updatedMembers);
       toast.success("Left group");
