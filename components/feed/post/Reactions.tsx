@@ -3,6 +3,7 @@ import { SharePostDialog } from "@/components/post-composer/PostShareDialog";
 import { QuotePostDialog } from "@/components/post-composer/QuotePostDialog";
 import { Button } from "@/components/ui/button";
 import { usePostCounts } from "@/lib/store/postCounts";
+import { useRealtimePostCounts } from "@/hooks/usePostCount";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
 import { toggleReaction } from "@/lib/utils";
@@ -17,6 +18,12 @@ const Reactions = ({
   post: PostProps;
   optimistic?: OptimisticCallbacks;
 }) => {
+  // usePostCounts is a global-by-postId store, but nothing ever wrote real
+  // data into it — the only writes were this component's own optimistic
+  // like/dislike updates. Every counter (likes, dislikes, views, and reply
+  // count read by PostReplyDialog below) silently showed 0 on every fresh
+  // load until the current user personally liked/disliked that exact post.
+  useRealtimePostCounts(post.id);
   const postCounts = usePostCounts(state => state.counts[post.id]);
   const currentUser = useUserStore(state => state.user);
   if (!currentUser?.uid) return null;
