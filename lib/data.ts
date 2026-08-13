@@ -141,6 +141,22 @@ export async function getPost(postId: string): Promise<PostProps | null> {
     parentPostId: data.parentPostId || null,
     quotePostId: data.quotePostId || null,
     linkPreview: data.linkPreview || null,
+    // These were missing entirely — this is the function behind the post
+    // detail page (/{username}/{postId}), so without postType a poll or
+    // product post rendered as a plain text post with no poll/product card
+    // at all, and reply/quote/view counts and the group tag silently
+    // showed as zero/absent on that page specifically (other fetch paths
+    // like the feed carried these fine; this one just never did).
+    replyCount: data.replyCount ?? 0,
+    quoteCount: data.quoteCount ?? 0,
+    viewCount: data.viewCount ?? 0,
+    engagementScore: data.engagementScore ?? 0,
+    groupId: data.groupId ?? null,
+    groupName: data.groupName ?? null,
+    visibility: data.visibility ?? "public",
+    isPinned: data.isPinned ?? false,
+    postType: data.postType ?? "text",
+    moderationStatus: data.moderationStatus ?? "pending",
   } as PostProps;
 
   return post;

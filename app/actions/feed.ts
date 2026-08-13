@@ -80,6 +80,8 @@ function normalizePost(
     groupId: data.groupId ?? null,
     groupName: data.groupName ?? null,
     visibility: data.visibility ?? "public",
+    postType: data.postType ?? "text",
+    moderationStatus: data.moderationStatus ?? "pending",
     // Add any other fields you use:
     lastSeen: toDate(data.lastSeen),
     // ... add more if needed

@@ -229,7 +229,7 @@ export function GroupDetailClient({
           className="h-44 w-full object-cover sm:h-56 rounded-xl"
         />
       ) : (
-        <div className="h-24 w-full rounded-xl bg-gradient-to-br from-primary/20 to-primary/5" />
+        <div className="h-24 w-full rounded-xl bg-linear-to-br from-primary/20 to-primary/5" />
       )}
 
       {/* Identity bar: avatar + name + actions. The avatar-over-cover overlap

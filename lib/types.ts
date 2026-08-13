@@ -75,6 +75,7 @@ export interface PostProps {
   engagementScore?: number;
   content_lowercase?: string;
   postType?: "text" | "poll" | "product";
+  moderationStatus?: "pending" | "safe" | "sensitive";
 }
 
 export interface EmojiProps {

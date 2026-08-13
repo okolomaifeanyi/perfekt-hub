@@ -52,6 +52,11 @@ export function useUserFeed(username: string) {
             userPhotoURL: data.userPhotoURL,
             quotePostId: data.quotePostId || null,
             linkPreview: data.linkPreview || null,
+            replyCount: data.replyCount ?? 0,
+            quoteCount: data.quoteCount ?? 0,
+            viewCount: data.viewCount ?? 0,
+            postType: data.postType ?? "text",
+            moderationStatus: data.moderationStatus ?? "pending",
           };
         });
 
@@ -117,6 +122,11 @@ export function useUserFeed(username: string) {
         userPhotoURL: data.userPhotoURL,
         quotePostId: data.quotePostId || null,
         linkPreview: data.linkPreview || null,
+        replyCount: data.replyCount ?? 0,
+        quoteCount: data.quoteCount ?? 0,
+        viewCount: data.viewCount ?? 0,
+        postType: data.postType ?? "text",
+        moderationStatus: data.moderationStatus ?? "pending",
       };
     });
 
