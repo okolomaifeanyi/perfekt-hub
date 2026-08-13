@@ -149,6 +149,7 @@ export default function MessagePage({
     <>
       <div className="flex flex-col h-[calc(100vh-3rem)] max-w-full overflow-hidden">
         <NavBar
+          backHref="/messages"
           avatar={
             <MyAvatar
               username={targetUser?.username || "User"}

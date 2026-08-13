@@ -5,10 +5,14 @@ import { ArrowLeftIcon } from "@heroicons/react/24/solid";
 import { useRouter } from "next/navigation";
 import React from "react";
 
-const Back = () => {
-    const router = useRouter()
+const Back = ({ href }: { href?: string }) => {
+  const router = useRouter();
   return (
-    <Button variant="ghost" onClick={() => router.back()}>
+    <Button
+      variant="ghost"
+      aria-label="Back"
+      onClick={() => (href ? router.push(href) : router.back())}
+    >
       <ArrowLeftIcon />
     </Button>
   );
