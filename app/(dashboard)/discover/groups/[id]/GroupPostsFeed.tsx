@@ -313,13 +313,11 @@ function InlinePollCard({
 }
 
 export function GroupPostsFeed({
-  groupId: _groupId,
   timeline,
   isAdmin,
   currentUid,
   onPollVoted,
 }: {
-  groupId: string;
   timeline: TimelineItem[];
   isAdmin: boolean;
   currentUid?: string;

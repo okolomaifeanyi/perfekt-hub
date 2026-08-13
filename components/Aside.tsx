@@ -3,7 +3,22 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Crown, MessageCircle, MoreVertical, Phone, ShieldMinus, ShieldPlus, UserMinus, Users } from "lucide-react";
+import {
+  ChevronDown,
+  Crown,
+  FileIcon,
+  FileText,
+  Film,
+  ImageIcon,
+  MessageCircle,
+  MoreVertical,
+  Phone,
+  Pin,
+  ShieldMinus,
+  ShieldPlus,
+  UserMinus,
+  Users,
+} from "lucide-react";
 
 import WhoToFollow from "./Features/follow/WhoToFollow";
 import RecommendationRail from "@/components/feed/RecommendationRail";
@@ -22,7 +37,7 @@ import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { UserProps } from "@/lib/types";
 import ConversationRow from "@/app/(dashboard)/messages/Conversation";
 import NewConversationDialog from "@/components/inbox/NewConversationDialog";
-import { removeMember, setMemberRole } from "@/app/actions/groups";
+import { removeMember, setMemberRole, type GroupFileProps } from "@/app/actions/groups";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -156,6 +171,64 @@ function VideoQueueAside() {
   );
 }
 
+const FILES_PREVIEW = 4;
+
+function fileTypeIcon(type: GroupFileProps["fileType"]) {
+  if (type === "image") return <ImageIcon className="size-3.5 text-blue-500" />;
+  if (type === "video") return <Film className="size-3.5 text-purple-500" />;
+  if (type === "pdf") return <FileText className="size-3.5 text-red-500" />;
+  return <FileIcon className="size-3.5 text-muted-foreground" />;
+}
+
+function GroupFilesAside() {
+  const { files } = useGroupStore();
+  const [showAll, setShowAll] = useState(false);
+
+  if (files.length === 0) return null;
+
+  const pinned = files.filter(f => f.isPinned);
+  const rest = files.filter(f => !f.isPinned);
+  // Pinned files always show; "show more" reveals the rest.
+  const displayed = showAll ? files : pinned.length > 0 ? pinned : files.slice(0, FILES_PREVIEW);
+  const hiddenCount = files.length - displayed.length;
+
+  return (
+    <div className="space-y-2 border-b pb-3">
+      <h2 className="flex items-center gap-2 text-sm font-semibold">
+        <FileIcon className="size-3.5" />
+        Files
+        <span className="text-xs font-normal text-muted-foreground">({files.length})</span>
+      </h2>
+      <div className="space-y-0.5">
+        {displayed.map(file => (
+          <a
+            key={file.id}
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+          >
+            {fileTypeIcon(file.fileType)}
+            <span className="min-w-0 flex-1 truncate">{file.name}</span>
+            {file.isPinned && <Pin className="size-3 shrink-0 fill-current text-muted-foreground" />}
+          </a>
+        ))}
+      </div>
+      {(hiddenCount > 0 || (showAll && (pinned.length > 0 && rest.length > 0))) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-xs"
+          onClick={() => setShowAll(v => !v)}
+        >
+          <ChevronDown className={`mr-1.5 size-3.5 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          {showAll ? "Show less" : `Show ${rest.length > 0 ? rest.length : files.length} more`}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function GroupMembersAside() {
   const currentUid = useUserStore(state => state.user?.uid);
   const { group, members, myRole, updateMembers } = useGroupStore();
@@ -192,6 +265,7 @@ function GroupMembersAside() {
 
   return (
     <div className="flex w-full flex-col p-4 space-y-3">
+      <GroupFilesAside />
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-base font-semibold">
           <Users className="size-4" />

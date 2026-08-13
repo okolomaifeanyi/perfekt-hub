@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FileIcon, FileText, Film, ImageIcon, Loader2, Pin, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   deleteGroupFile,
-  listGroupFiles,
   pinGroupFile,
   uploadGroupFile,
   type GroupFileProps,
@@ -136,16 +135,25 @@ export function GroupFiles({
   isAdmin,
   currentUid,
   isMember,
+  onFilesChange,
 }: {
   groupId: string;
   initialFiles: GroupFileProps[];
   isAdmin: boolean;
   currentUid?: string;
   isMember: boolean;
+  onFilesChange?: (files: GroupFileProps[]) => void;
 }) {
   const [files, setFiles] = useState<GroupFileProps[]>(initialFiles);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Mirror every local change (upload/pin/delete) up to the parent, which
+  // keeps the Aside's file list in sync without a manual refresh.
+  useEffect(() => {
+    onFilesChange?.(files);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
 
   const images = files.filter(f => f.fileType === "image");
   const videos = files.filter(f => f.fileType === "video");

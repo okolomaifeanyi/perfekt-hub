@@ -59,6 +59,7 @@ export function GroupDetailClient({
   const [joinRequests, setJoinRequests] = useState<JoinRequestProps[]>(initialJoinRequests);
   const [posts, setPosts] = useState<GroupPostProps[]>(initialPosts);
   const [polls, setPolls] = useState<PollProps[]>(initialPolls);
+  const [files, setFiles] = useState<GroupFileProps[]>(initialFiles);
   const [busy, setBusy] = useState(false);
   const [requestPending, setRequestPending] = useState(false);
   // localMyRole is derived from the server data; it starts as the server-known
@@ -86,10 +87,16 @@ export function GroupDetailClient({
 
   // Push group context to the aside store on mount, clear on unmount
   useEffect(() => {
-    setGroupContext(detail.group, sortedMembers, detail.myRole);
+    setGroupContext(detail.group, sortedMembers, detail.myRole, files);
     return () => clearGroupContext();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the Aside's file list in sync whenever GroupFiles reports a change
+  // (upload/pin/delete) — no manual refresh needed.
+  useEffect(() => {
+    useGroupStore.getState().updateFiles(files);
+  }, [files]);
 
   const myRole = localMyRole;
   const isMember = !!myRole;
@@ -190,7 +197,6 @@ export function GroupDetailClient({
     | { type: "post"; data: GroupPostProps }
     | { type: "poll"; data: PollProps };
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const timeline = useMemo<TimelineItem[]>(() => {
     const items: TimelineItem[] = [
       ...posts.map(p => ({ type: "post" as const, data: p })),
@@ -357,7 +363,6 @@ export function GroupDetailClient({
             />
           )}
           <GroupPostsFeed
-            groupId={detail.group.id}
             timeline={timeline}
             isAdmin={isAdmin}
             currentUid={currentUid}
@@ -375,6 +380,7 @@ export function GroupDetailClient({
               isAdmin={isAdmin}
               currentUid={currentUid}
               isMember={isMember}
+              onFilesChange={setFiles}
             />
           </TabsContent>
         )}

@@ -27,7 +27,7 @@ export function GroupsListClient({ groups }: { groups: GroupProps[] }) {
     );
   }
 
-  const handleJoin = async (groupId: string, joinPolicy: "open" | "admin") => {
+  const handleJoin = async (groupId: string) => {
     setJoinedIds(prev => new Set(prev).add(groupId));
     try {
       const result = await joinGroup(groupId);
@@ -104,7 +104,7 @@ export function GroupsListClient({ groups }: { groups: GroupProps[] }) {
               {!isOwner && !isDone && !hasRequested && (
                 <Button
                   size="sm"
-                  onClick={() => void handleJoin(group.id, group.joinPolicy)}
+                  onClick={() => void handleJoin(group.id)}
                 >
                   {group.joinPolicy === "open" ? "Join" : "Request to join"}
                 </Button>

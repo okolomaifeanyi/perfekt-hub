@@ -1,13 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+import { usePathname } from "next/navigation";
+import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { AccountMenu } from "./AccountMenu";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
@@ -21,7 +16,6 @@ import {
   MagnifyingGlassIcon as DiscoverOutline,
   PlayIcon as WatchOutline,
   UserIcon as UserOutline,
-  EllipsisHorizontalCircleIcon as MoreOutline,
 } from "@heroicons/react/24/outline";
 
 import {
@@ -45,7 +39,6 @@ const NavBar = () => {
   const { user } = useUserStore(state => state);
   const count = useUnreadNotificationsCount();
   const pathname = usePathname();
-  const router = useRouter();
 
   if (!user) return null;
 
@@ -89,15 +82,6 @@ const NavBar = () => {
     },
   ];
 
-  const moreItems = [
-    { href: "/discover?q=groups", label: "Groups" },
-    { href: "/discover?q=events", label: "Events" },
-    { href: "/discover?q=match", label: "Suggested Match" },
-    { href: "/discover?q=saved", label: "Saved" },
-    { href: "/discover?q=calendar", label: "Calendar" },
-    { href: "/settings", label: "Settings" },
-  ];
-
   return (
     <div className="flex h-screen flex-col justify-between px-4 py-14">
       <div className="flex flex-col space-y-6">
@@ -130,37 +114,6 @@ const NavBar = () => {
           );
         })}
 
-        {/* More dropdown — items already accessible on /discover
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              data-no-button-shadow
-              className="flex items-center text-left md:space-x-4"
-            >
-              <MoreOutline className="size-8 text-foreground" />
-              <span className="hidden md:block">More</span>
-            </button>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="start" side="right" className="min-w-44">
-            <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-              Explore
-            </div>
-            {moreItems.map(item => (
-              <DropdownMenuItem
-                key={item.label}
-                onSelect={event => {
-                  event.preventDefault();
-                  router.push(item.href);
-                }}
-              >
-                {item.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        */}
       </div>
 
       <div className="space-y-4">

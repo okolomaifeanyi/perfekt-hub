@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Settings, X } from "lucide-react";
+import { ChevronDown, Settings, X } from "lucide-react";
 
 import CommentFeed from "@/components/feed/post/CommentFeed";
 import { Button } from "@/components/ui/button";
@@ -73,11 +73,33 @@ export default function VideoViewer({
     }
   };
 
+  // The swipe-up/down hint only makes sense before the viewer has scrolled
+  // at all — once they've moved past the first video they already know.
+  const [hasScrolled, setHasScrolled] = useState(false);
+
   const activePost = useMemo(() => queue[activeIndex] ?? currentPost, [activeIndex, currentPost, queue]);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [queue, currentPost.id]);
+
+  useEffect(() => {
+    if (activeIndex > 0) setHasScrolled(true);
+  }, [activeIndex]);
+
+  // Also dismiss on the first manual scroll/touch, even before the
+  // intersection observer settles on a new active section.
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || hasScrolled) return;
+    const dismiss = () => setHasScrolled(true);
+    container.addEventListener("wheel", dismiss, { passive: true });
+    container.addEventListener("touchmove", dismiss, { passive: true });
+    return () => {
+      container.removeEventListener("wheel", dismiss);
+      container.removeEventListener("touchmove", dismiss);
+    };
+  }, [hasScrolled]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -133,10 +155,23 @@ export default function VideoViewer({
   return (
     // Full-viewport reel container — no internal sidebar
     <div className="relative flex h-[calc(100svh-3rem)] w-full overflow-hidden bg-black text-white sm:h-screen">
+      {/* Back/close — always visible, not hover-gated, since mobile has
+          no hover and this is the only way out of a full-screen reel. */}
+      <Button
+        type="button"
+        variant="secondary"
+        size="icon"
+        className="absolute left-4 top-4 z-30 rounded-full"
+        onClick={handleBack}
+        aria-label="Close video"
+      >
+        <X className="size-4" />
+      </Button>
+
       {/* Snap-scroll feed */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth"
+        className="flex-1 overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth scrollbar-none"
       >
         {queue.map((post, index) => {
           const videoSrc = getVideoSource(post);
@@ -169,6 +204,14 @@ export default function VideoViewer({
                   <p className="max-w-md text-sm text-white/70">
                     This post does not include a video.
                   </p>
+                </div>
+              )}
+
+              {/* Swipe hint — first video only, dismisses on first scroll */}
+              {index === 0 && !hasScrolled && queue.length > 1 && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-0.5 text-white/80">
+                  <ChevronDown className="size-6 animate-bounce" />
+                  <p className="text-xs font-medium">Swipe up for next</p>
                 </div>
               )}
 

@@ -317,7 +317,7 @@ function mergeDeep<T extends Record<string, unknown>>(base: T, patch: Record<str
 }
 
 function getBaseTarget(segments: string[]): Target {
-  const [root, one, two, three] = segments;
+  const [root, one, two] = segments;
 
   if (root === "users") {
     const userTarget = getUsersTarget(segments);
