@@ -20,6 +20,7 @@ import { applyVideoQuality, isCloudinaryVideoUrl, VIDEO_QUALITIES } from "@/lib/
 import { cn } from "@/lib/utils";
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
 import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
+import { useVideoMuteStore } from "@/lib/store/useVideoMuteStore";
 
 type VideoViewerProps = {
   currentUsername: string;
@@ -53,6 +54,7 @@ export default function VideoViewer({
   const [quality, setQuality] = useState<VideoQuality>("auto");
 
   const { setQueue, setActiveIndex: syncActiveIndex, clearQueue } = useVideoQueueStore();
+  const { muted, toggleMuted } = useVideoMuteStore();
 
   // Sync queue and active index to the store so Aside can read it
   useEffect(() => {
@@ -193,7 +195,8 @@ export default function VideoViewer({
                   src={isActive ? applyVideoQuality(videoSrc, quality) : videoSrc}
                   autoPlay={isActive}
                   controls={false}
-                  muted
+                  muted={muted}
+                  onToggleMute={toggleMuted}
                   loop
                   showMuteToggle
                   className="relative z-10 h-full w-full"

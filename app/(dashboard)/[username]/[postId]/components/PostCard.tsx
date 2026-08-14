@@ -219,7 +219,7 @@ const PostCard = ({
 
           {/* Media */}
           <div onClick={stopPropagation}>
-            <PostMedia post={post} />
+            <PostMedia post={post} user={user} optimistic={optimistic} />
           </div>
 
           {/* Poll */}
