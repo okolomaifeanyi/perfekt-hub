@@ -12,10 +12,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Posts from "./post/Posts";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useLiveFeed } from "@/hooks/useLiveFeed";
-import PostComposer from "../post-composer/PostComposer";
 import { Button } from "../ui/button";
 import ComposePostDialog from "./ComposePostDialog";
 import { OnlineFriendsStrip } from "../OnlineFriendsStrip";
+import { ComposerTrigger } from "./ComposerTrigger";
 
 interface FeedProps {
   scrollPosition?: ScrollPosition;
@@ -165,17 +165,9 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
           breakpoint. */}
       <OnlineFriendsStrip />
 
-      {/* POST COMPOSER – ALWAYS VISIBLE */}
+      {/* POST COMPOSER TRIGGER – ALWAYS VISIBLE, OPENS THE COMPOSE DIALOG */}
       <div ref={composerInViewRef}>
-        <PostComposer
-          className="px-4"
-          optimistic={{
-            addOptimisticPost: latestFeed.addOptimisticPost,
-            replaceOptimisticPost: latestFeed.replaceOptimisticPost,
-            removeOptimisticPost: latestFeed.removeOptimisticPost,
-          }}
-          isSubmitting={latestFeed.isSubmitting}
-        />
+        <ComposerTrigger className="mb-2" onOpen={handleComposeClick} />
       </div>
 
       <ComposePostDialog

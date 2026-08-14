@@ -22,12 +22,24 @@ import { generateDraftDescription } from "@/app/actions/aiDraft";
 export function CreateEventDialog({
   trigger,
   onCreated,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   trigger?: React.ReactNode;
   onCreated?: (event: EventProps) => void;
+  // When passed, the caller owns the open state entirely and no trigger is
+  // rendered — needed for opening this from a menu item (e.g. the
+  // composer's "More" dropdown), where nesting a DialogTrigger inside a
+  // DropdownMenuItem is a known source of focus/close-timing conflicts
+  // between the two Radix primitives.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = isControlled ? onOpenChangeProp ?? (() => {}) : setInternalOpen;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
@@ -88,14 +100,16 @@ export function CreateEventDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="outline" size="sm">
-            <Plus className="mr-1.5 size-4" />
-            Create event
-          </Button>
-        )}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button variant="outline" size="sm">
+              <Plus className="mr-1.5 size-4" />
+              Create event
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create an event</DialogTitle>

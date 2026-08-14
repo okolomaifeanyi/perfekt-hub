@@ -69,6 +69,7 @@ export default function Media({
     <>
       <Label
         title="Upload Media"
+        aria-label="Add photo or video"
         htmlFor="picture"
         className={`${buttonVariants({
           variant: "secondary",

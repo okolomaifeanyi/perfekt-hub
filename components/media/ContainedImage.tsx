@@ -18,6 +18,11 @@ type ContainedImageProps = {
   loading?: "eager" | "lazy";
   className?: string;
   imageClassName?: string;
+  // Fires once the real image has loaded, with its natural pixel size —
+  // lets a caller that doesn't know the image's aspect ratio ahead of time
+  // (nothing here is stored server-side) size its own wrapper to match,
+  // instead of leaving it boxed into a fixed ratio that doesn't fit.
+  onNaturalSize?: (size: { width: number; height: number }) => void;
 };
 
 export function ContainedImage({
@@ -29,6 +34,7 @@ export function ContainedImage({
   loading,
   className,
   imageClassName,
+  onNaturalSize,
 }: ContainedImageProps) {
   const [backgroundColor, setBackgroundColor] = React.useState(() =>
     fallbackColorFromSrc(src)
@@ -44,8 +50,12 @@ export function ContainedImage({
       setBackgroundColor(
         sampleAverageColorFromImageElement(event.currentTarget)
       );
+      const img = event.currentTarget;
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        onNaturalSize?.({ width: img.naturalWidth, height: img.naturalHeight });
+      }
     },
-    []
+    [onNaturalSize]
   );
 
   return (

@@ -10,6 +10,16 @@ import { ContainedImage } from "@/components/media/ContainedImage";
 import { ContainedVideo } from "@/components/media/ContainedVideo";
 import { Button } from "@/components/ui/button";
 
+// Bounds a single image's displayed shape between "not taller than 4:5" and
+// "not wider than 16:9" — the same range Twitter/Instagram clamp to. Inside
+// this range the image is shown in full (object-contain, its real ratio, no
+// gaps because the box now matches it exactly). Outside it — a very tall
+// screenshot or a panorama — the box clamps to the bound and the image
+// switches to object-cover, trading a small, expected crop for never
+// ballooning the card to some extreme height or leaving empty side bars.
+const MIN_SINGLE_IMAGE_RATIO = 4 / 5;
+const MAX_SINGLE_IMAGE_RATIO = 16 / 9;
+
 const PostMedia = ({ post }: { post: PostProps }) => {
   const mediaCount = post?.media?.length || 0;
   const [open, setOpen] = useState(false);
@@ -19,6 +29,13 @@ const PostMedia = ({ post }: { post: PostProps }) => {
   // across a fresh page load.
   const [revealed, setRevealed] = useState(false);
   const isSensitive = post.moderationStatus === "sensitive" && !revealed;
+  // Single-image posts used to be boxed into a fixed 16:9 frame regardless
+  // of the photo's real shape, so anything portrait-oriented sat pillarboxed
+  // with visible empty bars on either side. Nothing about an image's
+  // dimensions is stored anywhere (see MediaProps), so the real ratio is
+  // only knowable once the browser has actually loaded it — start from a
+  // reasonable landscape guess and snap to the true ratio on load.
+  const [singleImageRatio, setSingleImageRatio] = useState<number | null>(null);
 
   const slides: Slide[] = (post?.media || []).map((media, idx) => {
     if (media.type === "video") {
@@ -43,13 +60,13 @@ const PostMedia = ({ post }: { post: PostProps }) => {
     <>
       {/* Collapsed grid view */}
       <div
-        className={`relative grid gap-1 max-h-62.5 overflow-hidden ${
+        className={`relative grid gap-1 overflow-hidden ${
           mediaCount === 2
-            ? "grid-cols-2"
+            ? "max-h-62.5 grid-cols-2"
             : mediaCount === 3
-            ? "grid-cols-2 grid-rows-2 h-75"
+            ? "max-h-62.5 grid-cols-2 grid-rows-2 h-75"
             : mediaCount === 4
-            ? "grid-cols-2 grid-rows-2"
+            ? "max-h-62.5 grid-cols-2 grid-rows-2"
             : ""
         }`}
       >
@@ -74,21 +91,34 @@ const PostMedia = ({ post }: { post: PostProps }) => {
         {post?.media?.map((media, idx) => {
           const isThree = mediaCount === 3;
           const isFirst = idx === 0;
+          const isSingle = mediaCount === 1;
 
           let containerClass = `relative w-full overflow-hidden cursor-pointer bg-muted/20`;
 
-          if (mediaCount === 1) {
-            containerClass += " aspect-video h-full";
+          if (isSingle) {
+            containerClass += " transition-[aspect-ratio] duration-200";
           } else if (isThree && isFirst) {
             containerClass += " row-span-2 h-full";
           } else {
             containerClass += " aspect-square h-full";
           }
 
+          const clampedRatio = singleImageRatio
+            ? Math.min(
+                MAX_SINGLE_IMAGE_RATIO,
+                Math.max(MIN_SINGLE_IMAGE_RATIO, singleImageRatio)
+              )
+            : null;
+          const singleImageNeedsCover =
+            singleImageRatio !== null &&
+            (singleImageRatio < MIN_SINGLE_IMAGE_RATIO ||
+              singleImageRatio > MAX_SINGLE_IMAGE_RATIO);
+
           return (
             <div
               key={idx}
               className={containerClass}
+              style={isSingle ? { aspectRatio: clampedRatio ?? 16 / 9 } : undefined}
               onClick={() => {
                 if (isSensitive) return;
                 setIndex(idx);
@@ -111,7 +141,14 @@ const PostMedia = ({ post }: { post: PostProps }) => {
                   alt={(idx === 0 && post.aiImageAltText) || `Post media ${idx + 1}`}
                   unoptimized
                   className="h-full w-full"
-                  imageClassName="object-contain"
+                  imageClassName={
+                    isSingle && singleImageNeedsCover ? "object-cover" : "object-contain"
+                  }
+                  onNaturalSize={
+                    isSingle
+                      ? ({ width, height }) => setSingleImageRatio(width / height)
+                      : undefined
+                  }
                 />
               )}
             </div>
