@@ -1,9 +1,12 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/client";
 import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
+import { enrichPost } from "./moderation";
+import { canRunPostBackgroundJobs } from "@/lib/supabase/post-jobs.mjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type GroupProps = {
@@ -427,6 +430,8 @@ export type GroupPostProps = {
   authorUsername?: string;
   authorFullName?: string;
   authorPhotoURL?: string | null;
+  moderationStatus?: "pending" | "safe" | "sensitive";
+  textToxic?: boolean;
 };
 
 function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
@@ -444,6 +449,8 @@ function mapGroupPostRow(row: Record<string, unknown>): GroupPostProps {
     authorUsername: (author.username as string) ?? undefined,
     authorFullName: (author.fullname as string) ?? undefined,
     authorPhotoURL: (author.photourl as string) ?? null,
+    moderationStatus: (row.moderationstatus as "pending" | "safe" | "sensitive") ?? "pending",
+    textToxic: Boolean(row.texttoxic),
   };
 }
 
@@ -480,6 +487,14 @@ export async function createGroupPost(input: {
       createdat: new Date().toISOString(),
     });
     if (error) throw error;
+
+    // Same AI moderation/tagging enrichment as the main composer's posts —
+    // group posts land in the same posts table, enrichPost works on postId
+    // alone regardless of which flow created the row. Was only wired into
+    // the main composer before; this was the gap.
+    if (canRunPostBackgroundJobs()) {
+      after(() => enrichPost(id));
+    }
 
     return {
       id,

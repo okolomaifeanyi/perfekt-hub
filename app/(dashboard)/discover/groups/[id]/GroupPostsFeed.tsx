@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { FileText, Globe, Lock, MoreVertical, Pin } from "lucide-react";
+import { AlertTriangle, FileText, Globe, Lock, MoreVertical, Pin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,10 @@ function GroupPostCard({
 }) {
   const isAuthor = post.userId === currentUid;
   const canManage = isAdmin || isAuthor;
+  const [revealed, setRevealed] = useState(false);
+  const isSensitive = post.moderationStatus === "sensitive" && !revealed;
+  const [textRevealed, setTextRevealed] = useState(false);
+  const isTextToxic = post.textToxic && !textRevealed;
 
   const handlePin = async () => {
     try {
@@ -156,16 +160,39 @@ function GroupPostCard({
         </div>
       </div>
 
-      {post.text && <p className="text-sm whitespace-pre-wrap break-words">{post.text}</p>}
+      {post.text && (
+        isTextToxic ? (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <AlertTriangle className="size-3.5 shrink-0" />
+            <span className="flex-1">This post may contain harassment or spam.</span>
+            <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setTextRevealed(true)}>
+              Show
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm whitespace-pre-wrap wrap-break-word">{post.text}</p>
+        )
+      )}
 
       {post.media && post.media.length > 0 && (
         <div
-          className={
+          className={`relative ${
             post.media.length === 1
               ? "overflow-hidden rounded-lg"
               : "grid gap-1 rounded-lg overflow-hidden grid-cols-2"
-          }
+          }`}
         >
+          {isSensitive && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 text-center backdrop-blur-xl">
+              <AlertTriangle className="size-6 text-muted-foreground" />
+              <p className="max-w-56 text-xs font-medium text-muted-foreground">
+                This post may contain sensitive content
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setRevealed(true)}>
+                View
+              </Button>
+            </div>
+          )}
           {post.media.map((m, i) =>
             m.type === "video" ? (
               <video

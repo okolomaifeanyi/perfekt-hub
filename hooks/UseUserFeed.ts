@@ -57,6 +57,8 @@ export function useUserFeed(username: string) {
             viewCount: data.viewCount ?? 0,
             postType: data.postType ?? "text",
             moderationStatus: data.moderationStatus ?? "pending",
+            aiImageAltText: data.aiImageAltText ?? null,
+            textToxic: data.textToxic ?? false,
           };
         });
 
@@ -127,6 +129,8 @@ export function useUserFeed(username: string) {
         viewCount: data.viewCount ?? 0,
         postType: data.postType ?? "text",
         moderationStatus: data.moderationStatus ?? "pending",
+        aiImageAltText: data.aiImageAltText ?? null,
+        textToxic: data.textToxic ?? false,
       };
     });
 

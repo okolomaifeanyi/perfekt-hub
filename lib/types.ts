@@ -76,6 +76,8 @@ export interface PostProps {
   content_lowercase?: string;
   postType?: "text" | "poll" | "product";
   moderationStatus?: "pending" | "safe" | "sensitive";
+  aiImageAltText?: string | null;
+  textToxic?: boolean;
 }
 
 export interface EmojiProps {

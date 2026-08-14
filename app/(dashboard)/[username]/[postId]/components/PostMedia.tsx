@@ -20,7 +20,7 @@ const PostMedia = ({ post }: { post: PostProps }) => {
   const [revealed, setRevealed] = useState(false);
   const isSensitive = post.moderationStatus === "sensitive" && !revealed;
 
-  const slides: Slide[] = (post?.media || []).map(media => {
+  const slides: Slide[] = (post?.media || []).map((media, idx) => {
     if (media.type === "video") {
       return {
         type: "video",
@@ -34,6 +34,7 @@ const PostMedia = ({ post }: { post: PostProps }) => {
     } else {
       return {
         src: media.src,
+        alt: (idx === 0 && post.aiImageAltText) || undefined,
       };
     }
   });
@@ -107,7 +108,7 @@ const PostMedia = ({ post }: { post: PostProps }) => {
               ) : (
                 <ContainedImage
                   src={media.src}
-                  alt={`Post media ${idx + 1}`}
+                  alt={(idx === 0 && post.aiImageAltText) || `Post media ${idx + 1}`}
                   unoptimized
                   className="h-full w-full"
                   imageClassName="object-contain"

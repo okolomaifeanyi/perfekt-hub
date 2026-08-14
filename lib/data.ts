@@ -157,6 +157,8 @@ export async function getPost(postId: string): Promise<PostProps | null> {
     isPinned: data.isPinned ?? false,
     postType: data.postType ?? "text",
     moderationStatus: data.moderationStatus ?? "pending",
+    aiImageAltText: data.aiImageAltText ?? null,
+    textToxic: data.textToxic ?? false,
   } as PostProps;
 
   return post;

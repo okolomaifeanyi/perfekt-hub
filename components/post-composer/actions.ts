@@ -231,61 +231,86 @@ export async function sendPost({
 
     await batch.commit();
 
-    // Moderation + topic/quality tagging is pure enrichment on a post that's
-    // already live — schedule it for after the response is sent instead of
-    // making the poster wait several seconds on an AI call before their
-    // post appears to send. after() (unlike a bare setTimeout) is Vercel's
-    // documented mechanism for this: the function is kept alive until the
-    // callback finishes even though the response has already gone out.
+    // Everything below here is a side effect on a post that has ALREADY
+    // been created successfully — notifications, engagement-score updates,
+    // AI enrichment. None of it should be able to make the poster see
+    // "Post failed" for a post that's actually live; confirmed live that
+    // an unhandled throw here (the quote-notification block previously
+    // had no try/catch at all) did exactly that. Each one is now isolated
+    // so a failure in any single one can't mask the others or the actual
+    // success of the post.
+
+    // Moderation + topic/quality tagging is pure enrichment on a post
+    // that's already live — schedule it for after the response is sent
+    // instead of making the poster wait several seconds on an AI call
+    // before their post appears to send. after() (unlike a bare
+    // setTimeout) is Vercel's documented mechanism for this: the function
+    // is kept alive until the callback finishes even though the response
+    // has already gone out.
     if (canRunPostBackgroundJobs()) {
       after(() => enrichPost(postRef.id));
     }
 
     if (canRunPostBackgroundJobs()) {
-      if (parentPostId) {
-        await scheduleEngagementScoreUpdate(parentPostId);
-      }
-
-      if (quotePostId) {
-        await scheduleEngagementScoreUpdate(quotePostId);
+      try {
+        if (parentPostId) {
+          await scheduleEngagementScoreUpdate(parentPostId);
+        }
+        if (quotePostId) {
+          await scheduleEngagementScoreUpdate(quotePostId);
+        }
+      } catch (err) {
+        console.error("sendPost: engagement score update failed:", err);
       }
     }
 
     if (parentPostId) {
-      await notifyChainUsers(parentPostId, {
-        uid: user.uid,
-        username: user.username,
-      });
-    }
-
-    if (quotePostId) {
-      const quotedPostSnap = await firestoreAdmin
-        .collection("posts")
-        .doc(quotePostId)
-        .get();
-
-      if (quotedPostSnap.exists()) {
-        const quotedPost = quotedPostSnap.data();
-        if (quotedPost?.userId !== user.uid) {
-          await sendNotification({
-            recipientUid: quotedPost?.userId,
-            actorUid: user.uid,
-            type: "quote",
-            postId: postRef.id,
-            extra: { quotePostId },
-          });
-        }
+      try {
+        await notifyChainUsers(parentPostId, {
+          uid: user.uid,
+          username: user.username,
+        });
+      } catch (err) {
+        console.error("sendPost: notifyChainUsers failed:", err);
       }
     }
 
-    await notifyMentionedUsers({
-      content: text,
-      sender: {
-        uid: user.uid,
-        username: user.username,
-      },
-      postId: postRef.id,
-    });
+    if (quotePostId) {
+      try {
+        const quotedPostSnap = await firestoreAdmin
+          .collection("posts")
+          .doc(quotePostId)
+          .get();
+
+        if (quotedPostSnap.exists()) {
+          const quotedPost = quotedPostSnap.data();
+          if (quotedPost?.userId !== user.uid) {
+            await sendNotification({
+              recipientUid: quotedPost?.userId,
+              actorUid: user.uid,
+              type: "quote",
+              postId: postRef.id,
+              extra: { quotePostId },
+            });
+          }
+        }
+      } catch (err) {
+        console.error("sendPost: quote notification failed:", err);
+      }
+    }
+
+    try {
+      await notifyMentionedUsers({
+        content: text,
+        sender: {
+          uid: user.uid,
+          username: user.username,
+        },
+        postId: postRef.id,
+      });
+    } catch (err) {
+      console.error("sendPost: notifyMentionedUsers failed:", err);
+    }
 
     return {
       ...postData,

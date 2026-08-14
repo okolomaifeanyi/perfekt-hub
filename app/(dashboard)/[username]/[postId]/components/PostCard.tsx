@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import Reactions from "@/components/feed/post/Reactions";
 import Text from "@/components/feed/post/Text";
 import PostMedia from "./PostMedia";
@@ -58,6 +61,11 @@ const PostCard = ({
   const router = useRouter();
   const parentPost = useParentPost(post.parentPostId);
   const parentPostUser = useUser(parentPost?.userId || "");
+  // Separate from the image moderation gate on PostMedia — this is about
+  // the caption text itself (harassment/hate speech/spam), flagged by the
+  // same enrichPost AI call. Per-view, not persisted, same as the image gate.
+  const [textRevealed, setTextRevealed] = useState(false);
+  const isTextToxic = post.textToxic && !textRevealed;
 
   // Use data cached in the post row as immediate fallbacks so the card is
   // always clickable, even while the async user fetch is in-flight or when
@@ -193,7 +201,20 @@ const PostCard = ({
               mentions/links inside stop propagation themselves instead (see
               RichText.tsx) so they still open their own target, not the post. */}
           <div className="px-4">
-            <Text text={post.content} />
+            {isTextToxic ? (
+              <div
+                className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+                onClick={stopPropagation}
+              >
+                <AlertTriangle className="size-3.5 shrink-0" />
+                <span className="flex-1">This post may contain harassment or spam.</span>
+                <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setTextRevealed(true)}>
+                  Show
+                </Button>
+              </div>
+            ) : (
+              <Text text={post.content} />
+            )}
           </div>
 
           {/* Media */}

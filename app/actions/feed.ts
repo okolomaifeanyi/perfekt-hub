@@ -82,6 +82,8 @@ function normalizePost(
     visibility: data.visibility ?? "public",
     postType: data.postType ?? "text",
     moderationStatus: data.moderationStatus ?? "pending",
+    aiImageAltText: data.aiImageAltText ?? null,
+    textToxic: data.textToxic ?? false,
     // Add any other fields you use:
     lastSeen: toDate(data.lastSeen),
     // ... add more if needed
