@@ -15,6 +15,7 @@ import {
   EnvelopeIcon as MailOutline,
   MagnifyingGlassIcon as DiscoverOutline,
   PlayIcon as WatchOutline,
+  SparklesIcon as AssistantOutline,
   UserIcon as UserOutline,
 } from "@heroicons/react/24/outline";
 
@@ -24,6 +25,7 @@ import {
   EnvelopeIcon as MailSolid,
   MagnifyingGlassIcon as DiscoverSolid,
   PlayIcon as WatchSolid,
+  SparklesIcon as AssistantSolid,
   UserIcon as UserSolid,
 } from "@heroicons/react/24/solid";
 
@@ -73,6 +75,12 @@ const NavBar = () => {
       SolidIcon: BellSolid,
       OutlineIcon: BellOutline,
       badge: count,
+    },
+    {
+      href: "/assistant",
+      label: "Assistant",
+      SolidIcon: AssistantSolid,
+      OutlineIcon: AssistantOutline,
     },
     {
       href: `/${user.username}`,
