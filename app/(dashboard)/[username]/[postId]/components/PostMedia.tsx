@@ -1,17 +1,24 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { PostProps } from "@/lib/types";
 import Lightbox, { Slide, SlideVideo } from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Video from "yet-another-react-lightbox/plugins/video";
 import { ContainedImage } from "@/components/media/ContainedImage";
 import { ContainedVideo } from "@/components/media/ContainedVideo";
+import { Button } from "@/components/ui/button";
 
 const PostMedia = ({ post }: { post: PostProps }) => {
   const mediaCount = post?.media?.length || 0;
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
+  // Per-view, not persisted — same pattern as X/Twitter's sensitive-content
+  // gate: revealing it once for this render doesn't remember the choice
+  // across a fresh page load.
+  const [revealed, setRevealed] = useState(false);
+  const isSensitive = post.moderationStatus === "sensitive" && !revealed;
 
   const slides: Slide[] = (post?.media || []).map(media => {
     if (media.type === "video") {
@@ -35,7 +42,7 @@ const PostMedia = ({ post }: { post: PostProps }) => {
     <>
       {/* Collapsed grid view */}
       <div
-        className={`grid gap-1 max-h-62.5 overflow-hidden ${
+        className={`relative grid gap-1 max-h-62.5 overflow-hidden ${
           mediaCount === 2
             ? "grid-cols-2"
             : mediaCount === 3
@@ -45,6 +52,24 @@ const PostMedia = ({ post }: { post: PostProps }) => {
             : ""
         }`}
       >
+        {isSensitive && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 text-center backdrop-blur-xl">
+            <AlertTriangle className="size-6 text-muted-foreground" />
+            <p className="max-w-56 text-xs font-medium text-muted-foreground">
+              This post may contain sensitive content
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={e => {
+                e.stopPropagation();
+                setRevealed(true);
+              }}
+            >
+              View
+            </Button>
+          </div>
+        )}
         {post?.media?.map((media, idx) => {
           const isThree = mediaCount === 3;
           const isFirst = idx === 0;
@@ -64,6 +89,7 @@ const PostMedia = ({ post }: { post: PostProps }) => {
               key={idx}
               className={containerClass}
               onClick={() => {
+                if (isSensitive) return;
                 setIndex(idx);
                 setOpen(true);
               }}
@@ -72,11 +98,11 @@ const PostMedia = ({ post }: { post: PostProps }) => {
                 <ContainedVideo
                   src={media.src}
                   className="h-full w-full"
-                  autoPlayOnHover
+                  autoPlayOnHover={!isSensitive}
                   muted // avoid noisy previews by default
                   loop
                   controls={false}
-                  showMuteToggle
+                  showMuteToggle={!isSensitive}
                 />
               ) : (
                 <ContainedImage

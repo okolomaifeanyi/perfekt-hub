@@ -1,8 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { sendNotification } from "@/app/actions/notifications";
 import { scheduleEngagementScoreUpdate } from "@/app/actions/reactions";
+import { enrichPost } from "@/app/actions/moderation";
 import { firestoreAdmin } from "@/lib/supabase";
 import {
   extractLinks,
@@ -228,6 +230,16 @@ export async function sendPost({
     }
 
     await batch.commit();
+
+    // Moderation + topic/quality tagging is pure enrichment on a post that's
+    // already live — schedule it for after the response is sent instead of
+    // making the poster wait several seconds on an AI call before their
+    // post appears to send. after() (unlike a bare setTimeout) is Vercel's
+    // documented mechanism for this: the function is kept alive until the
+    // callback finishes even though the response has already gone out.
+    if (canRunPostBackgroundJobs()) {
+      after(() => enrichPost(postRef.id));
+    }
 
     if (canRunPostBackgroundJobs()) {
       if (parentPostId) {

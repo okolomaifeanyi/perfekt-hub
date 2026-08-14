@@ -141,6 +141,14 @@ export async function addUniqueView(postId: string, userId: string) {
 
 /**
  * 🧮 Engagement score formula — consistent with your backfill script.
+ *
+ * aiQualityScore (0-100, set once at post creation by app/actions/moderation.ts's
+ * enrichPost — see calculateEngagementScore's tests for the exact tuning)
+ * matters most for brand-new posts: with zero replies/quotes/likes/views
+ * every fresh post previously scored exactly 0, so ranking among new posts
+ * was an arbitrary tie broken only by array order. Scaled to a 30-point max
+ * (~5 replies' worth) so it gives fresh content a real initial signal
+ * without letting it outweigh actual engagement once that accumulates.
  */
 function calculateEngagementScore(data: {
   replyCount?: number;
@@ -150,15 +158,17 @@ function calculateEngagementScore(data: {
     dislike?: number;
     view?: number;
   };
+  aiQualityScore?: number | null;
 }) {
   const replies = data.replyCount ?? 0;
   const quotes = data.quoteCount ?? 0;
   const likes = data.reactionCounts?.like ?? 0;
   const dislikes = data.reactionCounts?.dislike ?? 0;
   const views = data.reactionCounts?.view ?? 0;
+  const aiQuality = data.aiQualityScore ?? 50; // 50 = neutral, matches enrichPost's fallback
 
   // Tuned weights
-  const score = replies * 6 + quotes * 5 + likes * 4 + views * 1 - dislikes * 2;
+  const score = replies * 6 + quotes * 5 + likes * 4 + views * 1 - dislikes * 2 + aiQuality * 0.3;
 
   return Math.round(score);
 }
@@ -177,6 +187,7 @@ export async function updateEngagementScore(
     replyCount: data.replyCount,
     quoteCount: data.quoteCount,
     reactionCounts: data.reactionCounts,
+    aiQualityScore: data.aiQualityScore,
   });
 
   await postRef.update({
@@ -223,6 +234,7 @@ export async function scheduleEngagementScoreUpdate(
       replyCount: data.replyCount,
       quoteCount: data.quoteCount,
       reactionCounts: data.reactionCounts,
+      aiQualityScore: data.aiQualityScore,
     });
 
     await postRef.update({
