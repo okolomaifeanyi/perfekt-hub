@@ -97,7 +97,7 @@ export function AssistantChatClient() {
           <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Sparkles className="size-4" />
           </span>
-          <h1 className="font-semibold">AI Assistant</h1>
+          <h1 className="font-semibold">Nwanne</h1>
         </div>
         {messages && messages.length > 0 && (
           <Button size="icon" variant="ghost" className="size-8" title="Clear conversation" onClick={handleClear}>
@@ -114,7 +114,9 @@ export function AssistantChatClient() {
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
             <Sparkles className="size-8" />
-            <p className="text-sm">Ask me anything — I don&apos;t have access to your posts or messages.</p>
+            <p className="text-sm">
+              Hi, I&apos;m Nwanne. Ask me anything — I don&apos;t have access to your posts or messages.
+            </p>
           </div>
         ) : (
           messages.map(message => <Bubble key={message.id} message={message} />)
@@ -133,7 +135,7 @@ export function AssistantChatClient() {
         <Textarea
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Message the assistant…"
+          placeholder="Message Nwanne…"
           className="max-h-32 min-h-9 resize-none"
           disabled={sending}
           onKeyDown={e => {

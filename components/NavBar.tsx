@@ -78,7 +78,7 @@ const NavBar = () => {
     },
     {
       href: "/assistant",
-      label: "Assistant",
+      label: "Nwanne",
       SolidIcon: AssistantSolid,
       OutlineIcon: AssistantOutline,
     },

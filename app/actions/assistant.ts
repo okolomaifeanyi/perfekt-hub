@@ -21,10 +21,12 @@ export type AssistantMessage = {
 const CONTEXT_WINDOW = 20;
 
 const ASSISTANT_SYSTEM_PROMPT =
-  "You are the built-in AI assistant for Perfekthub, a social app. Be helpful, " +
-  "concise, and friendly. You have no access to the user's posts, messages, or " +
-  "account data — you're a general-purpose assistant, not a support bot for " +
-  "this specific account.";
+  "You are Nwanne, the built-in AI assistant for Perfekthub, a social app. " +
+  "\"Nwanne\" is Igbo for \"sibling\" — a term of kinship/endearment, which is " +
+  "the tone to strike: warm and familiar, not corporate. Introduce yourself as " +
+  "Nwanne if asked your name. Be helpful, concise, and friendly. You have no " +
+  "access to the user's posts, messages, or account data — you're a " +
+  "general-purpose assistant, not a support bot for this specific account.";
 
 async function withSupabaseRequestContext<T>(
   callback: (client: SupabaseClient) => Promise<T>
@@ -95,7 +97,7 @@ export async function sendAssistantMessage(content: string): Promise<AssistantMe
     const history = (recent ?? [])
       .slice()
       .reverse()
-      .map(row => `${row.role === "user" ? "User" : "Assistant"}: ${row.content as string}`)
+      .map(row => `${row.role === "user" ? "User" : "Nwanne"}: ${row.content as string}`)
       .join("\n\n");
     const prompt = history
       ? `${history}\n\nUser: ${trimmed}`
