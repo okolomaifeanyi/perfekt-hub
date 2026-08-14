@@ -7,9 +7,18 @@ import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
 import { useStreamClientStore } from "@/lib/store/useStreamClientStore";
 
 // Deterministic per-pair call id so both participants resolve to the same
-// call room regardless of who initiates — sorted so uid order doesn't matter.
-function directCallId(uidA: string, uidB: string) {
-  return [uidA, uidB].sort().join("-");
+// call room regardless of who initiates — sorted so uid order doesn't
+// matter. Stream rejects call ids over 64 characters; two Supabase UUIDs
+// joined directly are 73, so hash the pair instead of concatenating them.
+// A 40-char hex slice of SHA-256 (160 bits) is comfortably collision-free
+// for this many possible user pairs while staying well under the limit.
+async function directCallId(uidA: string, uidB: string) {
+  const pairKey = [uidA, uidB].sort().join("-");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pairKey));
+  const hex = Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `dm-${hex.slice(0, 40)}`;
 }
 
 export function useStartCall() {
@@ -35,7 +44,7 @@ export function useStartCall() {
       if (targetUid === currentUid) return;
 
       try {
-        const call = client.call("default", directCallId(currentUid, targetUid));
+        const call = client.call("default", await directCallId(currentUid, targetUid));
         await call.getOrCreate({
           ring: true,
           data: { members: [{ user_id: currentUid }, { user_id: targetUid }] },
