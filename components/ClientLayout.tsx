@@ -10,6 +10,7 @@ import { useUserStore } from "@/lib/store/useUserStore";
 import Loader from "./Loader";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { saveOrUpdateUser, logoutClient } from "@/app/(auth)/lib/utils";
+import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import {
   canSyncUserProfile,
   hasAuthenticatedSession,
@@ -55,6 +56,8 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const router = useRouter();
+
+  usePresenceHeartbeat(!isAuthPage ? user?.uid : null);
 
   useEffect(() => {
     if (isAuthPage) {

@@ -4,31 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { db, doc, onSnapshot } from "@/lib/supabase";
 import { useUserConnections } from "@/hooks/UserConnections";
 import { UserProps } from "@/lib/types";
+import { getPresenceStatus } from "@/lib/presence.mjs";
 
 export type FriendPreview = UserProps & {
   status: "online" | "recently-active" | "offline";
 };
 
-function getFriendStatus(user: UserProps): FriendPreview["status"] {
-  if (user.online) return "online";
-
-  const lastSeen = user.lastSeen;
-  if (!lastSeen) return "offline";
-
-  const seenAt =
-    lastSeen instanceof Date
-      ? lastSeen
-      : "toDate" in lastSeen
-        ? lastSeen.toDate()
-        : new Date(lastSeen);
-
-  const minutesSinceSeen = (Date.now() - seenAt.getTime()) / 60000;
-  if (Number.isFinite(minutesSinceSeen) && minutesSinceSeen <= 15) {
-    return "recently-active";
-  }
-
-  return "offline";
-}
+// A friend's own doc only re-fires onSnapshot when THEIR heartbeat writes
+// to it — so once they stop (tab closed), this hook would otherwise keep
+// showing their last-known status forever instead of aging it down to
+// "recently active" then "offline" the way getPresenceStatus intends.
+// This ticks a periodic recompute so status decays live for the viewer too.
+const STATUS_RECOMPUTE_INTERVAL_MS = 30_000;
 
 // Shared between the desktop Aside sidebar (hidden below the lg breakpoint)
 // and any mobile-visible equivalent, so both surfaces show the same online
@@ -77,20 +64,28 @@ export function useOnlineFriends(limit = 6) {
     };
   }, [watchedKey]);
 
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), STATUS_RECOMPUTE_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
   const friendPreviews = useMemo(() => {
     return watchedIds
       .map(id => profiles[id])
       .filter((profile): profile is UserProps => Boolean(profile))
       .map(profile => ({
         ...profile,
-        status: getFriendStatus(profile),
+        status: getPresenceStatus(profile) as FriendPreview["status"],
       }))
       .sort((left, right) => {
         const order = { online: 0, "recently-active": 1, offline: 2 } as const;
         return order[left.status] - order[right.status];
       });
+    // tick is intentionally unused in the body — it exists purely to force
+    // this memo to recompute on an interval so status ages down over time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profiles, watchedKey]);
+  }, [profiles, watchedKey, tick]);
 
   const activeCount = useMemo(
     () => friendPreviews.filter(f => f.status !== "offline").length,

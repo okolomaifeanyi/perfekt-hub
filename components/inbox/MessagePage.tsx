@@ -28,6 +28,8 @@ import {
   getOtherConversationParticipant,
   parseDirectConversationId,
 } from "@/lib/conversation-utils.mjs";
+import { getPresenceStatus } from "@/lib/presence.mjs";
+import { cn } from "@/lib/utils";
 
 // @stream-io/video-react-sdk (imported transitively via useStartCall) is a
 // WebRTC client library — this page is server-rendered on first load like
@@ -66,6 +68,21 @@ export default function MessagePage({
     user?.uid ?? ""
   );
   const targetUser = useUser(targetUid);
+  // targetUser's doc only re-fires onSnapshot when THEIR heartbeat writes
+  // to it, so without this, their status would freeze at its last-known
+  // value instead of aging down to "recently active"/"offline" once they
+  // stop (see the same pattern in useOnlineFriends).
+  const [presenceTick, setPresenceTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setPresenceTick(t => t + 1), 30_000);
+    return () => clearInterval(interval);
+  }, []);
+  const targetUserPresence = useMemo(
+    () => (targetUser ? getPresenceStatus(targetUser) : "offline"),
+    // presenceTick is intentionally unused in the body — see above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [targetUser, presenceTick]
+  );
 
   /* ---- ensure conversation doc ---- */
   useEffect(() => {
@@ -162,17 +179,29 @@ export default function MessagePage({
           backHref="/messages"
           hideBackOnDesktop
           avatar={
-            <MyAvatar
-              username={targetUser?.username || "User"}
-              photoURL={targetUser?.photoURL}
-              fullName={targetUser?.fullName}
-            />
+            <div className="relative">
+              <MyAvatar
+                username={targetUser?.username || "User"}
+                photoURL={targetUser?.photoURL}
+                fullName={targetUser?.fullName}
+              />
+              {targetUser && targetUserPresence !== "offline" && (
+                <span
+                  className={cn(
+                    "absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-background",
+                    targetUserPresence === "online" ? "bg-green-500" : "bg-yellow-500"
+                  )}
+                />
+              )}
+            </div>
           }
           title={targetUser?.fullName || targetUser?.username || "Someone"}
           extra={
             <div className="flex items-center gap-3">
-              {targetUser?.online ? (
+              {targetUserPresence === "online" ? (
                 <span className="text-green-500">Online</span>
+              ) : targetUserPresence === "recently-active" ? (
+                <span className="text-yellow-500">Active recently</span>
               ) : targetUser?.lastSeen ? (
                 <span className="text-muted">
                   Last seen{" "}

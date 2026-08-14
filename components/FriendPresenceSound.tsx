@@ -3,8 +3,20 @@
 import { useEffect, useRef } from "react";
 import { db, doc, onSnapshot } from "@/lib/supabase";
 import { useUserConnections } from "@/hooks/UserConnections";
+import { getPresenceStatus } from "@/lib/presence.mjs";
+import type { UserProps } from "@/lib/types";
+
+type PresenceStatus = "online" | "recently-active" | "offline";
 
 type AudioContextRef = React.MutableRefObject<AudioContext | null>;
+
+// A friend's doc only changes (and re-fires onSnapshot) when their own
+// heartbeat writes to it, so once they stop (tab closed) nothing tells this
+// component their status has since decayed to offline — re-checking on an
+// interval, not just on snapshot events, means the next time they actually
+// come back online gets correctly recognized as a real transition instead
+// of silently no-opping because the last-known status never aged down.
+const STATUS_RECHECK_INTERVAL_MS = 30_000;
 
 function getAudioContextCtor(): typeof AudioContext | undefined {
   return (
@@ -54,7 +66,8 @@ function playChime(ctxRef: AudioContextRef) {
 // would risk firing the chime twice for the same transition.
 export default function FriendPresenceSound() {
   const { friends } = useUserConnections();
-  const previousOnline = useRef<Record<string, boolean>>({});
+  const profiles = useRef<Record<string, UserProps>>({});
+  const previousStatus = useRef<Record<string, PresenceStatus>>({});
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Browsers block audio until the page has seen a user gesture. Priming
@@ -80,24 +93,39 @@ export default function FriendPresenceSound() {
   useEffect(() => {
     if (friends.length === 0) return;
 
+    const checkTransition = (friendId: string) => {
+      const profile = profiles.current[friendId];
+      if (!profile) return;
+
+      const status = getPresenceStatus(profile) as PresenceStatus;
+      const previous = previousStatus.current[friendId];
+      previousStatus.current[friendId] = status;
+
+      // Skip the first read per friend (previous === undefined) — that's
+      // the initial snapshot, not a real transition. Without this guard,
+      // logging in would chime once for every friend already online.
+      if (previous === undefined) return;
+      if (previous !== "online" && status === "online") {
+        playChime(audioCtxRef);
+      }
+    };
+
     const unsubs = friends.map(friendId =>
       onSnapshot(doc(db, "users", friendId), snap => {
-        const isOnline = snap.exists() ? Boolean(snap.data()?.online) : false;
-        const wasOnline = previousOnline.current[friendId];
-        previousOnline.current[friendId] = isOnline;
-
-        // Skip the first read per friend (wasOnline === undefined) — that's
-        // the initial snapshot, not a real transition. Without this guard,
-        // logging in would chime once for every friend already online.
-        if (wasOnline === undefined) return;
-        if (!wasOnline && isOnline) {
-          playChime(audioCtxRef);
-        }
+        profiles.current[friendId] = snap.exists()
+          ? ({ uid: snap.id, ...snap.data() } as UserProps)
+          : { uid: friendId, username: "" };
+        checkTransition(friendId);
       })
     );
 
+    const interval = setInterval(() => {
+      friends.forEach(checkTransition);
+    }, STATUS_RECHECK_INTERVAL_MS);
+
     return () => {
       unsubs.forEach(unsub => unsub());
+      clearInterval(interval);
     };
   }, [friends]);
 
