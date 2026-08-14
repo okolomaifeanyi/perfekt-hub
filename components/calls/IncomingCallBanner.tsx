@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
+import { useCallRingtone } from "@/hooks/useCallRingtone";
 
 function RingingRow() {
   const call = useCall();
@@ -21,7 +22,13 @@ function RingingRow() {
   const createdBy = useCallCreatedBy();
   const setActiveCall = useActiveCallStore(state => state.setCall);
 
-  if (!call || callingState !== CallingState.RINGING || call.isCreatedByMe) return null;
+  const isRingingForMe =
+    !!call && callingState === CallingState.RINGING && !call.isCreatedByMe;
+  // The banner is easy to miss without a sound to go with it — Stream
+  // gives you the RINGING state but no ringtone for it.
+  useCallRingtone(isRingingForMe);
+
+  if (!isRingingForMe) return null;
 
   const name = createdBy?.name || createdBy?.id || "Someone";
 

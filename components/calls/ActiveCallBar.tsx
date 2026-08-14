@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Mic, MicOff, PhoneOff, Users } from "lucide-react";
 import {
+  ParticipantsAudio,
   StreamCall,
   useCall,
   useCallStateHooks,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
+import { useCallRingtone } from "@/hooks/useCallRingtone";
 
 function formatDuration(startedAt: Date | undefined) {
   if (!startedAt) return "00:00";
@@ -29,15 +31,22 @@ function ActiveCallBarInner() {
     useCallCallingState,
     useCallCreatedBy,
     useParticipants,
+    useRemoteParticipants,
     useMicrophoneState,
     useCallStartedAt,
   } = useCallStateHooks();
   const callingState = useCallCallingState();
   const createdBy = useCallCreatedBy();
   const participants = useParticipants();
+  const remoteParticipants = useRemoteParticipants();
   const { microphone, isMute } = useMicrophoneState();
   const startedAt = useCallStartedAt();
   const [, forceTick] = useState(0);
+
+  const isOutgoingRinging = callingState === CallingState.RINGING && !!call?.isCreatedByMe;
+  // The caller hears nothing while waiting for an answer otherwise — Stream
+  // gives you the RINGING state but no sound for it.
+  useCallRingtone(isOutgoingRinging);
 
   // Re-render every second while joined so the duration counter advances —
   // Stream doesn't push a tick event for elapsed time on its own.
@@ -55,7 +64,6 @@ function ActiveCallBarInner() {
   if (!call) return null;
   if (callingState === CallingState.LEFT || callingState === CallingState.IDLE) return null;
 
-  const isOutgoingRinging = callingState === CallingState.RINGING && call.isCreatedByMe;
   const isGroupRoom = call.type === "audio_room";
   const otherName = createdBy?.name || createdBy?.id || "";
 
@@ -79,6 +87,14 @@ function ActiveCallBarInner() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[90] border-t bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
+      {/* Nothing else in this app renders Stream's participant views (no
+          <SpeakerLayout>, no <ParticipantView> — this is a minimal custom
+          bar, not a full call UI), so without this neither side ever
+          actually hears the other: audio tracks were being received but
+          never attached to a playable <audio> element anywhere. */}
+      {callingState === CallingState.JOINED && (
+        <ParticipantsAudio participants={remoteParticipants} />
+      )}
       <div className="container mx-auto flex items-center gap-3 px-4 py-2.5">
         {isGroupRoom ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
