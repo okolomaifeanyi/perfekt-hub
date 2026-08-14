@@ -11,6 +11,46 @@ import {
   orderBy,
   DocumentData,
 } from "@/lib/supabase";
+import { generateText } from "@/lib/ai/client.mjs";
+
+const EXPANSION_SYSTEM_PROMPT =
+  "You expand a social-app search query into related single words for a " +
+  "keyword search. Respond with ONLY a JSON array of 1-3 short lowercase " +
+  "words or two-word phrases closely related to the query (synonyms, common " +
+  "alternate terms) — not the original query itself, that's searched " +
+  "separately. No markdown, no explanation. If the query is already " +
+  "specific (a name, a very particular term), return an empty array rather " +
+  "than forcing unrelated suggestions.";
+
+// The underlying search is a prefix match on content_lowercase (Firestore-
+// shim range query — see searchPosts below), not a "contains anywhere"
+// search, so this can't fix that fundamentally: an expanded term only
+// helps if some post happens to START with it. It's a real, if partial,
+// improvement — "car" expanding to include "vehicle" catches a post
+// starting with "Vehicle for sale..." that plain prefix matching on "car"
+// never would. Fails silently to just the original term; search must
+// never break or hang because the AI call did.
+async function expandSearchTerms(term: string): Promise<string[]> {
+  try {
+    const result = await generateText({
+      system: EXPANSION_SYSTEM_PROMPT,
+      prompt: term,
+      maxTokens: 60,
+    });
+    const cleaned = result.text.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) return [term];
+    const extra = parsed
+      .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+      .map(t => t.trim().toLowerCase())
+      .filter(t => t !== term)
+      .slice(0, 3);
+    return [term, ...extra];
+  } catch (err) {
+    console.error("expandSearchTerms failed, falling back to literal term:", err);
+    return [term];
+  }
+}
 
 type SearchSnapshot = {
   docs: DocumentData[];
@@ -23,10 +63,13 @@ export async function searchUsersAndPosts(searchTerm: string) {
   const term = normalize(searchTerm);
   if (!term) return { users: [], posts: [] };
 
-  const [usersSnap, postsSnap] = await Promise.all([
+  // Expansion only applies to post content, not usernames/names — a person
+  // search should stay literal, "synonyms" for a name make no sense.
+  const [usersSnap, expandedTerms] = await Promise.all([
     searchUsers(term),
-    searchPosts(term),
+    expandSearchTerms(term),
   ]);
+  const postsSnap = await searchPosts(expandedTerms);
 
   const users = usersSnap.docs.map(mapUserDoc);
   const posts = postsSnap.docs.map(mapPostDoc);
@@ -82,9 +125,26 @@ async function searchUsers(term: string) {
 }
 
 /* ------------------- POSTS ------------------- */
-async function searchPosts(term: string) {
+async function searchPosts(terms: string[]) {
   const postsRef = collection(db, "posts");
 
+  const snapshots = await Promise.all(terms.map(term => searchPostsForTerm(postsRef, term)));
+
+  const seen = new Set<string>();
+  const docs: DocumentData[] = [];
+  for (const snap of snapshots) {
+    for (const doc of snap.docs) {
+      if (!seen.has(doc.id)) {
+        seen.add(doc.id);
+        docs.push(doc);
+      }
+    }
+  }
+
+  return { docs: docs.slice(0, 15), size: docs.length } as SearchSnapshot;
+}
+
+async function searchPostsForTerm(postsRef: ReturnType<typeof collection>, term: string) {
   const q = query(
     postsRef,
     orderBy("content_lowercase"),
