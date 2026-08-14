@@ -5,7 +5,13 @@ import { AlertTriangle } from "lucide-react";
 import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
 import Lightbox, { Slide, SlideVideo } from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
-import Video from "yet-another-react-lightbox/plugins/video";
+// Imported only for its "video" slide-type declaration (module
+// augmentation) — NOT passed to `plugins` below. The plugin's own augment()
+// unconditionally renders its own native <video controls> for any video
+// slide and falls back to a caller's render.slide only for non-video
+// slides, which silently overrode CustomVideoPlayer entirely whenever this
+// plugin was active.
+import type {} from "yet-another-react-lightbox/plugins/video";
 import { ContainedImage } from "@/components/media/ContainedImage";
 import { ContainedVideo } from "@/components/media/ContainedVideo";
 import { CustomVideoPlayer } from "@/components/media/CustomVideoPlayer";
@@ -178,7 +184,6 @@ const PostMedia = ({
         close={() => setOpen(false)}
         index={index}
         slides={slides}
-        plugins={[Video]}
         carousel={{ imageFit: "contain" }}
         render={{
           slide: ({ slide, offset }) => {
