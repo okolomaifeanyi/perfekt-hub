@@ -139,7 +139,7 @@ export function GroupPostComposer({
             </Avatar>
             <Textarea
               placeholder="Share something with the group..."
-              className="min-h-[64px] resize-none text-sm"
+              className="min-h-16 resize-none text-sm"
               value={text}
               onChange={e => setText(e.target.value)}
               disabled={submitting}

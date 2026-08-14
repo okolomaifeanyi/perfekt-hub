@@ -29,6 +29,13 @@ import {
 } from "@/app/actions/groups";
 import { votePoll, type PollProps } from "@/app/actions/polls";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
+import { ContainedImage } from "@/components/media/ContainedImage";
+
+// Same range the main feed clamps single-image posts to (see PostMedia) —
+// full image visible with no gap for anything in between, a small
+// object-cover crop only for outliers like a very tall screenshot.
+const MIN_SINGLE_IMAGE_RATIO = 4 / 5;
+const MAX_SINGLE_IMAGE_RATIO = 16 / 9;
 
 type TimelineItem =
   | { type: "post"; data: GroupPostProps }
@@ -51,6 +58,16 @@ function GroupPostCard({
   const isSensitive = post.moderationStatus === "sensitive" && !revealed;
   const [textRevealed, setTextRevealed] = useState(false);
   const isTextToxic = post.textToxic && !textRevealed;
+  // Nothing about an image's dimensions is stored anywhere — only knowable
+  // once the browser has actually loaded it, same as the main feed.
+  const [singleImageRatio, setSingleImageRatio] = useState<number | null>(null);
+  const isSingleImage = post.media?.length === 1 && post.media[0].type === "image";
+  const clampedSingleImageRatio = singleImageRatio
+    ? Math.min(MAX_SINGLE_IMAGE_RATIO, Math.max(MIN_SINGLE_IMAGE_RATIO, singleImageRatio))
+    : null;
+  const singleImageNeedsCover =
+    singleImageRatio !== null &&
+    (singleImageRatio < MIN_SINGLE_IMAGE_RATIO || singleImageRatio > MAX_SINGLE_IMAGE_RATIO);
 
   const handlePin = async () => {
     try {
@@ -214,6 +231,21 @@ function GroupPostCard({
                   {(m as { name?: string }).name || "PDF document"}
                 </span>
               </a>
+            ) : isSingleImage ? (
+              <div
+                key={i}
+                className="relative w-full transition-[aspect-ratio] duration-200"
+                style={{ aspectRatio: clampedSingleImageRatio ?? 16 / 9 }}
+              >
+                <ContainedImage
+                  src={m.url}
+                  alt=""
+                  unoptimized
+                  className="h-full w-full"
+                  imageClassName={singleImageNeedsCover ? "object-cover" : "object-contain"}
+                  onNaturalSize={({ width, height }) => setSingleImageRatio(width / height)}
+                />
+              </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
