@@ -22,6 +22,7 @@ import MyAvatar from "../feed/post/MyAvatar";
 import Messages from "./Messages";
 import { DraftMessage, MessageProps } from "@/lib/types";
 import Composer from "./Composer";
+import SmartReplyChips from "./SmartReplyChips";
 import ForwardModal from "./ForwardModal";
 import {
   getOtherConversationParticipant,
@@ -217,6 +218,11 @@ export default function MessagePage({
           //     pinned: msg.id,
           //   });
           // }}
+        />
+
+        <SmartReplyChips
+          messages={messages}
+          onSelect={text => setNewMsg(p => ({ ...p, text }))}
         />
 
         <Composer
