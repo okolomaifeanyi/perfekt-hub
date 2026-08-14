@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Mic, Radio } from "lucide-react";
-import { useStreamVideoClient } from "@stream-io/video-react-sdk";
 import { Button } from "@/components/ui/button";
 import { useStartCall } from "@/hooks/useStartCall";
 import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
+import { useStreamClientStore } from "@/lib/store/useStreamClientStore";
 
 // A group's audio room is a single always-available call (id derived from
 // the group id, created lazily on first join) rather than a ringing call —
@@ -13,7 +13,7 @@ import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
 // ActiveCallBar (mounted globally in ClientLayout) for in-room controls
 // once joined, so there's one call UI for both 1:1 calls and group rooms.
 export function GroupAudioRoom({ groupId }: { groupId: string }) {
-  const client = useStreamVideoClient();
+  const client = useStreamClientStore(state => state.client);
   const { joinGroupAudioRoom, ready } = useStartCall();
   const activeCall = useActiveCallStore(state => state.call);
   const [participantCount, setParticipantCount] = useState<number | null>(null);

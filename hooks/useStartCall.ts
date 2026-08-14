@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { useStreamVideoClient } from "@stream-io/video-react-sdk";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
+import { useStreamClientStore } from "@/lib/store/useStreamClientStore";
 
 // Deterministic per-pair call id so both participants resolve to the same
 // call room regardless of who initiates — sorted so uid order doesn't matter.
@@ -13,7 +13,13 @@ function directCallId(uidA: string, uidB: string) {
 }
 
 export function useStartCall() {
-  const client = useStreamVideoClient();
+  // Reads from a store rather than @stream-io/video-react-sdk's own
+  // useStreamVideoClient() — that hook only resolves for descendants of a
+  // mounted <StreamVideo> provider, and that provider is a sibling of the
+  // app's real content (see StreamVideoProvider), not an ancestor of
+  // wherever a call button happens to be. The store has no such
+  // tree-position requirement.
+  const client = useStreamClientStore(state => state.client);
   const currentUid = useUserStore(state => state.user?.uid);
   const setActiveCall = useActiveCallStore(state => state.setCall);
 

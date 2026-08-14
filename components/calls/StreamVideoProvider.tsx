@@ -3,20 +3,27 @@
 import { ReactNode, useEffect, useState } from "react";
 import { StreamVideo, StreamVideoClient } from "@stream-io/video-react-sdk";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { useStreamClientStore } from "@/lib/store/useStreamClientStore";
 import { getStreamToken } from "@/app/actions/stream";
 
-// Mounted once near the app root (ClientLayout) so an incoming call can ring
-// from any page, not just while Messages or a group's audio room happens to
-// be open — mirrors why startUserListener/startMessageListener also live at
-// that level rather than per-page.
+// Mounted once near the app root (ClientLayout) as a sibling of the app's
+// real content, not a wrapper around it — see useStreamClientStore for why
+// call-initiating UI elsewhere (DirectCallButton, group audio rooms) reads
+// the connected client from that store instead of depending on being a
+// descendant of this component. `children` here is only ever
+// IncomingCallBanner/ActiveCallBar (see CallingFeature), so an incoming
+// call can still ring from any page without the rest of the app's content
+// being gated behind this being dynamically-loaded (ssr:false) first.
 export function StreamVideoProvider({ children }: { children: ReactNode }) {
   const uid = useUserStore(state => state.user?.uid);
   const authReady = useUserStore(state => state.authReady);
+  const setStoredClient = useStreamClientStore(state => state.setClient);
   const [client, setClient] = useState<StreamVideoClient | null>(null);
 
   useEffect(() => {
     if (!authReady || !uid) {
       setClient(null);
+      setStoredClient(null);
       return;
     }
 
@@ -45,6 +52,7 @@ export function StreamVideoProvider({ children }: { children: ReactNode }) {
           .then(() => {
             if (active) {
               setClient(createdClient);
+              setStoredClient(createdClient);
             } else {
               void createdClient?.disconnectUser();
             }
@@ -59,22 +67,21 @@ export function StreamVideoProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
       setClient(null);
+      setStoredClient(null);
       void createdClient?.disconnectUser();
     };
-  }, [authReady, uid]);
+  }, [authReady, uid, setStoredClient]);
 
-  // This is the actual bug that took the whole app down: children here are
-  // always calling-specific UI (IncomingCallBanner, ActiveCallBar — see
-  // CallingFeature, the only consumer of this component), and those call
-  // Stream hooks like useCalls() unconditionally at their top level. Those
-  // hooks don't fail soft — they throw synchronously when rendered without
-  // a real <StreamVideo> context above them, which is exactly what
-  // rendering `children` here did during the window before the client
-  // finishes connecting (every render until the connectUser() promise
-  // resolves). An uncaught error with no error boundary above it unmounts
-  // the entire React tree back to the root, not just this component —
-  // which is why a crash in a small notification banner took down every
-  // page in the app. Render nothing until there's a real client instead.
+  // This is the actual bug that took the whole app down once already:
+  // `children` here is always calling-specific UI (IncomingCallBanner,
+  // ActiveCallBar), and those call Stream hooks like useCalls()
+  // unconditionally at their top level. Those hooks don't fail soft — they
+  // throw synchronously when rendered without a real <StreamVideo> context
+  // above them, which is exactly what rendering `children` here did during
+  // the window before the client finishes connecting. An uncaught error
+  // with no error boundary above it unmounts the entire React tree back to
+  // the root, not just this component. Render nothing until there's a real
+  // client instead.
   if (!client) return null;
 
   return <StreamVideo client={client}>{children}</StreamVideo>;

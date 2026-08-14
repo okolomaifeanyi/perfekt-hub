@@ -25,7 +25,11 @@ import {
 // components on the initial request) risks touching browser-only globals
 // server-side. ssr:false keeps the whole module out of the server bundle
 // for this component entirely, only ever loading it after hydration in
-// the browser.
+// the browser. Rendered as a sibling of `children`, not a wrapper around
+// it — wrapping the whole app in a chunk that's dynamically loaded this
+// way would gate every page's real content behind that chunk arriving
+// first. See useStreamClientStore for how call buttons elsewhere still get
+// the connected client without needing to be inside this subtree.
 const CallingFeature = dynamic(
   () => import("@/components/calls/CallingFeature"),
   { ssr: false }
@@ -256,6 +260,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       {(isAuthPage || !globalLoading) && children}
 
       {!isAuthPage && user && <CallingFeature />}
+
       {!isAuthPage && user && <FriendPresenceSound />}
 
       <Toaster />
