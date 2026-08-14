@@ -2,11 +2,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   ScrollPosition,
   trackWindowScroll,
 } from "react-lazy-load-image-component";
-import { Loader2, PencilLine } from "lucide-react";
+import { Loader2, LogIn, PencilLine } from "lucide-react";
 import { useInView } from "react-intersection-observer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Posts from "./post/Posts";
@@ -25,6 +26,12 @@ interface FeedProps {
 export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
   const currentUser = useUserStore(s => s.user);
   const uid = currentUser?.uid ?? null;
+  // The home feed is one of a small set of pages a signed-out visitor can
+  // browse at all (see lib/public-routes.mjs) — read-only: useLiveFeed
+  // falls back to the platform's posts instead of a personalized graph
+  // that doesn't exist for a guest, but posting/reacting still needs an
+  // account, same as before.
+  const isGuest = !uid;
 
   const [activeTab, setActiveTab] = useState<"latest" | "trending">(
     initialTab
@@ -120,15 +127,6 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
     );
   };
 
-  // USER NOT LOGGED IN
-  if (!uid) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
-      </div>
-    );
-  }
-
   // INITIAL LOADING FOR POSTS ONLY
   const isPostsLoading =
     (activeTab === "latest" &&
@@ -167,21 +165,38 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
 
       {/* POST COMPOSER TRIGGER – ALWAYS VISIBLE, OPENS THE COMPOSE DIALOG */}
       <div ref={composerInViewRef}>
-        <ComposerTrigger className="mb-2" onOpen={handleComposeClick} />
+        {isGuest ? (
+          <Link
+            href="/login"
+            className="mb-2 flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-4 py-3 text-sm transition-colors hover:bg-muted/70"
+          >
+            <span className="text-muted-foreground">
+              Sign in to post, like, and comment.
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5 font-medium text-primary">
+              <LogIn className="size-4" />
+              Sign in
+            </span>
+          </Link>
+        ) : (
+          <ComposerTrigger className="mb-2" onOpen={handleComposeClick} />
+        )}
       </div>
 
-      <ComposePostDialog
-        open={composeOpen}
-        onOpenChange={setComposeOpen}
-        optimistic={{
-          addOptimisticPost: latestFeed.addOptimisticPost,
-          replaceOptimisticPost: latestFeed.replaceOptimisticPost,
-          removeOptimisticPost: latestFeed.removeOptimisticPost,
-        }}
-        isSubmitting={latestFeed.isSubmitting}
-      />
+      {!isGuest && (
+        <ComposePostDialog
+          open={composeOpen}
+          onOpenChange={setComposeOpen}
+          optimistic={{
+            addOptimisticPost: latestFeed.addOptimisticPost,
+            replaceOptimisticPost: latestFeed.replaceOptimisticPost,
+            removeOptimisticPost: latestFeed.removeOptimisticPost,
+          }}
+          isSubmitting={latestFeed.isSubmitting}
+        />
+      )}
 
-      {!composerInView && (
+      {!composerInView && !isGuest && (
         <Button
           type="button"
           onClick={handleComposeClick}

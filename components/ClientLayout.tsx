@@ -19,6 +19,7 @@ import {
   buildSavedAccountFromSession,
   rememberSavedAccount,
 } from "@/lib/saved-accounts.mjs";
+import { isPublicPath } from "@/lib/public-routes.mjs";
 
 // @stream-io/video-react-sdk is a WebRTC client library — loading it during
 // Next's server-side render pass (which runs even for "use client"
@@ -59,6 +60,10 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
 
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+  // A short allowlist of routes a signed-out visitor can actually see
+  // content on (home feed, discover, an individual post) — see
+  // lib/public-routes.mjs for why it's an allowlist, not a denylist.
+  const isPublicPage = isPublicPath(pathname);
   const router = useRouter();
 
   usePresenceHeartbeat(!isAuthPage ? user?.uid : null);
@@ -238,10 +243,12 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
     // `globalLoading` is still the stale `false` from this render) would destroy
     // a session that had just been established, e.g. right after an OAuth
     // redirect. Only sign out once auth has actually resolved to "no session".
-    if (!isAuthPage && authReady && globalLoading === false && !user) {
+    // Public pages are exempt entirely — a signed-out visitor landing there
+    // is the intended experience, not a session that needs clearing.
+    if (!isAuthPage && !isPublicPage && authReady && globalLoading === false && !user) {
       void logoutClient(router);
     }
-  }, [authReady, globalLoading, isAuthPage, router, user]);
+  }, [authReady, globalLoading, isAuthPage, isPublicPage, router, user]);
 
   return (
     <ThemeProvider defaultTheme="system">

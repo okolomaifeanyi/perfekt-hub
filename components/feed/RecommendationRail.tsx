@@ -183,6 +183,13 @@ function EmptyRow({ label }: { label: string }) {
   return <p className="px-2 py-2 text-sm text-muted-foreground">{label}</p>;
 }
 
+// These rails all fetch through account-scoped server actions (a
+// specific uid's feed, saves, matches, groups, events, listings) with no
+// public equivalent — unlike the main feed, there's no reasonable
+// "for anyone" fallback for e.g. "posts you saved". A signed-out visitor
+// sees this instead of the real empty state.
+const SIGN_IN_TO_SEE = "Sign in to see this.";
+
 function PeopleRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
   const currentUser = useUserStore(state => state.user);
   const suggestions = useUserStore(state => state.suggestions);
@@ -227,7 +234,10 @@ function VideosRail({ title, description, icon }: { title: string; description: 
   const [videos, setVideos] = useState<PostProps[] | null>(null);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setVideos([]);
+      return;
+    }
     let active = true;
 
     void getFeedAction(currentUser.uid, 30, null, null, false, "trending").then(posts => {
@@ -244,7 +254,7 @@ function VideosRail({ title, description, icon }: { title: string; description: 
       {videos === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : videos.length === 0 ? (
-        <EmptyRow label="No videos yet." />
+        <EmptyRow label={currentUser ? "No videos yet." : SIGN_IN_TO_SEE} />
       ) : (
         videos.map(post => (
           <ListRow
@@ -311,7 +321,10 @@ function SavesRail({ title, description, icon }: { title: string; description: s
   const [posts, setPosts] = useState<PostProps[] | null>(null);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setPosts([]);
+      return;
+    }
     let active = true;
     void getTopSavedPosts(5)
       .then(result => {
@@ -330,7 +343,9 @@ function SavesRail({ title, description, icon }: { title: string; description: s
       {posts === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : posts.length === 0 ? (
-        <EmptyRow label="No saved posts yet — be the first to save one." />
+        <EmptyRow
+          label={currentUser ? "No saved posts yet — be the first to save one." : SIGN_IN_TO_SEE}
+        />
       ) : (
         posts.map(post => (
           <ListRow
@@ -352,7 +367,10 @@ function MatchesRail({ title, description, icon }: { title: string; description:
   const [matches, setMatches] = useState<UserProps[] | null>(null);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setMatches([]);
+      return;
+    }
     let active = true;
     void getSuggestedMatches(currentUser.uid, 5)
       .then(result => {
@@ -371,7 +389,7 @@ function MatchesRail({ title, description, icon }: { title: string; description:
       {matches === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : matches.length === 0 ? (
-        <EmptyRow label="No match suggestions right now." />
+        <EmptyRow label={currentUser ? "No match suggestions right now." : SIGN_IN_TO_SEE} />
       ) : (
         matches.map(person => (
           <ListRow
@@ -399,7 +417,10 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
   const requestedIds = useGroupMembershipStore(state => state.requestedIds);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setGroups([]);
+      return;
+    }
     let active = true;
     void listGroups(5)
       .then(result => {
@@ -444,7 +465,9 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
       {groups === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : groups.length === 0 ? (
-        <EmptyRow label="No groups yet — create the first one from Discover." />
+        <EmptyRow
+          label={currentUser ? "No groups yet — create the first one from Discover." : SIGN_IN_TO_SEE}
+        />
       ) : (
         groups.map(group => (
           <ActionRow
@@ -474,7 +497,10 @@ function EventsRail({ title, description, icon }: { title: string; description: 
   const [rsvpedIds, setRsvpedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.uid) {
+      setEvents([]);
+      return;
+    }
     let active = true;
     void listUpcomingEvents(5)
       .then(result => {
@@ -514,7 +540,9 @@ function EventsRail({ title, description, icon }: { title: string; description: 
       {events === null ? (
         Array.from({ length: 3 }).map((_, index) => <RowSkeleton key={index} />)
       ) : events.length === 0 ? (
-        <EmptyRow label="No upcoming events — create the first one from Discover." />
+        <EmptyRow
+          label={currentUser ? "No upcoming events — create the first one from Discover." : SIGN_IN_TO_SEE}
+        />
       ) : (
         events.map(event => (
           <ActionRow
@@ -545,11 +573,12 @@ function formatRailPrice(price: number, currency: string) {
 }
 
 function ProductsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
-  const currentUser = useUserStore(state => state.user);
   const [products, setProducts] = useState<PostProductProps[] | null>(null);
 
+  // Unlike the other rails, marketplace listings aren't scoped to the
+  // viewer's account at all (listProductsPage takes no uid) — no reason to
+  // gate this one behind sign-in when the data is public either way.
   useEffect(() => {
-    if (!currentUser?.uid) return;
     let active = true;
     void listProductsPage({ offset: 0, sortMode: "time", limit: 5 })
       .then(result => {
@@ -561,7 +590,7 @@ function ProductsRail({ title, description, icon }: { title: string; description
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, []);
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/products">

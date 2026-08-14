@@ -330,6 +330,93 @@ export async function getFeedForUser(
   return out;
 }
 
+// --- Public feed, for signed-out visitors ---
+// A guest has no follow/friend graph to personalize from, so this is
+// simply the platform's posts — the same "most-engaged posts" backfill
+// getFeedForUser already falls back to when a real user's own network is
+// too small to fill a page. Deliberately its own function rather than
+// getFeedForUser(undefined, ...): that function's main-feed branch calls
+// getDirectFeedAuthorIds(currentUid), which has no meaningful answer for
+// "no one."
+export async function getPublicFeedForGuests(
+  opts: {
+    limit?: number;
+    sortMode?: "latest" | "trending";
+    before?: Cursor;
+    // A reply thread (comments on a post) is public content on a public
+    // post page — it isn't personalized in getFeedForUser either (that
+    // branch never reads currentUid), so it gets the same treatment here.
+    parentPostId?: string | null;
+  } = {}
+): Promise<PostProps[]> {
+  const limit = opts.limit ?? 20;
+  const sortMode = opts.sortMode ?? "latest";
+  const before = opts.before ?? null;
+  const parentPostId = opts.parentPostId ?? null;
+
+  if (parentPostId) {
+    let q = firestoreAdmin
+      .collection("posts")
+      .where("parentPostId", "==", parentPostId)
+      .orderBy("createdAt", "desc");
+
+    if (before !== null) q = q.startAfter(new Date(before));
+    q = q.limit(limit);
+
+    const snap = await q.get();
+    return snap.docs.map(normalizePost);
+  }
+
+  // Same approach as getFeedForUser's trending branch: page a stable,
+  // indexed field (createdAt) over a wider pool, then re-rank by
+  // engagement in memory — engagementScore changes too often to cursor
+  // through directly.
+  const queryLimit = sortMode === "trending" ? limit * 10 : limit;
+  let q = firestoreAdmin
+    .collection("posts")
+    .where("parentPostId", "==", "")
+    .orderBy("createdAt", "desc");
+
+  if (before !== null) {
+    q = q.startAfter(new Date(before));
+  }
+  q = q.limit(queryLimit);
+
+  const snap = await q.get();
+  let results = snap.docs.map(normalizePost);
+
+  if (sortMode === "trending") {
+    results = results
+      .slice()
+      .sort((a, b) => {
+        const scoreDiff = (b.engagementScore ?? 0) - (a.engagementScore ?? 0);
+        return scoreDiff !== 0
+          ? scoreDiff
+          : b.createdAt.getTime() - a.createdAt.getTime();
+      })
+      .slice(0, limit);
+  }
+
+  return results;
+}
+
+export async function getPublicFeedAction(
+  limit = 20,
+  before: Cursor = null,
+  sortMode: "latest" | "trending" = "latest",
+  parentPostId: string | null = null
+): Promise<PostProps[]> {
+  try {
+    return await getPublicFeedForGuests({ limit, before, sortMode, parentPostId });
+  } catch (error) {
+    console.error(
+      "getPublicFeedAction failed:",
+      normalizeUnknownError(error, "Unable to load feed.")
+    );
+    return [];
+  }
+}
+
 /** Main server action wrapper */
 export async function getFeedAction(
   userId: string,

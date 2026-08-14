@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { getFeedAction } from "@/app/actions/feed";
+import { getFeedAction, getPublicFeedAction } from "@/app/actions/feed";
 import { PostProps } from "@/lib/types";
 import { Timestamp } from "@/lib/supabase";
 import { useUserStore } from "@/lib/store/useUserStore";
@@ -41,6 +41,30 @@ function makeTempId(): string {
   return `temp-${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 9)}`;
+}
+
+// A signed-out visitor has no follow/friend graph to personalize a feed
+// from, but the main home feed and a reply thread (no onlyUser) both have
+// a meaningful public answer — see getPublicFeedForGuests, which mirrors
+// getFeedForUser's own reply-thread branch (that one never reads
+// currentUid either — a comment thread was never personalized to begin
+// with). "A specific user's own posts" has no equivalent "for anyone"
+// fallback, so that one stays disabled without a real userId.
+function fetchFeedPage(
+  userId: string | null | undefined,
+  limit: number,
+  before: number | null,
+  parentPostId: string | null | undefined,
+  onlyUser: boolean,
+  sortMode: "latest" | "trending"
+): Promise<PostProps[]> {
+  if (userId) {
+    return getFeedAction(userId, limit, before, parentPostId ?? null, onlyUser, sortMode);
+  }
+  if (!onlyUser) {
+    return getPublicFeedAction(limit, before, sortMode, parentPostId ?? null);
+  }
+  return Promise.resolve([]);
 }
 
 export function useLiveFeed(
@@ -87,14 +111,14 @@ export function useLiveFeed(
     setCursor(null);
     setLoading(true); // ← Start loading
 
-    if (!userId) {
+    if (!userId && onlyUser) {
       setLoading(false);
       return;
     }
 
     (async () => {
       try {
-        const result = await getFeedAction(
+        const result = await fetchFeedPage(
           userId,
           pageSize,
           null,
@@ -130,7 +154,7 @@ export function useLiveFeed(
 
   // ────── POLLING FOR NEW POSTS ──────
   useEffect(() => {
-    if (!userId) return;
+    if (!userId && onlyUser) return;
     if (pollingRef.current) clearInterval(pollingRef.current);
 
     const pollFn = async (): Promise<void> => {
@@ -140,11 +164,11 @@ export function useLiveFeed(
       if (postsRef.current.length === 0) return;
 
       try {
-        const recent = await getFeedAction(
+        const recent = await fetchFeedPage(
           userId,
           POLL_LIMIT,
           null,
-          null,
+          parentPostId,
           onlyUser,
           sortMode
         );
@@ -190,23 +214,23 @@ export function useLiveFeed(
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [userId, onlyUser, sortMode]);
+  }, [userId, parentPostId, onlyUser, sortMode]);
 
   // ────── INFINITE SCROLL ──────
   const loadMorePosts = useCallback(async () => {
     const { loadingMore, hasMore, cursor } = stateRef.current;
 
-    if (!userId || loadingMore || !hasMore || !cursor) return;
+    if ((!userId && onlyUser) || loadingMore || !hasMore || !cursor) return;
 
     setLoadingMore(true);
 
     try {
       const nextCursor = cursor.createdAt.getTime();
-      const result = await getFeedAction(
+      const result = await fetchFeedPage(
         userId,
         pageSize,
         nextCursor,
-        null,
+        parentPostId,
         onlyUser,
         sortMode
       );
@@ -226,7 +250,7 @@ export function useLiveFeed(
       setLoadingMore(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, pageSize, onlyUser, sortMode]);
+  }, [userId, pageSize, parentPostId, onlyUser, sortMode]);
 
   const sortPosts = useCallback(
     (postsToSort: PostProps[]) => {

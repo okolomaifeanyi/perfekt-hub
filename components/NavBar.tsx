@@ -7,7 +7,9 @@ import { AccountMenu } from "./AccountMenu";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import JustAvatar from "./JustAvatar";
+import { appInfo } from "@/lib/appInfo";
 
 import {
   HomeIcon as HomeOutline,
@@ -42,7 +44,36 @@ const NavBar = () => {
   const count = useUnreadNotificationsCount();
   const pathname = usePathname();
 
-  if (!user) return null;
+  // A signed-out visitor can still be on a public page (home feed,
+  // discover, a shared post — see lib/public-routes.mjs), where this
+  // returning null left the entire left column blank instead of showing
+  // any navigation at all. A trimmed nav (just what's actually open to
+  // them) plus a Sign in CTA in place of the account menu.
+  if (!user) {
+    return (
+      <div className="flex h-screen flex-col justify-between px-4 py-14">
+        <div className="flex flex-col space-y-6">
+          <Link href="/" className="flex items-center md:space-x-4">
+            <HomeOutline className="size-8 text-foreground" />
+            <span className="hidden md:block">Home</span>
+          </Link>
+          <Link href="/discover" className="flex items-center md:space-x-4">
+            <DiscoverOutline className="size-8 text-foreground" />
+            <span className="hidden md:block">Discover</span>
+          </Link>
+        </div>
+
+        <div className="space-y-2">
+          <Button asChild className="w-full">
+            <Link href="/login">Sign in</Link>
+          </Button>
+          <Button asChild variant="outline" className="w-full">
+            <Link href="/signup">Join {appInfo.name}</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const primaryNavItems: NavItem[] = [
     {
