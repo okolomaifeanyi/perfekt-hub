@@ -30,6 +30,11 @@ const CallingFeature = dynamic(
   { ssr: false }
 );
 
+const FriendPresenceSound = dynamic(
+  () => import("@/components/FriendPresenceSound"),
+  { ssr: false }
+);
+
 const ClientLayout = ({ children }: { children: ReactNode }) => {
   const {
     user,
@@ -248,6 +253,7 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       {(isAuthPage || !globalLoading) && children}
 
       {!isAuthPage && user && <CallingFeature />}
+      {!isAuthPage && user && <FriendPresenceSound />}
 
       <Toaster />
     </ThemeProvider>

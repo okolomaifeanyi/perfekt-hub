@@ -41,6 +41,8 @@ export async function getUser(userId: string): Promise<UserProps | null> {
     phoneNumber: userDoc.data().phoneNumber || "",
     instagram: userDoc.data().instagram || "",
     postsCount: userDoc.data().postsCount || 0,
+    online: userDoc.data().online || false,
+    lastSeen: userDoc.data().lastSeen?.toDate?.() ?? null,
   } as UserProps
 };
 
