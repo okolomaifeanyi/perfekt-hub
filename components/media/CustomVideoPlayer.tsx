@@ -176,9 +176,57 @@ export function CustomVideoPlayer({
         </button>
       )}
 
+      {/* Settings live at the top-right corner, away from playback — the
+          lightbox's own Close/Prev/Next chrome already occupies the outer
+          top-right, this sits just inside the video frame itself so the
+          two don't compete. */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 flex flex-col gap-1.5 bg-linear-to-t from-black/85 to-transparent px-3 pb-2 pt-10 text-white transition-opacity",
+          "absolute right-3 top-3 z-10 flex items-center gap-1.5 text-white opacity-100 transition-opacity",
+          "md:opacity-0 md:group-hover/player:opacity-100 md:focus-within:opacity-100"
+        )}
+        onClick={event => event.stopPropagation()}
+      >
+        {isCloudinaryVideoUrl(src) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Video quality"
+                className="flex size-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60"
+              >
+                <Settings className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {VIDEO_QUALITIES.map(option => (
+                <DropdownMenuItem
+                  key={option}
+                  onSelect={() => setQuality(option)}
+                  className={option === quality ? "font-semibold" : ""}
+                >
+                  {QUALITY_LABELS[option]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+          className="flex size-8 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm hover:bg-black/60"
+        >
+          {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+        </button>
+      </div>
+
+      {/* Playback stays at the bottom, on its own — seek bar gets a full
+          row to itself so it isn't squeezed in among the buttons. */}
+      <div
+        className={cn(
+          "absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-linear-to-t from-black/85 to-transparent px-3 pb-2.5 pt-10 text-white transition-opacity",
           "opacity-100 md:opacity-0 md:group-hover/player:opacity-100 md:focus-within:opacity-100"
         )}
         onClick={event => event.stopPropagation()}
@@ -205,60 +253,41 @@ export function CustomVideoPlayer({
           aria-label="Seek"
         />
 
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"}>
-            {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-          </button>
-
-          <button type="button" onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
-            {muted || volume === 0 ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-          </button>
-
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={muted ? 0 : volume}
-            onChange={event => handleVolumeChange(Number(event.target.value))}
-            className="h-1 w-16 cursor-pointer accent-white"
-            aria-label="Volume"
-          />
-
-          <span className="text-xs tabular-nums text-white/80">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
-
-          <div className="flex-1" />
-
-          {isCloudinaryVideoUrl(src) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button type="button" aria-label="Video quality" className="flex items-center">
-                  <Settings className="size-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {VIDEO_QUALITIES.map(option => (
-                  <DropdownMenuItem
-                    key={option}
-                    onSelect={() => setQuality(option)}
-                    className={option === quality ? "font-semibold" : ""}
-                  >
-                    {QUALITY_LABELS[option]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
+        <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={toggleFullscreen}
-            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            onClick={togglePlay}
+            aria-label={playing ? "Pause" : "Play"}
+            className="flex size-7 shrink-0 items-center justify-center"
           >
-            {isFullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+            {playing ? <Pause className="size-4.5" /> : <Play className="size-4.5" />}
           </button>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Unmute" : "Mute"}
+              className="flex size-7 shrink-0 items-center justify-center"
+            >
+              {muted || volume === 0 ? <VolumeX className="size-4.5" /> : <Volume2 className="size-4.5" />}
+            </button>
+
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={muted ? 0 : volume}
+              onChange={event => handleVolumeChange(Number(event.target.value))}
+              className="h-1 w-14 cursor-pointer accent-white sm:w-20"
+              aria-label="Volume"
+            />
+          </div>
+
+          <span className="shrink-0 text-xs tabular-nums text-white/80">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
         </div>
       </div>
     </div>

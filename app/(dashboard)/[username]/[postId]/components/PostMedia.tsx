@@ -199,10 +199,19 @@ const PostMedia = ({
               />
             );
           },
+          // A single-media post has nothing to page through — the default
+          // Prev/Next buttons showed regardless, implying navigation that
+          // didn't exist. Only the "more than one slide" case gets them.
+          buttonPrev: slides.length > 1 ? undefined : () => null,
+          buttonNext: slides.length > 1 ? undefined : () => null,
+          // Anchored to the top, not the bottom — the bottom is
+          // CustomVideoPlayer's own control bar (seek/volume/quality) for
+          // video slides, and stacking two separate control surfaces on
+          // the same edge meant one covered the other.
           controls: () =>
             user ? (
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-4"
+                className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-16"
                 onClick={event => event.stopPropagation()}
               >
                 <div className="pointer-events-auto w-full max-w-lg rounded-2xl bg-background/95 px-4 py-3 shadow-lg backdrop-blur-md">
