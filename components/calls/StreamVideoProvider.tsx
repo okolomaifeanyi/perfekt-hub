@@ -63,7 +63,19 @@ export function StreamVideoProvider({ children }: { children: ReactNode }) {
     };
   }, [authReady, uid]);
 
-  if (!client) return <>{children}</>;
+  // This is the actual bug that took the whole app down: children here are
+  // always calling-specific UI (IncomingCallBanner, ActiveCallBar — see
+  // CallingFeature, the only consumer of this component), and those call
+  // Stream hooks like useCalls() unconditionally at their top level. Those
+  // hooks don't fail soft — they throw synchronously when rendered without
+  // a real <StreamVideo> context above them, which is exactly what
+  // rendering `children` here did during the window before the client
+  // finishes connecting (every render until the connectUser() promise
+  // resolves). An uncaught error with no error boundary above it unmounts
+  // the entire React tree back to the root, not just this component —
+  // which is why a crash in a small notification banner took down every
+  // page in the app. Render nothing until there's a real client instead.
+  if (!client) return null;
 
   return <StreamVideo client={client}>{children}</StreamVideo>;
 }
