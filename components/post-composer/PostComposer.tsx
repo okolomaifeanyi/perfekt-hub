@@ -5,7 +5,7 @@ import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { extractFirstUrl } from "@/lib/url-pattern.mjs";
 import { cn } from "@/lib/utils";
-import { ImagePlus, Loader2, Plus, X } from "lucide-react";
+import { ImagePlus, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MediaProps, OptimisticCallbacks, PostProps } from "@/lib/types";
 import MediaGallery from "./MediaGallery";
@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "../ui/select";
 import { handlePost, type ProductDraft } from "./utils";
+import { generateDraftDescription } from "@/app/actions/aiDraft";
+import { toast } from "sonner";
 
 const MAX_TEXT = 280;
 const MAX_MEDIA = 4;
@@ -61,6 +63,7 @@ const PostComposer = ({
   const [productPrice, setProductPrice] = useState("");
   const [productCurrency, setProductCurrency] = useState(CURRENCIES[0]);
   const [productGallery, setProductGallery] = useState<MediaProps[]>([]);
+  const [draftingDescription, setDraftingDescription] = useState(false);
   const linkPreviewUrl = extractFirstUrl(text);
   const isSending = loading || isSubmitting;
   const validPollOptions = pollOptions.map(o => o.trim()).filter(Boolean);
@@ -103,6 +106,25 @@ const PostComposer = ({
     resetPoll();
     setMedia(prev => prev.slice(0, 1));
     setSellMode(true);
+  };
+
+  const handleDraftDescription = async () => {
+    if (!productName.trim()) {
+      toast.error("Add an item name first");
+      return;
+    }
+    setDraftingDescription(true);
+    try {
+      const context = `Product listing. Item: ${productName.trim()}${
+        isValidPrice ? `. Price: ${productCurrency} ${productPrice}` : ""
+      }. Write a short, appealing description for the listing.`;
+      const draft = await generateDraftDescription(context);
+      setText(draft);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate a description");
+    } finally {
+      setDraftingDescription(false);
+    }
   };
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -343,6 +365,22 @@ const PostComposer = ({
                   </Select>
                 </div>
               </div>
+
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={() => void handleDraftDescription()}
+                disabled={draftingDescription || !productName.trim()}
+              >
+                {draftingDescription ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1.5 size-3.5" />
+                )}
+                Draft description with AI
+              </Button>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">

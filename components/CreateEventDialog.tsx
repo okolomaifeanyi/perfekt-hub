@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createEvent, type EventProps } from "@/app/actions/events";
+import { generateDraftDescription } from "@/app/actions/aiDraft";
 
 export function CreateEventDialog({
   trigger,
@@ -32,6 +33,26 @@ export function CreateEventDialog({
   const [location, setLocation] = useState("");
   const [startTime, setStartTime] = useState("");
   const [loading, setLoading] = useState(false);
+  const [draftingDescription, setDraftingDescription] = useState(false);
+
+  const handleDraftDescription = async () => {
+    if (!title.trim()) {
+      toast.error("Add a title first");
+      return;
+    }
+    setDraftingDescription(true);
+    try {
+      const context = `Event listing. Title: ${title.trim()}${
+        location.trim() ? `. Location: ${location.trim()}` : ""
+      }. Write a short, inviting description for the event.`;
+      const draft = await generateDraftDescription(context);
+      setDescription(draft);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate a description");
+    } finally {
+      setDraftingDescription(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -110,7 +131,24 @@ export function CreateEventDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="event-description">Description</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="event-description">Description</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={() => void handleDraftDescription()}
+                disabled={draftingDescription || !title.trim()}
+              >
+                {draftingDescription ? (
+                  <Loader2 className="mr-1 size-3 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1 size-3" />
+                )}
+                Draft with AI
+              </Button>
+            </div>
             <Textarea
               id="event-description"
               value={description}

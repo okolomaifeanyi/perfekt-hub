@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -12,7 +13,6 @@ import {
   ImageIcon,
   MessageCircle,
   MoreVertical,
-  Phone,
   Pin,
   ShieldMinus,
   ShieldPlus,
@@ -27,15 +27,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buildDirectConversationId } from "@/lib/conversation-utils.mjs";
-import { getUser } from "@/lib/data";
-import { useUserConnections } from "@/hooks/UserConnections";
+import { useOnlineFriends } from "@/hooks/useOnlineFriends";
 import { useConversations } from "@/hooks/useConversations";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useGroupStore } from "@/lib/store/useGroupStore";
 import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
-import { UserProps } from "@/lib/types";
 import ConversationRow from "@/app/(dashboard)/messages/Conversation";
+
+// @stream-io/video-react-sdk (imported transitively via useStartCall) is a
+// WebRTC client library — Aside is mounted on nearly every authenticated
+// page and server-rendered on first load like any other route, so a static
+// import here would pull that module into the server render pass (the
+// exact class of bug that took the whole app down earlier — see
+// StreamVideoProvider). ssr:false keeps it out of that path entirely.
+const DirectCallButton = dynamic(() => import("@/components/calls/DirectCallButton"), {
+  ssr: false,
+});
 import NewConversationDialog from "@/components/inbox/NewConversationDialog";
 import { removeMember, setMemberRole, type GroupFileProps } from "@/app/actions/groups";
 import { toast } from "sonner";
@@ -81,31 +89,6 @@ function MessagesAside() {
       </div>
     </div>
   );
-}
-
-type FriendPreview = UserProps & {
-  status: "online" | "recently-active" | "offline";
-};
-
-function getFriendStatus(user: UserProps): FriendPreview["status"] {
-  if (user.online) return "online";
-
-  const lastSeen = user.lastSeen;
-  if (!lastSeen) return "offline";
-
-  const seenAt =
-    lastSeen instanceof Date
-      ? lastSeen
-      : "toDate" in lastSeen
-        ? lastSeen.toDate()
-        : new Date(lastSeen);
-
-  const minutesSinceSeen = (Date.now() - seenAt.getTime()) / 60000;
-  if (Number.isFinite(minutesSinceSeen) && minutesSinceSeen <= 15) {
-    return "recently-active";
-  }
-
-  return "offline";
 }
 
 const MEMBERS_PREVIEW = 8;
@@ -353,40 +336,11 @@ function GroupMembersAside() {
 export default function Aside() {
   const pathname = usePathname();
   const currentUser = useUserStore(state => state.user);
-  const { friends } = useUserConnections();
-  const [friendPreviews, setFriendPreviews] = useState<FriendPreview[]>([]);
-
-  useEffect(() => {
-    let active = true;
-
-    void (async () => {
-      const profiles = await Promise.all(friends.slice(0, 6).map(friendId => getUser(friendId)));
-      const previews = profiles
-        .filter((profile): profile is UserProps => Boolean(profile))
-        .map(profile => ({
-          ...profile,
-          status: getFriendStatus(profile),
-        }))
-        .sort((left, right) => {
-          const order = { online: 0, "recently-active": 1, offline: 2 } as const;
-          return order[left.status] - order[right.status];
-        })
-        .slice(0, 2);
-
-      if (active) {
-        setFriendPreviews(previews);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [friends]);
-
-  const friendsLabel = useMemo(() => {
-    if (friendPreviews.length === 0) return "No active friends yet";
-    return friendPreviews.length === 1 ? "1 friend active" : `${friendPreviews.length} friends active`;
-  }, [friendPreviews.length]);
+  const { friendPreviews: allFriendPreviews, friendsLabel } = useOnlineFriends(6);
+  // Desktop sidebar only has room for a couple — the mobile equivalent
+  // (OnlineFriendsStrip, shown on the home feed) uses the full list from
+  // the same hook instead of re-fetching.
+  const friendPreviews = allFriendPreviews.slice(0, 2);
 
   if (pathname?.startsWith("/messages")) {
     return <MessagesAside />;
@@ -459,12 +413,12 @@ export default function Aside() {
                           Message
                         </Link>
                       </Button>
-                      <Button asChild size="sm" variant="outline" className="h-8">
-                        <Link href={`/messages/${conversationId}`}>
-                          <Phone className="mr-1.5 size-4" />
-                          Call
-                        </Link>
-                      </Button>
+                      <DirectCallButton
+                        targetUid={friend.uid}
+                        label="Call"
+                        variant="outline"
+                        className="h-8"
+                      />
                     </div>
                   </div>
                 </div>

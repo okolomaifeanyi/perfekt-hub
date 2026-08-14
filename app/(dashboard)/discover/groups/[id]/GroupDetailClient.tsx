@@ -47,6 +47,10 @@ const GroupAudioRoom = dynamic(
   () => import("@/components/groups/GroupAudioRoom").then(m => m.GroupAudioRoom),
   { ssr: false }
 );
+const GroupCatchUpButton = dynamic(
+  () => import("@/components/groups/GroupCatchUpButton").then(m => m.GroupCatchUpButton),
+  { ssr: false }
+);
 
 export function GroupDetailClient({
   detail,
@@ -313,8 +317,11 @@ export function GroupDetailClient({
 
       {/* Audio room — members only, same as posting */}
       {isMember && (
-        <div className="pt-3">
-          <GroupAudioRoom groupId={detail.group.id} />
+        <div className="flex items-center gap-2 pt-3">
+          <div className="flex-1">
+            <GroupAudioRoom groupId={detail.group.id} />
+          </div>
+          {posts.length > 0 && <GroupCatchUpButton posts={posts} />}
         </div>
       )}
 

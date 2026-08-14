@@ -15,6 +15,7 @@ import { useLiveFeed } from "@/hooks/useLiveFeed";
 import PostComposer from "../post-composer/PostComposer";
 import { Button } from "../ui/button";
 import ComposePostDialog from "./ComposePostDialog";
+import { OnlineFriendsStrip } from "../OnlineFriendsStrip";
 
 interface FeedProps {
   scrollPosition?: ScrollPosition;
@@ -157,6 +158,12 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
           Trending
         </TabsTrigger>
       </TabsList>
+
+      {/* Desktop shows online friends in the Aside sidebar (hidden below
+          lg) — this is the mobile equivalent, a tap-to-message avatar
+          strip, since that sidebar simply isn't there below that
+          breakpoint. */}
+      <OnlineFriendsStrip />
 
       {/* POST COMPOSER – ALWAYS VISIBLE */}
       <div ref={composerInViewRef}>
