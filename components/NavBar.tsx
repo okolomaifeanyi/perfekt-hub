@@ -19,6 +19,7 @@ import {
   PlayIcon as WatchOutline,
   SparklesIcon as AssistantOutline,
   UserIcon as UserOutline,
+  NewspaperIcon as UpdatesOutline,
 } from "@heroicons/react/24/outline";
 
 import {
@@ -29,6 +30,7 @@ import {
   PlayIcon as WatchSolid,
   SparklesIcon as AssistantSolid,
   UserIcon as UserSolid,
+  NewspaperIcon as UpdatesSolid,
 } from "@heroicons/react/24/solid";
 
 type NavItem = {
@@ -60,6 +62,10 @@ const NavBar = () => {
           <Link href="/discover" className="flex items-center md:space-x-4">
             <DiscoverOutline className="size-8 text-foreground" />
             <span className="hidden md:block">Discover</span>
+          </Link>
+          <Link href="/updates" className="flex items-center md:space-x-4">
+            <UpdatesOutline className="size-8 text-foreground" />
+            <span className="hidden md:block">Scores & News</span>
           </Link>
         </div>
 
@@ -93,6 +99,12 @@ const NavBar = () => {
       label: "Discover",
       SolidIcon: DiscoverSolid,
       OutlineIcon: DiscoverOutline,
+    },
+    {
+      href: "/updates",
+      label: "Scores & News",
+      SolidIcon: UpdatesSolid,
+      OutlineIcon: UpdatesOutline,
     },
     {
       href: "/messages",
