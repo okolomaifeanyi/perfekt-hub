@@ -12,6 +12,7 @@ import {
   DocumentData,
 } from "@/lib/supabase";
 import { generateText } from "@/lib/ai/client.mjs";
+import { checkRateLimit } from "@/lib/rate-limit.mjs";
 
 const EXPANSION_SYSTEM_PROMPT =
   "You expand a social-app search query into related single words for a " +
@@ -62,6 +63,11 @@ const normalize = (s: string) => s.toLowerCase().trim();
 export async function searchUsersAndPosts(searchTerm: string) {
   const term = normalize(searchTerm);
   if (!term) return { users: [], posts: [] };
+
+  // The Discover page (which calls this on every render, including for
+  // signed-out visitors since guest browsing shipped) and the search API
+  // route both reach this — protect it the same way as the public feed.
+  if (!(await checkRateLimit("search", 30, 60))) return { users: [], posts: [] };
 
   // Expansion only applies to post content, not usernames/names — a person
   // search should stay literal, "synonyms" for a name make no sense.

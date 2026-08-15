@@ -6,6 +6,7 @@ import { normalizeUnknownError } from "@/lib/supabase/error-utils.mjs";
 import { getSupabaseServerClient } from "@/lib/supabase/client";
 import { mergeFeedAuthorIds } from "@/lib/supabase/feed-author-ids.mjs";
 import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
+import { checkRateLimit } from "@/lib/rate-limit.mjs";
 import { PostProps } from "@/lib/types";
 import { Timestamp, type QueryDocumentSnapshot } from "@/lib/supabase";
 
@@ -406,6 +407,12 @@ export async function getPublicFeedAction(
   sortMode: "latest" | "trending" = "latest",
   parentPostId: string | null = null
 ): Promise<PostProps[]> {
+  // This became reachable with no session at all once guest browsing
+  // shipped — previously the session-cookie requirement was itself a
+  // soft rate limit. Silent empty result, not an error: polling (see
+  // useLiveFeed) shouldn't surface a toast for a rate-limit bump.
+  if (!(await checkRateLimit("public-feed", 60, 60))) return [];
+
   try {
     return await getPublicFeedForGuests({ limit, before, sortMode, parentPostId });
   } catch (error) {
