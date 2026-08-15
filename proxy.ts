@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware";
+import { isPublicPath } from "@/lib/public-routes.mjs";
 
 const authRoutes = ["/login", "/signup"];
 // icon-192/icon-512 are the PWA manifest's icons and /offline is the
@@ -25,7 +26,14 @@ function matchesRoute(path: string, route: string) {
 export async function proxy(req: NextRequest) {
   const path = req.nextUrl.pathname;
   const isAuthRoute = authRoutes.some(route => matchesRoute(path, route));
-  const isPublic = publicRoutes.some(route => matchesRoute(path, route));
+  // publicRoutes above are infrastructure/auth plumbing routes a signed-out
+  // visitor's browser hits regardless of intent (manifest icons, the
+  // offline fallback). isPublicPath is the separate, deliberately narrow
+  // allowlist of actual app content a guest can browse — see that file for
+  // why it's an allowlist (home feed, /discover, an individual post) rather
+  // than opening everything not explicitly listed here.
+  const isPublic =
+    publicRoutes.some(route => matchesRoute(path, route)) || isPublicPath(path);
   const isAddingAccount = req.nextUrl.searchParams.has(ADD_ACCOUNT_PARAM);
 
   const response = NextResponse.next({
