@@ -66,9 +66,17 @@ export default function VideoViewer({
   const { setQueue, setActiveIndex: syncActiveIndex, clearQueue } = useVideoQueueStore();
   const { muted, toggleMuted } = useVideoMuteStore();
 
-  // Sync queue and active index to the store so Aside can read it
+  // Sync queue and active index to the store so Aside can read it. Depends
+  // on `queue` itself (not just []) — navigating to a different video's own
+  // page re-renders this component in place with a new `queue` prop rather
+  // than remounting it, so a mount-only effect left Aside frozen on the
+  // very first video's queue no matter how many videos were opened after,
+  // confirmed live.
   useEffect(() => {
     setQueue(queue, 0);
+  }, [queue, setQueue]);
+
+  useEffect(() => {
     return () => clearQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
