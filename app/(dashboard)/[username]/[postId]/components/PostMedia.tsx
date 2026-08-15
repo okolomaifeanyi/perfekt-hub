@@ -71,7 +71,7 @@ const PostMedia = ({
     } else {
       return {
         src: media.src,
-        alt: (idx === 0 && post.aiImageAltText) || undefined,
+        alt: media.alt || (idx === 0 && post.aiImageAltText) || undefined,
       };
     }
   });
@@ -158,7 +158,11 @@ const PostMedia = ({
               ) : (
                 <ContainedImage
                   src={media.src}
-                  alt={(idx === 0 && post.aiImageAltText) || `Post media ${idx + 1}`}
+                  alt={
+                    media.alt ||
+                    (idx === 0 && post.aiImageAltText) ||
+                    `Post media ${idx + 1}`
+                  }
                   unoptimized
                   className="h-full w-full"
                   imageClassName={

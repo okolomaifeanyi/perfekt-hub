@@ -239,7 +239,7 @@ function GroupPostCard({
               >
                 <ContainedImage
                   src={m.url}
-                  alt=""
+                  alt={m.alt || "Post media"}
                   unoptimized
                   className="h-full w-full"
                   imageClassName={singleImageNeedsCover ? "object-cover" : "object-contain"}
@@ -251,7 +251,7 @@ function GroupPostCard({
               <img
                 key={i}
                 src={m.url}
-                alt=""
+                alt={m.alt || `Post media ${i + 1}`}
                 className="w-full max-h-80 object-cover"
               />
             )

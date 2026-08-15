@@ -54,6 +54,7 @@ export default async function WatchPage() {
       currentUsername={currentPost.username || ""}
       currentPost={currentPost}
       queue={queue}
+      syncUrlOnScroll={false}
     />
   );
 }

@@ -99,6 +99,10 @@ export default function NewConversationDialog() {
         </DialogHeader>
 
         <Input
+          id="new-conversation-search"
+          name="search"
+          aria-label="Search users"
+          autoComplete="off"
           autoFocus
           placeholder="Search users"
           value={query}

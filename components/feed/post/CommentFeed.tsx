@@ -60,6 +60,8 @@ const CommentFeed = ({
         posts={posts}
         scrollPosition={scrollPosition}
         deleteOptimisticPost={deleteOptimisticPost}
+        emptyMessage="No comments yet — be the first to reply."
+        showEmptyRecommendations={false}
       />
     </>
   );

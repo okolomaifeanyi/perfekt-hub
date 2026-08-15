@@ -185,6 +185,8 @@ const Composer = ({
 
         <input
           ref={fileInputRef}
+          id="message-attachment"
+          name="attachment"
           type="file"
           accept="image/*,video/*"
           className="hidden"
@@ -205,6 +207,10 @@ const Composer = ({
         </Button>
 
         <Textarea
+          id="message-text"
+          name="message"
+          aria-label="Message"
+          autoComplete="off"
           className="flex-1 resize-none leading-tight min-h-0 h-[unset]!"
           placeholder="Type a message..."
           value={newMsg.text}

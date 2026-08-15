@@ -79,11 +79,25 @@ export async function enrichPost(postId: string): Promise<void> {
       return;
     }
 
-    const media = (post.media as { src: string; type: string }[] | null) ?? [];
-    const firstImage = media.find(m => m.type === "image")?.src;
-    const otherImages = media.filter(m => m.type === "image" && m.src !== firstImage).map(m => m.src);
+    // Main-composer posts store each media item's URL under `src`; group
+    // posts (see GroupPostMediaItem in app/actions/groups.ts) use `url` —
+    // both land in this same `posts` table, so this has to read/write
+    // whichever key a given item actually has rather than assuming `src`.
+    type MediaItem = { src?: string; url?: string; type: string; [key: string]: unknown };
+    const media = (post.media as MediaItem[] | null) ?? [];
+    const mediaUrl = (m: MediaItem) => m.src || m.url || "";
+
+    const firstImage = mediaUrl(media.find(m => m.type === "image" && mediaUrl(m)) ?? { type: "" });
+    const otherImages = media
+      .filter(m => m.type === "image" && mediaUrl(m) && mediaUrl(m) !== firstImage)
+      .map(mediaUrl);
 
     let enrichment: Enrichment;
+    // Per-image alt text — previously only the first image ever got one,
+    // leaving every other image in a multi-image post on a generic "Post
+    // media N" fallback. Keyed by src so it can be written back onto each
+    // matching media item below.
+    const altTextBySrc = new Map<string, string>();
 
     if (firstImage) {
       const result = await analyzeImage({
@@ -93,26 +107,34 @@ export async function enrichPost(postId: string): Promise<void> {
         maxTokens: 200,
       });
       enrichment = parseEnrichment(result.text);
+      if (enrichment.altText) altTextBySrc.set(firstImage, enrichment.altText);
 
       // A multi-image post could have its NSFW image anywhere in the set,
-      // not just the first — check the rest too (cheap: only runs when
-      // there's more than one image) and let any "sensitive" finding win.
-      if (enrichment.moderation === "safe" && otherImages.length > 0) {
+      // not just the first — check the rest too (only runs when there's
+      // more than one image) and let any "sensitive" finding win. Also
+      // asks for each one's own alt text now, not just a moderation label.
+      if (otherImages.length > 0) {
         const rest = await Promise.all(
           otherImages.map(imageUrl =>
             analyzeImage({
               system: ENRICHMENT_SYSTEM_PROMPT,
-              prompt: "Classify this image.",
+              prompt: `Post caption: ${JSON.stringify((post.content as string) || "")}`,
               imageUrl,
-              maxTokens: 50,
-            }).catch(err => {
-              console.error("enrichPost: secondary image check failed", err);
-              return null;
+              maxTokens: 120,
             })
+              .then(r => ({ imageUrl, parsed: parseEnrichment(r.text) }))
+              .catch(err => {
+                console.error("enrichPost: secondary image check failed", err);
+                return null;
+              })
           )
         );
-        if (rest.some(r => r && parseEnrichment(r.text).moderation === "sensitive")) {
-          enrichment = { ...enrichment, moderation: "sensitive" };
+        for (const r of rest) {
+          if (!r) continue;
+          if (r.parsed.altText) altTextBySrc.set(r.imageUrl, r.parsed.altText);
+          if (r.parsed.moderation === "sensitive") {
+            enrichment = { ...enrichment, moderation: "sensitive" };
+          }
         }
       }
     } else {
@@ -124,14 +146,25 @@ export async function enrichPost(postId: string): Promise<void> {
       enrichment = parseEnrichment(result.text);
     }
 
+    const enrichedMedia = media.map(m => {
+      const url = mediaUrl(m);
+      return m.type === "image" && altTextBySrc.has(url)
+        ? { ...m, alt: altTextBySrc.get(url) }
+        : m;
+    });
+
     await client
       .from("posts")
       .update({
         moderationstatus: enrichment.moderation,
         aitopics: enrichment.topics,
         aiqualityscore: enrichment.quality,
+        // Kept for backward compatibility with existing readers that only
+        // ever looked at the first image's alt text — enrichedMedia below
+        // is the real, per-image source of truth going forward.
         aiimagealttext: enrichment.altText || null,
         texttoxic: enrichment.textToxic,
+        media: enrichedMedia,
       })
       .eq("id", postId);
 

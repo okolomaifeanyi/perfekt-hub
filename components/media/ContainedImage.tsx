@@ -80,6 +80,14 @@ export function ContainedImage({
           sizes={sizes}
           priority={priority}
           loading={loading}
+          // crossOrigin is required for handleLoad's canvas-based average-
+          // color sampling below — reading pixel data back out of a canvas
+          // throws unless the image was fetched CORS-clean. Callers that
+          // pass unoptimized=true (post/group media) are doing so for the
+          // same reason: Next's own image-optimizer proxy doesn't reliably
+          // preserve that CORS access from the origin (Cloudinary already
+          // serves appropriately-sized images anyway, so there's no real
+          // optimization being skipped).
           crossOrigin="anonymous"
           unoptimized={unoptimized}
           onLoad={handleLoad}

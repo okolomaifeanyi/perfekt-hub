@@ -88,6 +88,9 @@ export interface MediaProps {
   src: string;
   type: "image" | "video";
   file?: File;
+  // AI-generated accessibility description for this specific image — see
+  // enrichPost in app/actions/moderation.ts. Only ever set for images.
+  alt?: string;
 }
 
 export interface ButtonsProps {

@@ -416,7 +416,7 @@ export async function deleteGroup(groupId: string): Promise<void> {
 
 export type GroupPostVisibility = "public" | "private";
 
-export type GroupPostMediaItem = { url: string; type: string; name?: string };
+export type GroupPostMediaItem = { url: string; type: string; name?: string; alt?: string };
 
 export type GroupPostProps = {
   id: string;

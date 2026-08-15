@@ -24,6 +24,12 @@ const Posts = ({
   isPage,
   deleteOptimisticPost,
   optimistic,
+  // This component is reused for a post's comment thread (see
+  // CommentFeed), where "No posts yet. Follow people..." plus a "People
+  // you may know" rail made no sense sitting under a reply box — both are
+  // overridable so each context gets copy that actually fits it.
+  emptyMessage = "No posts yet. Follow people to see their updates!",
+  showEmptyRecommendations = true,
 }: {
   posts: PostProps[];
   scrollPosition?: ScrollPosition;
@@ -35,14 +41,14 @@ const Posts = ({
     replaceOptimisticPost: (id: string, p: any) => void;
     removeOptimisticPost: (id: string) => void;
   };
+  emptyMessage?: string;
+  showEmptyRecommendations?: boolean;
 }) => {
   if (posts.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="text-muted-foreground mb-6">
-          No posts yet. Follow people to see their updates!
-        </p>
-        <RecommendationRail type="friends" />
+        <p className="text-muted-foreground mb-6">{emptyMessage}</p>
+        {showEmptyRecommendations && <RecommendationRail type="friends" />}
       </div>
     );
   }

@@ -26,6 +26,15 @@ type VideoViewerProps = {
   currentUsername: string;
   currentPost: PostProps;
   queue: PostProps[];
+  // Whether scrolling to a different video should rewrite the address bar
+  // to that video's own deep-link URL (/[username]/[postId]/video). Default
+  // true matches that route's own purpose — each video is independently
+  // shareable/bookmarkable there. /watch passes false: it's a continuous
+  // reel with its own URL, not a sequence of per-video pages, and
+  // rewriting the path away from /watch while scrolling broke Aside's
+  // `pathname?.startsWith("/watch")` check, which made the queue sidebar
+  // vanish after the first video (confirmed live).
+  syncUrlOnScroll?: boolean;
 };
 
 type VideoQuality = (typeof VIDEO_QUALITIES)[number];
@@ -45,6 +54,7 @@ export default function VideoViewer({
   currentUsername,
   currentPost,
   queue,
+  syncUrlOnScroll = true,
 }: VideoViewerProps) {
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -143,12 +153,13 @@ export default function VideoViewer({
   }, []);
 
   useEffect(() => {
+    if (!syncUrlOnScroll) return;
     const active = queue[activeIndex];
     if (!active || active.id === currentPost.id) return;
 
     const nextUrl = buildVideoPostUrl(active.username || currentUsername, active.id);
     window.history.replaceState(null, "", nextUrl);
-  }, [activeIndex, currentPost.id, currentUsername, queue]);
+  }, [activeIndex, currentPost.id, currentUsername, queue, syncUrlOnScroll]);
 
   if (queue.length === 0) {
     return null;
