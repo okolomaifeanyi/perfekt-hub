@@ -923,6 +923,46 @@ export async function runTransaction<T>(
   return callback(transaction);
 }
 
+// Supabase Realtime's `filter` option on a postgres_changes subscription
+// only supports a single `column=eq.value` condition — it can't express
+// the multi-clause where()/orderBy()/limit() combinations these queries
+// build. Rather than reimplement that filtering against raw realtime
+// payloads (a second, easy-to-drift-from-the-real-query implementation),
+// this only uses realtime as a wake-up signal — the actual data still
+// comes from the exact same getDoc()/getDocs() call poll() already made,
+// which applies every clause correctly by construction. A single equality
+// filter narrows which changes bother waking this listener at all; with
+// zero or multiple filters, it just subscribes to the whole table, which
+// still wakes on the right changes (among some extra irrelevant ones) —
+// the poll after any wake-up correctly reflects only what the query
+// itself asked for either way.
+function buildRealtimeFilter(
+  ref: DocumentRef | QueryRef,
+  target: Target
+): string | undefined {
+  if (ref instanceof DocumentRef) {
+    // Relationship-backed docs (followers/following/friends) use a
+    // composite key, not a single real column — no simple filter maps to
+    // that, so this falls back to whole-table (still correct, just wider).
+    if (target.relationship) return undefined;
+    const docId = docIdForTarget(target, ref.segments, ref.segments.at(-1));
+    if (!docId) return undefined;
+    return `${normalizeFieldName(target.idColumn)}=eq.${docId}`;
+  }
+
+  const filters: BaseFilter[] = [...target.baseFilters];
+  for (const constraint of ref.constraints) {
+    if (constraint.kind === "where" && constraint.op === "==") {
+      filters.push({ field: constraint.field, op: "==", value: constraint.value });
+    }
+  }
+
+  if (filters.length !== 1) return undefined;
+  const [filter] = filters;
+  if (filter.value === undefined || filter.value === null) return undefined;
+  return `${normalizeFieldName(filter.field)}=eq.${filter.value}`;
+}
+
 export function onSnapshot(
   ref: QueryRef,
   onNext: (snapshot: QuerySnapshot) => void,
@@ -990,13 +1030,56 @@ export function onSnapshot(
   };
 
   void poll();
+
+  // Safety net only — every listener across the app used to poll on this
+  // same 3s timer unconditionally, which is what actually generated the
+  // request volume (confirmed live: a whole page's worth of listeners all
+  // firing in lockstep every 3 seconds, whether or not anything had
+  // changed). The realtime subscription below is the primary trigger now;
+  // this just catches a missed/dropped realtime event.
   const interval = setInterval(() => {
     if (active) void poll();
-  }, 3000);
+  }, 30000);
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleRealtimePoll = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    // Coalesces bursts (e.g. several rows changing at once) into one
+    // re-fetch instead of one per row event.
+    debounceTimer = setTimeout(() => {
+      if (active) void poll();
+    }, 250);
+  };
+
+  const target = getBaseTarget(ref.segments);
+  const realtimeFilter = buildRealtimeFilter(ref, target);
+  let channel: ReturnType<SupabaseClient["channel"]> | null = null;
+  try {
+    channel = getClient()
+      .channel(`onSnapshot:${target.table}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: target.table,
+          ...(realtimeFilter ? { filter: realtimeFilter } : {}),
+        },
+        scheduleRealtimePoll
+      )
+      .subscribe();
+  } catch (err) {
+    // Realtime is additive — if the channel can't be established (offline,
+    // misconfigured, table not in the publication), the interval above
+    // still keeps this listener working, just on a slower cadence.
+    console.error("onSnapshot: realtime subscription failed, falling back to polling only:", err);
+  }
 
   return () => {
     active = false;
     clearInterval(interval);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (channel) void getClient().removeChannel(channel);
   };
 }
 
