@@ -30,7 +30,16 @@ const Main = ({ children, leftSidebar, rightSidebar }: MainProps) => {
           {/* <MobileNavBar scrollRef={scrollRef} /> */}
         </div>
 
-        <aside className="hidden lg:block sticky top-0 h-screen self-start">
+        {/* overflow-y-auto + scrollbar-none: Aside is sticky/h-screen, so
+            without its own scroll it just clipped anything past one
+            viewport height instead of ever revealing it — it can't rely on
+            the page scroll below, since sticky pins it in place regardless
+            of how far the middle column scrolls. scrollbar-none keeps this
+            functional without a second visible scrollbar next to the
+            page's own; VideoQueueAside (/watch) already manages its own
+            internal header+list split and stays exactly h-full so this
+            outer scroll never has anything to actually do there. */}
+        <aside className="hidden lg:block sticky top-0 h-screen self-start overflow-y-auto scrollbar-none">
           {rightSidebar}
         </aside>
       </div>

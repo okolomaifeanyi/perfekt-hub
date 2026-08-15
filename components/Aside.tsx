@@ -105,12 +105,18 @@ function VideoQueueAside() {
   }
 
   return (
-    <div className="flex w-full flex-col">
+    // h-full (not the implicit content-height default): this now sits
+    // inside an Aside wrapper that scrolls on its own (see Main.tsx), so
+    // without an explicit height here flex-1 below has nothing definite
+    // to fill and the list wouldn't scroll internally at all — instead
+    // the whole card would just grow taller than the viewport and the
+    // OUTER scroll would take over, losing the pinned "Up next" header.
+    <div className="flex h-full w-full flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
         <p className="text-sm font-semibold">Up next</p>
         <span className="text-xs text-muted-foreground">{queue.length} videos</span>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-none">
         {queue.map((post, index) => {
           const thumb = post.media?.find(m => m.type === "video")?.src ?? null;
           const isActive = index === activeIndex;
