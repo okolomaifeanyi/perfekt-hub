@@ -35,6 +35,9 @@ function RingingRow() {
   const handleAccept = async () => {
     try {
       await call.join();
+      // This is an audio call end to end — without this the receiver's
+      // camera light turned on as soon as they accepted, confirmed live.
+      await call.camera.disable();
       setActiveCall(call);
     } catch (err) {
       console.error("Failed to accept call:", err);

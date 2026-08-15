@@ -47,8 +47,18 @@ export function useStartCall() {
         const call = client.call("default", await directCallId(currentUid, targetUid));
         await call.getOrCreate({
           ring: true,
+          // Stream's "default" call type is video-capable by default —
+          // video: false only affects what the ring notification says,
+          // it doesn't stop the camera from being requested. Explicitly
+          // disabling it (below) is what actually keeps this audio-only,
+          // confirmed against Stream's docs (Camera & Microphone guide).
+          video: false,
           data: { members: [{ user_id: currentUid }, { user_id: targetUid }] },
         });
+        // This is meant to be an audio call end to end — without this the
+        // caller's own camera light turned on the moment the call was
+        // created, confirmed live.
+        await call.camera.disable();
         setActiveCall(call);
       } catch (err) {
         console.error("startDirectCall failed:", err);
@@ -70,6 +80,10 @@ export function useStartCall() {
       try {
         const call = client.call("audio_room", `group-${groupId}`);
         await call.join({ create: true });
+        // "audio_room" is Stream's built-in type for this kind of room, but
+        // isn't guaranteed to default the camera off — disable it
+        // explicitly for the same reason as the 1:1 call above.
+        await call.camera.disable();
         setActiveCall(call);
       } catch (err) {
         console.error("joinGroupAudioRoom failed:", err);

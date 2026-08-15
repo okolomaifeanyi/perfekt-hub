@@ -17,7 +17,7 @@ import {
 import { useUserStore } from "@/lib/store/useUserStore";
 import { canUsePrivateData } from "@/lib/private-data-access.mjs";
 import { useUser } from "@/hooks/useUser";
-import NavBar from "@/app/(dashboard)/[username]/components/NavBar";
+import Back from "@/app/(dashboard)/[username]/components/Back";
 import MyAvatar from "../feed/post/MyAvatar";
 import Messages from "./Messages";
 import { DraftMessage, MessageProps } from "@/lib/types";
@@ -175,35 +175,45 @@ export default function MessagePage({
   return (
     <>
       <div className="flex flex-col h-[calc(100vh-3rem)] max-w-full overflow-hidden">
-        <NavBar
-          backHref="/messages"
-          hideBackOnDesktop
-          avatar={
-            <div className="relative">
-              <MyAvatar
-                username={targetUser?.username || "User"}
-                photoURL={targetUser?.photoURL}
-                fullName={targetUser?.fullName}
+        {/* Not the shared NavBar: that component is `sticky top-12`,
+            offset to sit below the mobile TopNav bar on pages that scroll
+            past it — this page's own layout is a fixed-height flex column
+            (overflow-hidden, only the message list scrolls), so that
+            offset just showed up as a blank gap above the header instead
+            of ever "sticking" to anything. Name/status/call button were
+            also all competing for the same row here; stacking name over
+            status (the conventional messaging-app layout) gives the call
+            button room without crowding either. */}
+        <div className="flex shrink-0 items-center gap-3 border-b bg-background px-2 py-2">
+          <Back href="/messages" className="lg:hidden" />
+
+          <div className="relative shrink-0">
+            <MyAvatar
+              username={targetUser?.username || "User"}
+              photoURL={targetUser?.photoURL}
+              fullName={targetUser?.fullName}
+            />
+            {targetUser && targetUserPresence !== "offline" && (
+              <span
+                className={cn(
+                  "absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-background",
+                  targetUserPresence === "online" ? "bg-green-500" : "bg-yellow-500"
+                )}
               />
-              {targetUser && targetUserPresence !== "offline" && (
-                <span
-                  className={cn(
-                    "absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-background",
-                    targetUserPresence === "online" ? "bg-green-500" : "bg-yellow-500"
-                  )}
-                />
-              )}
-            </div>
-          }
-          title={targetUser?.fullName || targetUser?.username || "Someone"}
-          extra={
-            <div className="flex items-center gap-3">
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold leading-tight">
+              {targetUser?.fullName || targetUser?.username || "Someone"}
+            </p>
+            <p className="truncate text-xs leading-tight">
               {targetUserPresence === "online" ? (
                 <span className="text-green-500">Online</span>
               ) : targetUserPresence === "recently-active" ? (
                 <span className="text-yellow-500">Active recently</span>
               ) : targetUser?.lastSeen ? (
-                <span className="text-muted">
+                <span className="text-muted-foreground">
                   Last seen{" "}
                   {(targetUser.lastSeen instanceof Date
                     ? targetUser.lastSeen
@@ -213,13 +223,13 @@ export default function MessagePage({
                   )?.toLocaleString() ?? "Unknown"}
                 </span>
               ) : (
-                <span className="text-muted">Offline</span>
+                <span className="text-muted-foreground">Offline</span>
               )}
+            </p>
+          </div>
 
-              {targetUid && <DirectCallButton targetUid={targetUid} />}
-            </div>
-          }
-        />
+          {targetUid && <DirectCallButton targetUid={targetUid} />}
+        </div>
 
         <Messages
           ref={bottomRef}
