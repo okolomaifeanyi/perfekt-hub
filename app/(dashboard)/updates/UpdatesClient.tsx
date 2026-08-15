@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
+import { format } from "date-fns";
 import { Radio } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -29,10 +30,22 @@ function teamLabel(team?: { name?: string | null; shortName?: string | null }) {
   return team?.shortName || team?.name || "TBD";
 }
 
+// getCompactTimeAgo only handles the past — it computes now-minus-date with
+// no floor, so a future timestamp (an upcoming fixture's kickoff, or a
+// betting prediction published with that same future commence_time) comes
+// back as a raw negative number of minutes instead of a sensible label
+// (confirmed live: betting predictions were rendering "-21190m"). date-fns'
+// format() is also locale-independent, unlike toLocaleString(undefined,
+// ...), which caused a separate server/client hydration mismatch here.
+function formatContentTime(publishedAt: string) {
+  const date = new Date(publishedAt);
+  if (date.getTime() > Date.now()) return format(date, "EEE h:mm a");
+  return getCompactTimeAgo(date);
+}
+
 function MatchRow({ match }: { match: CuratedContentItem }) {
   const meta = match.metadata as FootballMetadata;
   const isLive = match.category === "football_live";
-  const isUpcoming = match.category === "football_fixture";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5">
@@ -45,7 +58,7 @@ function MatchRow({ match }: { match: CuratedContentItem }) {
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1">
-        {meta.score ? (
+        {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
           <span className="font-mono text-sm font-semibold tabular-nums">
             {meta.score.home}-{meta.score.away}
           </span>
@@ -56,16 +69,8 @@ function MatchRow({ match }: { match: CuratedContentItem }) {
             <Radio className="size-2.5" />
             {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
           </Badge>
-        ) : isUpcoming ? (
-          <span className="text-xs text-muted-foreground">
-            {new Date(match.published_at).toLocaleString(undefined, {
-              weekday: "short",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </span>
         ) : (
-          <span className="text-xs text-muted-foreground">{getCompactTimeAgo(new Date(match.published_at))}</span>
+          <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
         )}
       </div>
     </div>
@@ -139,7 +144,7 @@ function ContentRow({ item }: { item: CuratedContentItem }) {
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
         ) : null}
         <p className="mt-1 text-xs text-muted-foreground">
-          {item.source_name} · {getCompactTimeAgo(new Date(item.published_at))}
+          {item.source_name} · {formatContentTime(item.published_at)}
         </p>
       </div>
     </div>
