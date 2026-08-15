@@ -16,6 +16,7 @@ export type NotificationPreferences = {
   notifyFollows: boolean;
   notifyMessages: boolean;
   notifyGroups: boolean;
+  notifyCalls: boolean;
 };
 
 const DEFAULT_PREFERENCES: NotificationPreferences = {
@@ -27,6 +28,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   notifyFollows: true,
   notifyMessages: true,
   notifyGroups: true,
+  notifyCalls: true,
 };
 
 async function withSupabaseRequestContext<T>(
@@ -56,6 +58,7 @@ function mapPreferencesRow(row: Record<string, unknown> | null): NotificationPre
     notifyFollows: Boolean(row.notify_follows ?? true),
     notifyMessages: Boolean(row.notify_messages ?? true),
     notifyGroups: Boolean(row.notify_groups ?? true),
+    notifyCalls: Boolean(row.notify_calls ?? true),
   };
 }
 
@@ -101,6 +104,7 @@ export async function updateNotificationPreferences(
       notify_follows: next.notifyFollows,
       notify_messages: next.notifyMessages,
       notify_groups: next.notifyGroups,
+      notify_calls: next.notifyCalls,
       updatedat: new Date().toISOString(),
     };
 
@@ -159,7 +163,7 @@ function ensureVapidConfigured() {
   return true;
 }
 
-type PushCategory = "likes" | "comments" | "follows" | "messages" | "groups";
+type PushCategory = "likes" | "comments" | "follows" | "messages" | "groups" | "calls";
 
 const CATEGORY_COLUMN: Record<PushCategory, keyof NotificationPreferences> = {
   likes: "notifyLikes",
@@ -167,6 +171,7 @@ const CATEGORY_COLUMN: Record<PushCategory, keyof NotificationPreferences> = {
   follows: "notifyFollows",
   messages: "notifyMessages",
   groups: "notifyGroups",
+  calls: "notifyCalls",
 };
 
 // Called from sendNotification (app/actions/notifications.ts) so every
@@ -222,4 +227,38 @@ export async function sendPushToUser(
       }
     })
   );
+}
+
+// The in-app incoming-call banner only ever reaches someone already on
+// the page — reported live as "the receiver doesn't know they are
+// called". Stream's ring state defaults to a 15s timeout (dashboard-only
+// setting, not something this call controls), so unless the receiver is
+// already staring at the tab, they'll never see or hear it in time. A
+// push notification reaches them even with the tab backgrounded or
+// closed. Caller identity is looked up server-side from the
+// authenticated session rather than trusted from the client, so this
+// can't be used to send an arbitrary spoofed "incoming call" push.
+export async function notifyIncomingCall(targetUid: string): Promise<void> {
+  const { uid: callerUid } = await getUserFromSession();
+  if (!callerUid || !targetUid || callerUid === targetUid) return;
+
+  try {
+    const admin = getSupabaseAdminClient();
+    const { data: caller } = await admin
+      .from("users")
+      .select("fullname, username")
+      .eq("uid", callerUid)
+      .maybeSingle();
+
+    const callerName =
+      (caller?.fullname as string) || (caller?.username as string) || "Someone";
+
+    await sendPushToUser(targetUid, "calls", {
+      title: "Incoming call",
+      body: `${callerName} is calling you`,
+      url: "/messages",
+    });
+  } catch (err) {
+    console.error("notifyIncomingCall failed:", err);
+  }
 }

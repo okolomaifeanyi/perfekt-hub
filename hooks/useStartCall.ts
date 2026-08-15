@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useActiveCallStore } from "@/lib/store/useActiveCallStore";
 import { useStreamClientStore } from "@/lib/store/useStreamClientStore";
+import { notifyIncomingCall } from "@/app/actions/notificationPrefs";
 
 // Deterministic per-pair call id so both participants resolve to the same
 // call room regardless of who initiates — sorted so uid order doesn't
@@ -60,6 +61,13 @@ export function useStartCall() {
         // created, confirmed live.
         await call.camera.disable();
         setActiveCall(call);
+
+        // Best-effort — the in-app ring banner already fired via Stream's
+        // own realtime call; a failed push just means the receiver relies
+        // on that banner alone, same as before this existed.
+        notifyIncomingCall(targetUid).catch(err =>
+          console.error("notifyIncomingCall failed:", err)
+        );
       } catch (err) {
         console.error("startDirectCall failed:", err);
         toast.error(err instanceof Error ? err.message : "Couldn't start the call");

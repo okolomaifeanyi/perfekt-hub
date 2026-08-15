@@ -73,6 +73,7 @@ const CATEGORY_ROWS: { key: keyof NotificationPreferences; label: string }[] = [
   { key: "notifyFollows", label: "New followers and friend requests" },
   { key: "notifyMessages", label: "Direct messages" },
   { key: "notifyGroups", label: "Group activity" },
+  { key: "notifyCalls", label: "Incoming calls" },
 ];
 
 export function NotificationSettingsClient() {
