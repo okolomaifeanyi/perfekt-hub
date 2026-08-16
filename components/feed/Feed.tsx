@@ -17,6 +17,7 @@ import { Button } from "../ui/button";
 import ComposePostDialog from "./ComposePostDialog";
 import { OnlineFriendsStrip } from "../OnlineFriendsStrip";
 import { ComposerTrigger } from "./ComposerTrigger";
+import { BirthdayBanner } from "../BirthdayBanner";
 
 interface FeedProps {
   scrollPosition?: ScrollPosition;
@@ -162,6 +163,8 @@ export const Feed = ({ scrollPosition, initialTab = "latest" }: FeedProps) => {
           strip, since that sidebar simply isn't there below that
           breakpoint. */}
       <OnlineFriendsStrip />
+
+      {!isGuest && <BirthdayBanner />}
 
       {/* POST COMPOSER TRIGGER – ALWAYS VISIBLE, OPENS THE COMPOSE DIALOG */}
       <div ref={composerInViewRef}>

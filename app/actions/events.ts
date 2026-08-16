@@ -16,6 +16,7 @@ export type EventProps = {
   ownerUid: string;
   attendeesCount: number;
   createdAt: string;
+  eventType: "custom" | "birthday";
 };
 
 async function withSupabaseRequestContext<T>(
@@ -46,6 +47,7 @@ function mapEventRow(row: Record<string, unknown>): EventProps {
     ownerUid: row.owneruid as string,
     attendeesCount: (row.attendeescount as number) ?? 0,
     createdAt: row.createdat as string,
+    eventType: (row.eventtype as EventProps["eventType"]) ?? "custom",
   };
 }
 
@@ -125,6 +127,7 @@ export async function createEvent(input: {
       ownerUid: uid,
       attendeesCount: 1,
       createdAt: new Date().toISOString(),
+      eventType: "custom",
     };
   });
 }

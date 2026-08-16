@@ -6,6 +6,7 @@ import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getPost } from "@/lib/data";
 import { rankMatchCandidates } from "@/lib/match-recommendations.mjs";
 import { MARRIED_STATUS } from "@/lib/marital-status.mjs";
+import { calculateAge } from "@/lib/dob.mjs";
 import { PostProps, UserProps } from "@/lib/types";
 
 // PostgREST .neq() on a nullable column excludes NULL rows too (SQL's
@@ -101,13 +102,6 @@ export async function listPeoplePage(params: {
       completedProfile: Boolean(row.completedprofile),
     }));
   });
-}
-
-function calculateAge(dob: string | null | undefined): number | null {
-  if (!dob) return null;
-  const [year] = dob.split("-");
-  const birthYear = parseInt(year, 10);
-  return Number.isNaN(birthYear) ? null : new Date().getFullYear() - birthYear;
 }
 
 export async function getSuggestedMatches(

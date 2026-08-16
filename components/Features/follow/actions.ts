@@ -6,6 +6,7 @@ import { normalizeUnknownError } from "@/lib/supabase/error-utils.mjs";
 import { getSupabaseServerClient } from "@/lib/supabase/client";
 import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
+import { calculateAge } from "@/lib/dob.mjs";
 import { UserProps } from "@/lib/types";
 
 function fuzzyMatch(a: string, b: string): number {
@@ -22,12 +23,6 @@ function fuzzyMatch(a: string, b: string): number {
     }
   }
   return 0;
-}
-
-function calculateAge(dob: string): number | null {
-  const [year] = dob.split("-");
-  const birthYear = parseInt(year, 10);
-  return isNaN(birthYear) ? null : new Date().getFullYear() - birthYear;
 }
 
 async function withSupabaseRequestContext<T>(

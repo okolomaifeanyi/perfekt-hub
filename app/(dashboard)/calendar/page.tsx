@@ -114,15 +114,31 @@ export default function CalendarPage() {
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm text-muted-foreground">
                     <p>
-                      Next birthday in <strong>{reminder.daysUntil}</strong> day
-                      {reminder.daysUntil === 1 ? "" : "s"}.
+                      {reminder.daysUntil === 0 ? (
+                        <>🎂 It&apos;s their birthday today!</>
+                      ) : (
+                        <>
+                          Next birthday in <strong>{reminder.daysUntil}</strong> day
+                          {reminder.daysUntil === 1 ? "" : "s"}.
+                        </>
+                      )}
                     </p>
-                    <Link
-                      href={`/${reminder.friend.username}`}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      View profile
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/${reminder.friend.username}`}
+                        className="text-primary underline-offset-4 hover:underline"
+                      >
+                        View profile
+                      </Link>
+                      {reminder.daysUntil === 0 && (
+                        <Link
+                          href={`/discover/events/birthday-${reminder.friend.uid}-${reminder.nextBirthday.getFullYear()}`}
+                          className="text-primary underline-offset-4 hover:underline"
+                        >
+                          Celebrate 🎉
+                        </Link>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
