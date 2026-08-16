@@ -19,45 +19,27 @@ const TOPICS = [
   { key: "fraud", label: "Fraud", categories: ["fraud_alert"] },
 ];
 
-const TABS = [{ key: "trends", label: "Trends" }, { key: "scores", label: "Scores" }, ...TOPICS];
+const SCORE_TABS = [
+  { key: "fixtures", label: "Fixtures", emptyMessage: "No upcoming fixtures — check back once the football feed has run." },
+  { key: "live", label: "Live", emptyMessage: "Nothing live right now — check back once a match kicks off." },
+  { key: "results", label: "Results", emptyMessage: "No recent results yet — check back once a match finishes." },
+];
+const SCORE_TAB_KEYS = new Set(SCORE_TABS.map(tab => tab.key));
+
+const TABS = [{ key: "trends", label: "Trends" }, ...SCORE_TABS, ...TOPICS];
 
 function EmptySection({ label }: { label: string }) {
   return <p className="py-4 text-center text-sm text-muted-foreground">{label}</p>;
 }
 
-function ScoresList({ matches }: { matches: CuratedContentItem[] }) {
-  const { live, upcoming, results } = groupMatches(matches);
-
-  if (matches.length === 0) {
-    return <EmptySection label="No scores yet — check back once the football feed has run." />;
-  }
+function MatchesList({ matches, emptyMessage }: { matches: CuratedContentItem[]; emptyMessage: string }) {
+  if (matches.length === 0) return <EmptySection label={emptyMessage} />;
 
   return (
-    <div className="space-y-6">
-      {live.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Live now</h3>
-          {live.map(match => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
-      )}
-      {upcoming.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Upcoming fixtures</h3>
-          {upcoming.map(match => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
-      )}
-      {results.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Recent results</h3>
-          {results.map(match => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
-      )}
+    <div className="space-y-2">
+      {matches.map(match => (
+        <MatchRow key={match.id} match={match} />
+      ))}
     </div>
   );
 }
@@ -118,7 +100,7 @@ export default function DiscoverTrends() {
       return;
     }
 
-    if (value === "scores" && scoresCache === undefined) {
+    if (SCORE_TAB_KEYS.has(value) && scoresCache === undefined) {
       setLoading(true);
       await ensureScores();
       setLoading(false);
@@ -177,9 +159,19 @@ export default function DiscoverTrends() {
         )}
       </TabsContent>
 
-      <TabsContent value="scores" className={cn("pt-4", loading && activeTab === "scores" && "opacity-60")}>
-        <ScoresList matches={scoresCache ?? []} />
-      </TabsContent>
+      {SCORE_TABS.map(tab => {
+        const { live, upcoming, results } = groupMatches(scoresCache ?? []);
+        const matches = tab.key === "live" ? live : tab.key === "results" ? results : upcoming;
+        return (
+          <TabsContent
+            key={tab.key}
+            value={tab.key}
+            className={cn("pt-4", loading && activeTab === tab.key && "opacity-60")}
+          >
+            <MatchesList matches={matches} emptyMessage={tab.emptyMessage} />
+          </TabsContent>
+        );
+      })}
 
       {TOPICS.map(topic => {
         const items = topicCache[topic.key] ?? [];

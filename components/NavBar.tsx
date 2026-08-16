@@ -172,7 +172,7 @@ const NavBar = () => {
   return (
     <div className="flex h-screen flex-col justify-between px-4 py-14">
       <div className="flex flex-col space-y-6">
-        {primaryNavItems.slice(0, 3).map(renderNavItem)}
+        {primaryNavItems.map(renderNavItem)}
 
         {moreNavItems.length > 0 && (
           <DropdownMenu>
@@ -194,8 +194,6 @@ const NavBar = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-
-        {primaryNavItems.slice(3).map(renderNavItem)}
       </div>
 
       <div className="space-y-4">

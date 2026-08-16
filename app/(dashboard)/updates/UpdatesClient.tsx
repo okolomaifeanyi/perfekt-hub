@@ -63,15 +63,11 @@ function useInterests() {
   return { leagueCodes, topics, teamIds, countries };
 }
 
-function ScoresPanel({
-  initialScores,
-  leagueCodes,
-  teamIds,
-}: {
-  initialScores: CuratedContentItem[];
-  leagueCodes: string[];
-  teamIds: string[];
-}) {
+// Shared by all three football tabs below — one fetch of the full mixed
+// (fixture + live + result) list, filtered client-side per tab by category,
+// so switching tabs never re-fetches and the "My leagues" toggle stays in
+// sync across all three instead of each tab tracking it separately.
+function useScores(initialScores: CuratedContentItem[], leagueCodes: string[], teamIds: string[]) {
   const [filterToMine, setFilterToMine] = useState(true);
   const [scores, setScores] = useState(initialScores);
   const [isPending, startTransition] = useTransition();
@@ -91,65 +87,70 @@ function ScoresPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterToMine, hasLeagueInterests, leagueCodes.join(","), teamIds.join(",")]);
 
-  const { live, upcoming, results } = groupMatches(scores);
+  return { scores, filterToMine, setFilterToMine, hasLeagueInterests, isPending };
+}
 
+function LeagueFilterToggle({
+  filterToMine,
+  setFilterToMine,
+}: {
+  filterToMine: boolean;
+  setFilterToMine: (value: boolean) => void;
+}) {
   return (
-    <div className="space-y-6 px-4">
+    <div className="flex gap-2">
+      {[
+        { value: true, label: "My leagues" },
+        { value: false, label: "All leagues" },
+      ].map(option => (
+        <button
+          key={String(option.value)}
+          type="button"
+          onClick={() => setFilterToMine(option.value)}
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium transition",
+            filterToMine === option.value
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border/60 text-muted-foreground hover:bg-accent/40"
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MatchesList({
+  matches,
+  emptyMessage,
+  isPending,
+  hasLeagueInterests,
+  filterToMine,
+  setFilterToMine,
+}: {
+  matches: CuratedContentItem[];
+  emptyMessage: string;
+  isPending: boolean;
+  hasLeagueInterests: boolean;
+  filterToMine: boolean;
+  setFilterToMine: (value: boolean) => void;
+}) {
+  return (
+    <div className="space-y-4 px-4">
       {hasLeagueInterests && (
-        <div className="flex gap-2">
-          {[
-            { value: true, label: "My leagues" },
-            { value: false, label: "All leagues" },
-          ].map(option => (
-            <button
-              key={String(option.value)}
-              type="button"
-              onClick={() => setFilterToMine(option.value)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition",
-                filterToMine === option.value
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border/60 text-muted-foreground hover:bg-accent/40"
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
       )}
 
-      {scores.length === 0 ? (
+      {matches.length === 0 ? (
         <p className={cn("py-10 text-center text-sm text-muted-foreground", isPending && "opacity-60")}>
-          No scores yet — check back once the football feed has run.
+          {emptyMessage}
         </p>
       ) : (
-        <div className={cn("space-y-6", isPending && "opacity-60")}>
-          {live.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Live now</h3>
-              {live.map(match => (
-                <MatchRow key={match.id} match={match} />
-              ))}
-            </section>
-          )}
-
-          {upcoming.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Upcoming fixtures</h3>
-              {upcoming.map(match => (
-                <MatchRow key={match.id} match={match} />
-              ))}
-            </section>
-          )}
-
-          {results.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Recent results</h3>
-              {results.map(match => (
-                <MatchRow key={match.id} match={match} />
-              ))}
-            </section>
-          )}
+        <div className={cn("space-y-2", isPending && "opacity-60")}>
+          {matches.map(match => (
+            <MatchRow key={match.id} match={match} />
+          ))}
         </div>
       )}
     </div>
@@ -248,16 +249,53 @@ function NewsPanel({
 
 export default function UpdatesClient({ initialScores, initialNews }: UpdatesClientProps) {
   const { leagueCodes, topics, teamIds, countries } = useInterests();
+  const { scores, filterToMine, setFilterToMine, hasLeagueInterests, isPending } = useScores(
+    initialScores,
+    leagueCodes,
+    teamIds
+  );
+  const { live, upcoming, results } = groupMatches(scores);
 
   return (
-    <Tabs defaultValue="scores" className="w-full pt-4">
+    <Tabs defaultValue="fixtures" className="w-full pt-4">
       <TabsList className="sticky top-0 z-20 mb-4 flex w-full justify-center gap-2 bg-background/80 backdrop-blur-sm">
-        <TabsTrigger value="scores">Scores</TabsTrigger>
+        <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
+        <TabsTrigger value="live">Live</TabsTrigger>
+        <TabsTrigger value="results">Results</TabsTrigger>
         <TabsTrigger value="news">News</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="scores">
-        <ScoresPanel initialScores={initialScores} leagueCodes={leagueCodes} teamIds={teamIds} />
+      <TabsContent value="fixtures">
+        <MatchesList
+          matches={upcoming}
+          emptyMessage="No upcoming fixtures — check back once the football feed has run."
+          isPending={isPending}
+          hasLeagueInterests={hasLeagueInterests}
+          filterToMine={filterToMine}
+          setFilterToMine={setFilterToMine}
+        />
+      </TabsContent>
+
+      <TabsContent value="live">
+        <MatchesList
+          matches={live}
+          emptyMessage="Nothing live right now — check back once a match kicks off."
+          isPending={isPending}
+          hasLeagueInterests={hasLeagueInterests}
+          filterToMine={filterToMine}
+          setFilterToMine={setFilterToMine}
+        />
+      </TabsContent>
+
+      <TabsContent value="results">
+        <MatchesList
+          matches={results}
+          emptyMessage="No recent results yet — check back once a match finishes."
+          isPending={isPending}
+          hasLeagueInterests={hasLeagueInterests}
+          filterToMine={filterToMine}
+          setFilterToMine={setFilterToMine}
+        />
       </TabsContent>
 
       <TabsContent value="news">
