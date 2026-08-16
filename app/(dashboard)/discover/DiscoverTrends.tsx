@@ -7,6 +7,7 @@ import { getFootballScores, getInterestedNews, type CuratedContentItem } from "@
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
 
 const TOPICS = [
+  { key: "football-news", label: "Football news", categories: ["football_news"] },
   { key: "betting", label: "Betting", categories: ["betting_prediction"] },
   { key: "crypto", label: "Crypto", categories: ["crypto_price", "crypto_news"] },
   { key: "movies", label: "Movies", categories: ["movie_news"] },
