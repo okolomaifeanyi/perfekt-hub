@@ -4,7 +4,7 @@
 import { User, FileText } from "lucide-react";
 import { PostProps, UserProps } from "@/lib/types";
 import LiveSearchInput from "./LiveSearchInput";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import EmptyState from "./EmptyState"; // ← Add this
 import PostCard from "../[username]/[postId]/components/PostCard";
 import FollowCard from "@/components/FollowCard";
@@ -15,12 +15,20 @@ type SearchResultsProps = {
   users: UserProps[];
   posts: PostProps[];
   query: string;
+  // Rendered as a sibling below the results, inside the same container the
+  // sticky search bar lives in — position: sticky only holds while its own
+  // parent box is still in view, so this has to share that parent rather
+  // than sit in a separate, much shorter section next door (confirmed live:
+  // the search bar unstuck and scrolled away as soon as the short "just
+  // search" section it was actually bounded by ended).
+  trends?: ReactNode;
 };
 
 export default function SearchResults({
   users,
   posts,
   query,
+  trends,
 }: SearchResultsProps) {
   const [liveUsers, setLiveUsers] = useState(users);
   const [livePosts, setLivePosts] = useState(posts);
@@ -31,15 +39,17 @@ export default function SearchResults({
 
   return (
     <div className="space-y-4">
-      <LiveSearchInput
-        initialQuery={query}
-        onResults={({ users, posts }) => {
-          startTransition(() => {
-            setLiveUsers(users);
-            setLivePosts(posts);
-          });
-        }}
-      />
+      <div className="sticky top-0 z-20 -mx-4 bg-background/80 px-4 py-2 backdrop-blur-sm">
+        <LiveSearchInput
+          initialQuery={query}
+          onResults={({ users, posts }) => {
+            startTransition(() => {
+              setLiveUsers(users);
+              setLivePosts(posts);
+            });
+          }}
+        />
+      </div>
 
       {/* Loading */}
       {isPending ? (
@@ -85,6 +95,8 @@ export default function SearchResults({
           </section>
         </>
       )}
+
+      {trends}
     </div>
   );
 }

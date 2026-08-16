@@ -19,9 +19,22 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { logoutClient } from "@/app/(auth)/lib/utils";
-import { ChevronRightIcon } from "@heroicons/react/24/solid";
+import {
+  ChevronRightIcon,
+  CalendarIcon as EventsSolid,
+  BookmarkIcon as SavesSolid,
+  HeartIcon as MatchSolid,
+  TagIcon as MarketplaceSolid,
+} from "@heroicons/react/24/solid";
+import {
+  CalendarIcon as EventsOutline,
+  BookmarkIcon as SavesOutline,
+  HeartIcon as MatchOutline,
+  TagIcon as MarketplaceOutline,
+} from "@heroicons/react/24/outline";
 import { List } from "./Typography";
 import { navGroups as rawNavGroups } from "@/lib/utils/navbar";
+import { useDiscoverAvailability } from "@/hooks/useDiscoverAvailability";
 import {
   buildSavedAccountFromSession,
   readSavedAccounts,
@@ -56,10 +69,37 @@ export function MobileMenu() {
   const router = useRouter();
   const pathname = usePathname();
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const availability = useDiscoverAvailability();
 
   useEffect(() => {
     setSavedAccounts(readSavedAccounts(window.localStorage));
   }, [currentUser?.uid]);
+
+  // Each only shows once it actually has something in it — an empty-state
+  // nav link invites a click into nothing (see useDiscoverAvailability).
+  // Spliced in right after Discover, same placement as the desktop nav.
+  const menuItems: NavGroupItem[] = [];
+  for (const item of PRIMARY_GROUP?.items ?? []) {
+    menuItems.push(item);
+    if (item.label !== "Discover") continue;
+    if (availability.events) {
+      menuItems.push({ href: "/discover/events", label: "Events", SolidIcon: EventsSolid, OutlineIcon: EventsOutline });
+    }
+    if (availability.saves) {
+      menuItems.push({ href: "/discover/saves", label: "Saves", SolidIcon: SavesSolid, OutlineIcon: SavesOutline });
+    }
+    if (availability.match) {
+      menuItems.push({ href: "/discover/match", label: "Match", SolidIcon: MatchSolid, OutlineIcon: MatchOutline });
+    }
+    if (availability.marketplace) {
+      menuItems.push({
+        href: "/discover/products",
+        label: "Marketplace",
+        SolidIcon: MarketplaceSolid,
+        OutlineIcon: MarketplaceOutline,
+      });
+    }
+  }
 
   const handleSwitchAccount = async (account: SavedAccount) => {
     if (account.uid === currentUser?.uid) return;
@@ -147,7 +187,7 @@ export function MobileMenu() {
           </Card>
 
           <List className="list-none mx-0!">
-            {(PRIMARY_GROUP?.items ?? []).map(item => {
+            {menuItems.map(item => {
               const isActive = pathname === item.href;
               const Icon = isActive ? item.SolidIcon : item.OutlineIcon;
               return (

@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { AccountMenu } from "./AccountMenu";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
+import { useDiscoverAvailability } from "@/hooks/useDiscoverAvailability";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import JustAvatar from "./JustAvatar";
@@ -19,7 +20,10 @@ import {
   PlayIcon as WatchOutline,
   SparklesIcon as AssistantOutline,
   UserIcon as UserOutline,
-  NewspaperIcon as UpdatesOutline,
+  CalendarIcon as EventsOutline,
+  BookmarkIcon as SavesOutline,
+  HeartIcon as MatchOutline,
+  TagIcon as MarketplaceOutline,
 } from "@heroicons/react/24/outline";
 
 import {
@@ -30,7 +34,10 @@ import {
   PlayIcon as WatchSolid,
   SparklesIcon as AssistantSolid,
   UserIcon as UserSolid,
-  NewspaperIcon as UpdatesSolid,
+  CalendarIcon as EventsSolid,
+  BookmarkIcon as SavesSolid,
+  HeartIcon as MatchSolid,
+  TagIcon as MarketplaceSolid,
 } from "@heroicons/react/24/solid";
 
 type NavItem = {
@@ -45,6 +52,7 @@ const NavBar = () => {
   const { user } = useUserStore(state => state);
   const count = useUnreadNotificationsCount();
   const pathname = usePathname();
+  const availability = useDiscoverAvailability();
 
   // A signed-out visitor can still be on a public page (home feed,
   // discover, a shared post — see lib/public-routes.mjs), where this
@@ -62,10 +70,6 @@ const NavBar = () => {
           <Link href="/discover" className="flex items-center md:space-x-4">
             <DiscoverOutline className="size-8 text-foreground" />
             <span className="hidden md:block">Discover</span>
-          </Link>
-          <Link href="/updates" className="flex items-center md:space-x-4">
-            <UpdatesOutline className="size-8 text-foreground" />
-            <span className="hidden md:block">Scores & News</span>
           </Link>
         </div>
 
@@ -100,12 +104,27 @@ const NavBar = () => {
       SolidIcon: DiscoverSolid,
       OutlineIcon: DiscoverOutline,
     },
-    {
-      href: "/updates",
-      label: "Scores & News",
-      SolidIcon: UpdatesSolid,
-      OutlineIcon: UpdatesOutline,
-    },
+    // Each only shows once it actually has something in it — an empty-state
+    // nav link invites a click into nothing (see useDiscoverAvailability).
+    ...(availability.events
+      ? [{ href: "/discover/events", label: "Events", SolidIcon: EventsSolid, OutlineIcon: EventsOutline }]
+      : []),
+    ...(availability.saves
+      ? [{ href: "/discover/saves", label: "Saves", SolidIcon: SavesSolid, OutlineIcon: SavesOutline }]
+      : []),
+    ...(availability.match
+      ? [{ href: "/discover/match", label: "Match", SolidIcon: MatchSolid, OutlineIcon: MatchOutline }]
+      : []),
+    ...(availability.marketplace
+      ? [
+          {
+            href: "/discover/products",
+            label: "Marketplace",
+            SolidIcon: MarketplaceSolid,
+            OutlineIcon: MarketplaceOutline,
+          },
+        ]
+      : []),
     {
       href: "/messages",
       label: "Messages",
