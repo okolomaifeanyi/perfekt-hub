@@ -10,7 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, UserPlus2, X } from "lucide-react";
+import { ChevronDown, Menu, UserPlus2, X } from "lucide-react";
 import { Card, CardContent } from "./ui/card";
 import MyAvatar from "./feed/post/MyAvatar";
 import JustAvatar from "./JustAvatar";
@@ -19,13 +19,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { logoutClient } from "@/app/(auth)/lib/utils";
-import {
-  ChevronRightIcon,
-  CalendarIcon as EventsSolid,
-  BookmarkIcon as SavesSolid,
-  HeartIcon as MatchSolid,
-  TagIcon as MarketplaceSolid,
-} from "@heroicons/react/24/solid";
+import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import {
   CalendarIcon as EventsOutline,
   BookmarkIcon as SavesOutline,
@@ -69,37 +63,27 @@ export function MobileMenu() {
   const router = useRouter();
   const pathname = usePathname();
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
+  const [showMore, setShowMore] = useState(false);
   const availability = useDiscoverAvailability();
 
   useEffect(() => {
     setSavedAccounts(readSavedAccounts(window.localStorage));
   }, [currentUser?.uid]);
 
+  const menuItems = PRIMARY_GROUP?.items ?? [];
+
   // Each only shows once it actually has something in it — an empty-state
   // nav link invites a click into nothing (see useDiscoverAvailability).
-  // Spliced in right after Discover, same placement as the desktop nav.
-  const menuItems: NavGroupItem[] = [];
-  for (const item of PRIMARY_GROUP?.items ?? []) {
-    menuItems.push(item);
-    if (item.label !== "Discover") continue;
-    if (availability.events) {
-      menuItems.push({ href: "/discover/events", label: "Events", SolidIcon: EventsSolid, OutlineIcon: EventsOutline });
-    }
-    if (availability.saves) {
-      menuItems.push({ href: "/discover/saves", label: "Saves", SolidIcon: SavesSolid, OutlineIcon: SavesOutline });
-    }
-    if (availability.match) {
-      menuItems.push({ href: "/discover/match", label: "Match", SolidIcon: MatchSolid, OutlineIcon: MatchOutline });
-    }
-    if (availability.marketplace) {
-      menuItems.push({
-        href: "/discover/products",
-        label: "Marketplace",
-        SolidIcon: MarketplaceSolid,
-        OutlineIcon: MarketplaceOutline,
-      });
-    }
-  }
+  // Grouped under one collapsible "More" row instead of splicing straight
+  // into the primary list, matching the desktop nav's grouping.
+  const moreItems: NavGroupItem[] = [
+    ...(availability.events ? [{ href: "/discover/events", label: "Events", OutlineIcon: EventsOutline }] : []),
+    ...(availability.match ? [{ href: "/discover/match", label: "Match", OutlineIcon: MatchOutline }] : []),
+    ...(availability.saves ? [{ href: "/discover/saves", label: "Saves", OutlineIcon: SavesOutline }] : []),
+    ...(availability.marketplace
+      ? [{ href: "/discover/products", label: "Marketplace", OutlineIcon: MarketplaceOutline }]
+      : []),
+  ];
 
   const handleSwitchAccount = async (account: SavedAccount) => {
     if (account.uid === currentUser?.uid) return;
@@ -207,6 +191,41 @@ export function MobileMenu() {
                 </li>
               );
             })}
+
+            {moreItems.length > 0 && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setShowMore(v => !v)}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50"
+                  aria-expanded={showMore}
+                >
+                  <span>More</span>
+                  <ChevronDown className={`size-4 transition-transform ${showMore ? "rotate-180" : ""}`} />
+                </button>
+                {showMore && (
+                  <ul className="max-h-48 space-y-0.5 overflow-y-auto pl-2">
+                    {moreItems.map(item => {
+                      const isActive = pathname === item.href;
+                      const Icon = isActive ? item.SolidIcon ?? item.OutlineIcon : item.OutlineIcon;
+                      return (
+                        <li key={item.label}>
+                          <SheetClose asChild>
+                            <Link
+                              href={item.href}
+                              className="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-accent/50"
+                            >
+                              {Icon && <Icon className="size-4" />}
+                              <span>{item.label}</span>
+                            </Link>
+                          </SheetClose>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
           </List>
 
           {/* Accounts */}

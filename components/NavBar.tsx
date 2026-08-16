@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "./ui/dropdown-menu";
 import { AccountMenu } from "./AccountMenu";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { useUnreadNotificationsCount } from "@/hooks/Notification";
@@ -24,6 +24,7 @@ import {
   BookmarkIcon as SavesOutline,
   HeartIcon as MatchOutline,
   TagIcon as MarketplaceOutline,
+  EllipsisHorizontalCircleIcon as MoreOutline,
 } from "@heroicons/react/24/outline";
 
 import {
@@ -34,10 +35,7 @@ import {
   PlayIcon as WatchSolid,
   SparklesIcon as AssistantSolid,
   UserIcon as UserSolid,
-  CalendarIcon as EventsSolid,
-  BookmarkIcon as SavesSolid,
-  HeartIcon as MatchSolid,
-  TagIcon as MarketplaceSolid,
+  EllipsisHorizontalCircleIcon as MoreSolid,
 } from "@heroicons/react/24/solid";
 
 type NavItem = {
@@ -104,27 +102,6 @@ const NavBar = () => {
       SolidIcon: DiscoverSolid,
       OutlineIcon: DiscoverOutline,
     },
-    // Each only shows once it actually has something in it — an empty-state
-    // nav link invites a click into nothing (see useDiscoverAvailability).
-    ...(availability.events
-      ? [{ href: "/discover/events", label: "Events", SolidIcon: EventsSolid, OutlineIcon: EventsOutline }]
-      : []),
-    ...(availability.saves
-      ? [{ href: "/discover/saves", label: "Saves", SolidIcon: SavesSolid, OutlineIcon: SavesOutline }]
-      : []),
-    ...(availability.match
-      ? [{ href: "/discover/match", label: "Match", SolidIcon: MatchSolid, OutlineIcon: MatchOutline }]
-      : []),
-    ...(availability.marketplace
-      ? [
-          {
-            href: "/discover/products",
-            label: "Marketplace",
-            SolidIcon: MarketplaceSolid,
-            OutlineIcon: MarketplaceOutline,
-          },
-        ]
-      : []),
     {
       href: "/messages",
       label: "Messages",
@@ -152,38 +129,73 @@ const NavBar = () => {
     },
   ];
 
+  // Secondary, conditional destinations — each only exists once it actually
+  // has something in it (see useDiscoverAvailability). Grouped under one
+  // "More" trigger instead of splicing straight into the primary list, so a
+  // visitor with all four active doesn't end up with an 11-item sidebar.
+  const moreNavItems: { href: string; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+    ...(availability.events ? [{ href: "/discover/events", label: "Events", Icon: EventsOutline }] : []),
+    ...(availability.match ? [{ href: "/discover/match", label: "Match", Icon: MatchOutline }] : []),
+    ...(availability.saves ? [{ href: "/discover/saves", label: "Saves", Icon: SavesOutline }] : []),
+    ...(availability.marketplace
+      ? [{ href: "/discover/products", label: "Marketplace", Icon: MarketplaceOutline }]
+      : []),
+  ];
+  const isMoreActive = moreNavItems.some(item => pathname === item.href);
+  const MoreIcon = isMoreActive ? MoreSolid : MoreOutline;
+
+  const renderNavItem = ({ href, label, SolidIcon, OutlineIcon, badge }: NavItem) => {
+    const isProfile = label === "Profile";
+    const isActive = isProfile
+      ? pathname === href || pathname.startsWith(`${href}/`)
+      : pathname === href || (href === "/discover" && pathname === "/search");
+    const Icon = isActive ? SolidIcon : OutlineIcon;
+
+    return (
+      <Link key={label} href={href} className="flex items-center md:space-x-4">
+        <div className="relative">
+          <Icon className="size-8 text-foreground" />
+          <Badge
+            className={`absolute -top-1.5 -right-1 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums ${
+              !badge || badge === 0 ? "invisible" : ""
+            }`}
+          >
+            {badge ?? 0}
+          </Badge>
+        </div>
+
+        <span className="hidden md:block">{label}</span>
+      </Link>
+    );
+  };
+
   return (
     <div className="flex h-screen flex-col justify-between px-4 py-14">
       <div className="flex flex-col space-y-6">
-        {primaryNavItems.map(({ href, label, SolidIcon, OutlineIcon, badge }) => {
-          const isProfile = label === "Profile";
-          const isActive = isProfile
-            ? pathname === href || pathname.startsWith(`${href}/`)
-            : pathname === href || (href === "/discover" && pathname === "/search");
-          const Icon = isActive ? SolidIcon : OutlineIcon;
+        {primaryNavItems.slice(0, 3).map(renderNavItem)}
 
-          return (
-            <Link
-              key={label}
-              href={href}
-              className="flex items-center md:space-x-4"
-            >
-              <div className="relative">
-                <Icon className="size-8 text-foreground" />
-                <Badge
-                  className={`absolute -top-1.5 -right-1 h-5 min-w-5 rounded-full px-1 font-mono tabular-nums ${
-                    !badge || badge === 0 ? "invisible" : ""
-                  }`}
-                >
-                  {badge ?? 0}
-                </Badge>
-              </div>
+        {moreNavItems.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" data-no-button-shadow className="flex items-center md:space-x-4">
+                <MoreIcon className="size-8 text-foreground" />
+                <span className="hidden md:block">More</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+              {moreNavItems.map(({ href, label, Icon }) => (
+                <DropdownMenuItem key={label} asChild>
+                  <Link href={href} className="flex items-center gap-2">
+                    <Icon className="size-4" />
+                    {label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
-              <span className="hidden md:block">{label}</span>
-            </Link>
-          );
-        })}
-
+        {primaryNavItems.slice(3).map(renderNavItem)}
       </div>
 
       <div className="space-y-4">
