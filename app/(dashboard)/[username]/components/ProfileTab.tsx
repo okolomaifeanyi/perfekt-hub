@@ -2,6 +2,7 @@ import UserFeed from "../[postId]/components/UserFeed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserProps } from "@/lib/types";
 import { MediaGrid } from "./MediaGrid";
+import AddVideoButton from "@/components/post-composer/AddVideoButton";
 import { ProfileAboutWrapper } from "./ProfileAboutWrapper";
 import SavedPostsGrid from "./SavedPostsGrid";
 import ProfileGroupsGrid from "./ProfileGroupsGrid";
@@ -42,7 +43,10 @@ const ProfileTab = ({
           <UserFeed uid={profile.uid} />
         </TabsContent>
 
-        <TabsContent value="videos" className="mt-4">
+        <TabsContent value="videos" className="mt-4 space-y-3">
+          <div className="flex justify-end">
+            <AddVideoButton targetUid={profile.uid} variant="outline" size="sm" />
+          </div>
           <MediaGrid uid={profile.uid} mediaType="video" />
         </TabsContent>
 

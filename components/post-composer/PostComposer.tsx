@@ -41,6 +41,7 @@ const PostComposer = ({
   className,
   isSubmitting,
   autoFocusTextArea = false,
+  initialMedia,
 }: {
   sendButton?: string;
   placeholder?: string;
@@ -51,9 +52,14 @@ const PostComposer = ({
   className?: string;
   isSubmitting?: boolean;
   autoFocusTextArea?: boolean;
+  // Seeds the composer already holding a file the caller picked before the
+  // dialog even opened — see AddVideoButton, which sends the visitor
+  // straight to the OS file picker instead of a blank composer they'd then
+  // have to click Media in again.
+  initialMedia?: MediaProps[];
 }) => {
   const [text, setText] = useState("");
-  const [media, setMedia] = useState<MediaProps[]>([]);
+  const [media, setMedia] = useState<MediaProps[]>(initialMedia ?? []);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [pollMode, setPollMode] = useState(false);

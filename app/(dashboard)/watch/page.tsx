@@ -5,6 +5,7 @@ import VideoViewer from "@/components/feed/post/VideoViewer";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeReadRow } from "@/lib/supabase/firestore-schema.mjs";
 import { PostProps } from "@/lib/types";
+import AddVideoButton from "@/components/post-composer/AddVideoButton";
 
 export default async function WatchPage() {
   const { uid } = await getUserFromSession();
@@ -33,11 +34,12 @@ export default async function WatchPage() {
 
   if (!currentPost) {
     return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-2 px-4 text-center">
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-lg font-medium">No videos yet</p>
         <p className="text-sm text-muted-foreground">
           Videos from posts you follow will show up here.
         </p>
+        <AddVideoButton targetUid={uid} />
       </div>
     );
   }
