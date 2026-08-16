@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { getUserInterests } from "@/app/actions/userInterests";
 
@@ -17,23 +17,22 @@ export function useCuratedInterests() {
   const currentUser = useUserStore(state => state.user);
   const [interests, setInterests] = useState<Set<string> | null>(null);
 
-  useEffect(() => {
+  // Exposed so a caller that just wrote a new interest (e.g. Discover's
+  // inline picker) can pull the fresh set immediately instead of the
+  // visitor needing to reload the page to see their pick take effect.
+  const refetch = useCallback(() => {
     if (!currentUser?.uid) {
       setInterests(new Set());
       return;
     }
-    let active = true;
     getUserInterests()
-      .then(keys => {
-        if (active) setInterests(new Set(keys));
-      })
-      .catch(() => {
-        if (active) setInterests(new Set());
-      });
-    return () => {
-      active = false;
-    };
+      .then(keys => setInterests(new Set(keys)))
+      .catch(() => setInterests(new Set()));
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   const leagueCodes = [...(interests ?? [])]
     .filter(key => key.startsWith(LEAGUE_PREFIX))
@@ -53,5 +52,5 @@ export function useCuratedInterests() {
     .map(key => key.slice(COUNTRY_PREFIX.length));
   const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || countries.length > 0;
 
-  return { interests, leagueCodes, topics, teamIds, teamNames, countries, hasAnyInterest };
+  return { interests, leagueCodes, topics, teamIds, teamNames, countries, hasAnyInterest, refetch };
 }

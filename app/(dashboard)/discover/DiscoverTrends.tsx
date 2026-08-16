@@ -16,6 +16,9 @@ import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedCon
 import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
 import type { ReactionType } from "@/app/actions/curatedContentReactions";
+import { DiscoverInterestPicker } from "@/components/DiscoverInterestPicker";
+import { Button } from "@/components/ui/button";
+import { ListPlus } from "lucide-react";
 
 const TOPICS = [
   { key: "football-news", label: "Football news", categories: ["football_news"] },
@@ -140,8 +143,18 @@ type TrendsCache = {
 };
 
 export default function DiscoverTrends() {
-  const { interests, leagueCodes, topics, teamNames, countries, hasAnyInterest } = useCuratedInterests();
+  const { interests, leagueCodes, topics, teamNames, countries, hasAnyInterest, refetch: refetchInterests } =
+    useCuratedInterests();
   const hasLeagueInterests = leagueCodes.length > 0;
+
+  // Auto-open for a first-time visitor with nothing picked yet — that's
+  // exactly who needs it surfaced immediately, not tucked behind a button
+  // they'd have no reason to click. Anyone who already has interests can
+  // still reach it via the toggle to add more without leaving the page.
+  const [showPicker, setShowPicker] = useState(false);
+  useEffect(() => {
+    if (interests !== null && !hasAnyInterest) setShowPicker(true);
+  }, [interests, hasAnyInterest]);
 
   const [activeTab, setActiveTab] = useState("trends");
   const [filterToMine, setFilterToMine] = useState(true);
@@ -272,6 +285,25 @@ export default function DiscoverTrends() {
         ))}
       </TabsList>
 
+      <div className="pt-3">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+          onClick={() => setShowPicker(v => !v)}
+        >
+          <ListPlus className="size-3.5" />
+          {hasAnyInterest ? "Tick more interests" : "Tick your interests"}
+        </Button>
+
+        {showPicker && (
+          <div className="mt-2">
+            <DiscoverInterestPicker interests={interests ?? new Set()} onChanged={refetchInterests} />
+          </div>
+        )}
+      </div>
+
       <TabsContent value="trends" className={cn("space-y-6 pt-4", loading && activeTab === "trends" && "opacity-60")}>
         {!trendsCache ? (
           <EmptySection label="Loading trends…" />
@@ -363,14 +395,16 @@ export default function DiscoverTrends() {
             )}
 
             {!hasAnyInterest && (
-              <div className="space-y-2 rounded-xl border py-6 text-center">
+              <div className="space-y-1 rounded-xl border py-6 text-center">
                 <p className="text-sm font-medium">Nothing picked yet</p>
                 <p className="px-4 text-xs text-muted-foreground">
-                  Choose leagues, topics, or countries and Trends will fill in with what you actually follow.
+                  Tick a league or topic above and Trends fills in with what you actually follow — favorite
+                  teams and countries live in{" "}
+                  <Link href="/settings/interests" className="font-medium text-primary hover:underline">
+                    full interest settings
+                  </Link>
+                  .
                 </p>
-                <Link href="/settings/interests" className="text-xs font-medium text-primary hover:underline">
-                  Pick your interests
-                </Link>
               </div>
             )}
           </>
