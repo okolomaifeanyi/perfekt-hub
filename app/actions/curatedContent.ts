@@ -19,6 +19,7 @@ export type CuratedContentItem = {
   external_id: string | null;
   metadata: Record<string, unknown>;
   published_at: string;
+  view_count: number;
 };
 
 export type TeamOption = {

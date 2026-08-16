@@ -44,6 +44,7 @@ const PostComposer = ({
   isSubmitting,
   autoFocusTextArea = false,
   initialMedia,
+  initialText,
 }: {
   sendButton?: string;
   placeholder?: string;
@@ -59,8 +60,12 @@ const PostComposer = ({
   // straight to the OS file picker instead of a blank composer they'd then
   // have to click Media in again.
   initialMedia?: MediaProps[];
+  // Seeds the text field — used by curated content's "Quote" action to
+  // reference what's being quoted, editable from there like anything the
+  // visitor typed themselves.
+  initialText?: string;
 }) => {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   const [media, setMedia] = useState<MediaProps[]>(initialMedia ?? []);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);

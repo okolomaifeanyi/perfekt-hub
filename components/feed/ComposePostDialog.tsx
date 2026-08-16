@@ -16,6 +16,7 @@ export default function ComposePostDialog({
   optimistic,
   isSubmitting,
   initialMedia,
+  initialText,
   onPosted,
 }: {
   open: boolean;
@@ -23,6 +24,7 @@ export default function ComposePostDialog({
   optimistic?: OptimisticCallbacks;
   isSubmitting?: boolean;
   initialMedia?: MediaProps[];
+  initialText?: string;
   // Fires (in addition to the dialog always closing) once the post actually
   // sends — lets a caller with no feed of its own to optimistically update
   // (e.g. AddVideoButton on /watch or a profile's Videos tab) refresh its
@@ -46,6 +48,7 @@ export default function ComposePostDialog({
               optimistic={optimistic}
               isSubmitting={isSubmitting}
               initialMedia={initialMedia}
+              initialText={initialText}
               onSuccess={() => {
                 onOpenChange(false);
                 onPosted?.();
