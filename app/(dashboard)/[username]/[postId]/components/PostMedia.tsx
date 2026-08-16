@@ -149,6 +149,12 @@ const PostMedia = ({
                 <ContainedVideo
                   src={media.src}
                   className="h-full w-full"
+                  // A grid tile has a fixed shape (square, or the row-span-2
+                  // tall slot) — object-contain there letterboxed anything
+                  // that wasn't already that exact ratio. Only the single-
+                  // media case sizes its own box to match the media instead,
+                  // so it's the one place object-contain still belongs.
+                  videoClassName={isSingle ? undefined : "object-cover"}
                   autoPlayOnHover={!isSensitive}
                   muted // avoid noisy previews by default
                   loop
@@ -166,7 +172,11 @@ const PostMedia = ({
                   unoptimized
                   className="h-full w-full"
                   imageClassName={
-                    isSingle && singleImageNeedsCover ? "object-cover" : "object-contain"
+                    isSingle
+                      ? singleImageNeedsCover
+                        ? "object-cover"
+                        : "object-contain"
+                      : "object-cover"
                   }
                   onNaturalSize={
                     isSingle
