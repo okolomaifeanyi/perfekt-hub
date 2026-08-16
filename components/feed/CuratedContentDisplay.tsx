@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { format } from "date-fns";
-import { Radio } from "lucide-react";
+import { Radio, Heart, ThumbsDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCompactTimeAgo } from "@/lib/time-format.mjs";
 import type { CuratedContentItem } from "@/app/actions/curatedContent";
+import type { CuratedContentReactionSummary, ReactionType } from "@/app/actions/curatedContentReactions";
+import { cn } from "@/lib/utils";
 
 // Shared between /updates and Discover's Trends/category tabs — both render
 // the same curated_content rows, just in different tab/filter arrangements.
@@ -23,6 +25,55 @@ export function formatContentTime(publishedAt: string) {
   return getCompactTimeAgo(date);
 }
 
+// Own row below the card content rather than nested inside it — ContentRow
+// wraps its whole card in an <a> when there's a source link, and a <button>
+// nested inside an <a> is both invalid HTML and would trigger the link
+// navigation on every reaction click.
+function ReactionBar({
+  reaction,
+  onToggle,
+}: {
+  reaction?: CuratedContentReactionSummary;
+  onToggle?: (type: ReactionType) => void;
+}) {
+  if (!onToggle) return null;
+  const liked = reaction?.userReaction === "like";
+  const disliked = reaction?.userReaction === "dislike";
+
+  return (
+    <div
+      className="flex items-center gap-3 border-t border-border/60 px-3 py-1.5"
+      onClick={event => event.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle("like")}
+        aria-label="Like"
+        className={cn(
+          "flex items-center gap-1 text-xs text-muted-foreground transition hover:text-red-500",
+          liked && "text-red-500"
+        )}
+      >
+        <Heart size={14} fill={liked ? "currentColor" : "none"} />
+        {reaction && reaction.likeCount > 0 && <span>{reaction.likeCount}</span>}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onToggle("dislike")}
+        aria-label="Dislike"
+        className={cn(
+          "flex items-center gap-1 text-xs text-muted-foreground transition hover:text-blue-600",
+          disliked && "text-blue-600"
+        )}
+      >
+        <ThumbsDown size={14} fill={disliked ? "currentColor" : "none"} />
+        {reaction && reaction.dislikeCount > 0 && <span>{reaction.dislikeCount}</span>}
+      </button>
+    </div>
+  );
+}
+
 type FootballMetadata = {
   competition?: string;
   status?: string;
@@ -37,36 +88,48 @@ function teamLabel(team?: { name?: string | null; shortName?: string | null }) {
   return team?.shortName || team?.name || "TBD";
 }
 
-export function MatchRow({ match }: { match: CuratedContentItem }) {
+export function MatchRow({
+  match,
+  reaction,
+  onToggleReaction,
+}: {
+  match: CuratedContentItem;
+  reaction?: CuratedContentReactionSummary;
+  onToggleReaction?: (type: ReactionType) => void;
+}) {
   const meta = match.metadata as FootballMetadata;
   const isLive = match.category === "football_live";
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{meta.competition}</p>
-        <p className="truncate text-sm font-medium">
-          {teamLabel(meta.homeTeam)} <span className="text-muted-foreground">vs</span>{" "}
-          {teamLabel(meta.awayTeam)}
-        </p>
+    <div className="overflow-hidden rounded-lg border border-border/60">
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-muted-foreground">{meta.competition}</p>
+          <p className="truncate text-sm font-medium">
+            {teamLabel(meta.homeTeam)} <span className="text-muted-foreground">vs</span>{" "}
+            {teamLabel(meta.awayTeam)}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
+            <span className="font-mono text-sm font-semibold tabular-nums">
+              {meta.score.home}-{meta.score.away}
+            </span>
+          ) : null}
+
+          {isLive ? (
+            <Badge variant="destructive" className="gap-1 text-[10px]">
+              <Radio className="size-2.5" />
+              {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
+          )}
+        </div>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
-          <span className="font-mono text-sm font-semibold tabular-nums">
-            {meta.score.home}-{meta.score.away}
-          </span>
-        ) : null}
-
-        {isLive ? (
-          <Badge variant="destructive" className="gap-1 text-[10px]">
-            <Radio className="size-2.5" />
-            {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
-          </Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
-        )}
-      </div>
+      <ReactionBar reaction={reaction} onToggle={onToggleReaction} />
     </div>
   );
 }
@@ -84,9 +147,17 @@ export function groupMatches(matches: CuratedContentItem[]) {
   return { live, upcoming, results };
 }
 
-export function ContentRow({ item }: { item: CuratedContentItem }) {
-  const content = (
-    <div className="flex gap-3 rounded-lg border border-border/60 px-3 py-2.5 transition hover:bg-accent/40">
+export function ContentRow({
+  item,
+  reaction,
+  onToggleReaction,
+}: {
+  item: CuratedContentItem;
+  reaction?: CuratedContentReactionSummary;
+  onToggleReaction?: (type: ReactionType) => void;
+}) {
+  const body = (
+    <div className="flex gap-3 px-3 py-2.5 transition hover:bg-accent/40">
       {item.image_url ? (
         <Image
           src={item.image_url}
@@ -110,11 +181,16 @@ export function ContentRow({ item }: { item: CuratedContentItem }) {
     </div>
   );
 
-  if (!item.source_url) return content;
-
   return (
-    <a href={item.source_url} target="_blank" rel="noopener noreferrer">
-      {content}
-    </a>
+    <div className="overflow-hidden rounded-lg border border-border/60">
+      {item.source_url ? (
+        <a href={item.source_url} target="_blank" rel="noopener noreferrer">
+          {body}
+        </a>
+      ) : (
+        body
+      )}
+      <ReactionBar reaction={reaction} onToggle={onToggleReaction} />
+    </div>
   );
 }

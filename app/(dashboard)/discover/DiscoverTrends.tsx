@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,8 @@ import {
 } from "@/app/actions/curatedContent";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
 import { useCuratedInterests } from "@/hooks/useCuratedInterests";
+import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
+import type { ReactionType } from "@/app/actions/curatedContentReactions";
 
 const TOPICS = [
   { key: "football-news", label: "Football news", categories: ["football_news"] },
@@ -45,25 +47,50 @@ function EmptySection({ label }: { label: string }) {
   return <p className="py-4 text-center text-sm text-muted-foreground">{label}</p>;
 }
 
-function MatchesList({ matches, emptyMessage }: { matches: CuratedContentItem[]; emptyMessage: string }) {
+type ReactionProps = {
+  getReaction: (contentId: string) => import("@/app/actions/curatedContentReactions").CuratedContentReactionSummary;
+  toggle: (contentId: string, type: ReactionType) => void;
+};
+
+function MatchesList({
+  matches,
+  emptyMessage,
+  getReaction,
+  toggle,
+}: { matches: CuratedContentItem[]; emptyMessage: string } & ReactionProps) {
   if (matches.length === 0) return <EmptySection label={emptyMessage} />;
 
   return (
     <div className="space-y-2">
       {matches.map(match => (
-        <MatchRow key={match.id} match={match} />
+        <MatchRow
+          key={match.id}
+          match={match}
+          reaction={getReaction(match.id)}
+          onToggleReaction={type => toggle(match.id, type)}
+        />
       ))}
     </div>
   );
 }
 
-function ContentList({ items, emptyMessage }: { items: CuratedContentItem[]; emptyMessage: string }) {
+function ContentList({
+  items,
+  emptyMessage,
+  getReaction,
+  toggle,
+}: { items: CuratedContentItem[]; emptyMessage: string } & ReactionProps) {
   if (items.length === 0) return <EmptySection label={emptyMessage} />;
 
   return (
     <div className="space-y-2">
       {items.map(item => (
-        <ContentRow key={item.id} item={item} />
+        <ContentRow
+          key={item.id}
+          item={item}
+          reaction={getReaction(item.id)}
+          onToggleReaction={type => toggle(item.id, type)}
+        />
       ))}
     </div>
   );
@@ -123,6 +150,25 @@ export default function DiscoverTrends() {
   const [topicCache, setTopicCache] = useState<TabCache>({});
   const [trendsCache, setTrendsCache] = useState<TrendsCache | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // One reactions batch for the whole page rather than one per tab/section —
+  // simpler than juggling a separate hook instance per cache, and the total
+  // row count across every tab a visitor has actually opened stays small.
+  const allLoadedIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (trendsCache) {
+      trendsCache.scores.forEach(item => ids.add(item.id));
+      trendsCache.betting.forEach(item => ids.add(item.id));
+      trendsCache.teamNews.forEach(item => ids.add(item.id));
+      trendsCache.countryNews.forEach(item => ids.add(item.id));
+      Object.values(trendsCache.topics).forEach(items => items?.forEach(item => ids.add(item.id)));
+    }
+    (scoresCache ?? []).forEach(item => ids.add(item.id));
+    (bettingCache ?? []).forEach(item => ids.add(item.id));
+    Object.values(topicCache).forEach(items => items?.forEach(item => ids.add(item.id)));
+    return Array.from(ids);
+  }, [trendsCache, scoresCache, bettingCache, topicCache]);
+  const { getReaction, toggle } = useCuratedContentReactions(allLoadedIds);
 
   const scopedLeagues = filterToMine && hasLeagueInterests ? leagueCodes : undefined;
 
@@ -245,7 +291,12 @@ export default function DiscoverTrends() {
                     <section key={section.label} className="space-y-2">
                       <h3 className="text-sm font-semibold">{section.label}</h3>
                       {section.matches.slice(0, 2).map(match => (
-                        <MatchRow key={match.id} match={match} />
+                        <MatchRow
+                          key={match.id}
+                          match={match}
+                          reaction={getReaction(match.id)}
+                          onToggleReaction={type => toggle(match.id, type)}
+                        />
                       ))}
                     </section>
                   ));
@@ -255,7 +306,12 @@ export default function DiscoverTrends() {
               <section className="space-y-2">
                 <h3 className="text-sm font-semibold">Betting</h3>
                 {trendsCache.betting.map(item => (
-                  <ContentRow key={item.id} item={item} />
+                  <ContentRow
+                    key={item.id}
+                    item={item}
+                    reaction={getReaction(item.id)}
+                    onToggleReaction={type => toggle(item.id, type)}
+                  />
                 ))}
               </section>
             )}
@@ -264,7 +320,12 @@ export default function DiscoverTrends() {
               <section className="space-y-2">
                 <h3 className="text-sm font-semibold">Your teams</h3>
                 {trendsCache.teamNews.map(item => (
-                  <ContentRow key={item.id} item={item} />
+                  <ContentRow
+                    key={item.id}
+                    item={item}
+                    reaction={getReaction(item.id)}
+                    onToggleReaction={type => toggle(item.id, type)}
+                  />
                 ))}
               </section>
             )}
@@ -276,7 +337,12 @@ export default function DiscoverTrends() {
                 <section key={topic.key} className="space-y-2">
                   <h3 className="text-sm font-semibold">{topic.label}</h3>
                   {items.map(item => (
-                    <ContentRow key={item.id} item={item} />
+                    <ContentRow
+                    key={item.id}
+                    item={item}
+                    reaction={getReaction(item.id)}
+                    onToggleReaction={type => toggle(item.id, type)}
+                  />
                   ))}
                 </section>
               );
@@ -286,7 +352,12 @@ export default function DiscoverTrends() {
               <section className="space-y-2">
                 <h3 className="text-sm font-semibold">News near you</h3>
                 {trendsCache.countryNews.map(item => (
-                  <ContentRow key={item.id} item={item} />
+                  <ContentRow
+                    key={item.id}
+                    item={item}
+                    reaction={getReaction(item.id)}
+                    onToggleReaction={type => toggle(item.id, type)}
+                  />
                 ))}
               </section>
             )}
@@ -318,7 +389,12 @@ export default function DiscoverTrends() {
             {hasLeagueInterests && (
               <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
             )}
-            <MatchesList matches={matches} emptyMessage={tab.emptyMessage} />
+            <MatchesList
+              matches={matches}
+              emptyMessage={tab.emptyMessage}
+              getReaction={getReaction}
+              toggle={toggle}
+            />
           </TabsContent>
         );
       })}
@@ -330,6 +406,8 @@ export default function DiscoverTrends() {
         <ContentList
           items={bettingCache ?? []}
           emptyMessage="No predictions right now — check back once the betting feed has run."
+          getReaction={getReaction}
+          toggle={toggle}
         />
       </TabsContent>
 
@@ -344,7 +422,14 @@ export default function DiscoverTrends() {
             {items.length === 0 ? (
               <EmptySection label="Nothing here yet — check back once this feed has run." />
             ) : (
-              items.map(item => <ContentRow key={item.id} item={item} />)
+              items.map(item => (
+                <ContentRow
+                  key={item.id}
+                  item={item}
+                  reaction={getReaction(item.id)}
+                  onToggleReaction={type => toggle(item.id, type)}
+                />
+              ))
             )}
           </TabsContent>
         );

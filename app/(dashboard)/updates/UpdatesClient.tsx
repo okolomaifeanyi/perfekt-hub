@@ -11,6 +11,7 @@ import {
   type CuratedContentItem,
 } from "@/app/actions/curatedContent";
 import { useCuratedInterests } from "@/hooks/useCuratedInterests";
+import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
 import { NEWS_CATEGORY_FILTERS } from "@/lib/curated-content-categories.mjs";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
 
@@ -92,6 +93,8 @@ function MatchesList({
   filterToMine: boolean;
   setFilterToMine: (value: boolean) => void;
 }) {
+  const { getReaction, toggle } = useCuratedContentReactions(matches.map(m => m.id));
+
   return (
     <div className="space-y-4 px-4">
       {hasLeagueInterests && (
@@ -105,7 +108,12 @@ function MatchesList({
       ) : (
         <div className={cn("space-y-2", isPending && "opacity-60")}>
           {matches.map(match => (
-            <MatchRow key={match.id} match={match} />
+            <MatchRow
+              key={match.id}
+              match={match}
+              reaction={getReaction(match.id)}
+              onToggleReaction={type => toggle(match.id, type)}
+            />
           ))}
         </div>
       )}
@@ -170,6 +178,8 @@ function NewsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTopicInterests, hasCountryInterests, userPicked]);
 
+  const { getReaction, toggle } = useCuratedContentReactions(news.map(item => item.id));
+
   return (
     <div className="space-y-3 px-4">
       <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
@@ -196,7 +206,14 @@ function NewsPanel({
             Nothing here yet — check back once this category&apos;s feed has run.
           </p>
         ) : (
-          news.map(item => <ContentRow key={item.id} item={item} />)
+          news.map(item => (
+            <ContentRow
+              key={item.id}
+              item={item}
+              reaction={getReaction(item.id)}
+              onToggleReaction={type => toggle(item.id, type)}
+            />
+          ))
         )}
       </div>
     </div>
