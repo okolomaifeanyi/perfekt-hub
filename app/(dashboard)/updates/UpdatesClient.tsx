@@ -10,8 +10,7 @@ import {
   getCountryNews,
   type CuratedContentItem,
 } from "@/app/actions/curatedContent";
-import { getUserInterests } from "@/app/actions/userInterests";
-import { useUserStore } from "@/lib/store/useUserStore";
+import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { NEWS_CATEGORY_FILTERS } from "@/lib/curated-content-categories.mjs";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
 
@@ -19,49 +18,6 @@ type UpdatesClientProps = {
   initialScores: CuratedContentItem[];
   initialNews: CuratedContentItem[];
 };
-
-const LEAGUE_PREFIX = "league:";
-const TOPIC_PREFIX = "topic:";
-const TEAM_PREFIX = "team:";
-const COUNTRY_PREFIX = "country:";
-
-// Fetched once, client-side, and shared by both panels — page.tsx stays a
-// plain ISR page (no cookies() call, so it keeps its 60s revalidate cache
-// shared across every visitor) rather than becoming per-user dynamic, and a
-// signed-in visitor's interests just refine the view a beat after first
-// paint instead of gating it.
-function useInterests() {
-  const currentUser = useUserStore(state => state.user);
-  const [leagueCodes, setLeagueCodes] = useState<string[]>([]);
-  const [topics, setTopics] = useState<string[]>([]);
-  const [teamIds, setTeamIds] = useState<string[]>([]);
-  const [countries, setCountries] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!currentUser?.uid) return;
-    let active = true;
-    getUserInterests()
-      .then(keys => {
-        if (!active) return;
-        setLeagueCodes(keys.filter(k => k.startsWith(LEAGUE_PREFIX)).map(k => k.slice(LEAGUE_PREFIX.length)));
-        setTopics(keys.filter(k => k.startsWith(TOPIC_PREFIX)).map(k => k.slice(TOPIC_PREFIX.length)));
-        // team keys are "team:{id}|{name}" — only the id matters for
-        // filtering scores here, unlike Aside which also needs the name.
-        setTeamIds(
-          keys
-            .filter(k => k.startsWith(TEAM_PREFIX))
-            .map(k => k.slice(TEAM_PREFIX.length).split("|")[0])
-        );
-        setCountries(keys.filter(k => k.startsWith(COUNTRY_PREFIX)).map(k => k.slice(COUNTRY_PREFIX.length)));
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [currentUser?.uid]);
-
-  return { leagueCodes, topics, teamIds, countries };
-}
 
 // Shared by all three football tabs below — one fetch of the full mixed
 // (fixture + live + result) list, filtered client-side per tab by category,
@@ -248,7 +204,7 @@ function NewsPanel({
 }
 
 export default function UpdatesClient({ initialScores, initialNews }: UpdatesClientProps) {
-  const { leagueCodes, topics, teamIds, countries } = useInterests();
+  const { leagueCodes, topics, teamIds, countries } = useCuratedInterests();
   const { scores, filterToMine, setFilterToMine, hasLeagueInterests, isPending } = useScores(
     initialScores,
     leagueCodes,

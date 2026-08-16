@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -24,11 +24,13 @@ import WhoToFollow from "./Features/follow/WhoToFollow";
 import RecommendationRail from "@/components/feed/RecommendationRail";
 import {
   FootballRail,
+  BettingRail,
   MoviesRail,
   NewsForYouRail,
   CountryNewsRail,
   TeamNewsRail,
 } from "@/components/feed/CuratedContentRails";
+import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +43,6 @@ import { useGroupStore } from "@/lib/store/useGroupStore";
 import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import ConversationRow from "@/app/(dashboard)/messages/Conversation";
-import { getUserInterests } from "@/app/actions/userInterests";
 
 // @stream-io/video-react-sdk (imported transitively via useStartCall) is a
 // WebRTC client library — Aside is mounted on nearly every authenticated
@@ -347,54 +348,6 @@ function GroupMembersAside() {
   );
 }
 
-const LEAGUE_PREFIX = "league:";
-const TOPIC_PREFIX = "topic:";
-const TEAM_PREFIX = "team:";
-const COUNTRY_PREFIX = "country:";
-
-function useAsideInterests() {
-  const currentUser = useUserStore(state => state.user);
-  const [interests, setInterests] = useState<Set<string> | null>(null);
-
-  useEffect(() => {
-    if (!currentUser?.uid) {
-      setInterests(new Set());
-      return;
-    }
-    let active = true;
-    getUserInterests()
-      .then(keys => {
-        if (active) setInterests(new Set(keys));
-      })
-      .catch(() => {
-        if (active) setInterests(new Set());
-      });
-    return () => {
-      active = false;
-    };
-  }, [currentUser?.uid]);
-
-  const leagueCodes = [...(interests ?? [])]
-    .filter(key => key.startsWith(LEAGUE_PREFIX))
-    .map(key => key.slice(LEAGUE_PREFIX.length));
-  const topics = [...(interests ?? [])]
-    .filter(key => key.startsWith(TOPIC_PREFIX))
-    .map(key => key.slice(TOPIC_PREFIX.length));
-  // team keys are "team:{id}|{name}" — the name rides along so team-tagged
-  // news can fuzzy-match by name without a separate id -> name lookup.
-  const teamEntries = [...(interests ?? [])]
-    .filter(key => key.startsWith(TEAM_PREFIX))
-    .map(key => key.slice(TEAM_PREFIX.length).split("|"));
-  const teamIds = teamEntries.map(([id]) => id);
-  const teamNames = teamEntries.map(([, name]) => name).filter(Boolean);
-  const countries = [...(interests ?? [])]
-    .filter(key => key.startsWith(COUNTRY_PREFIX))
-    .map(key => key.slice(COUNTRY_PREFIX.length));
-  const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || countries.length > 0;
-
-  return { interests, leagueCodes, topics, teamIds, teamNames, countries, hasAnyInterest };
-}
-
 // Shared by the default Aside and DiscoverAside — the football/news/movies
 // rails and the "no interests yet" CTA only depend on the resolved interest
 // set, not on which page they're rendered from.
@@ -406,17 +359,20 @@ function InterestRails({
   teamNames,
   countries,
   hasAnyInterest,
-}: ReturnType<typeof useAsideInterests>) {
+}: ReturnType<typeof useCuratedInterests>) {
+  // movie_news and betting_prediction each get their own rail (below) so
+  // they can show a richer, category-specific row than the generic
+  // headline-and-source ContentRow every other topic shares — excluded here
+  // so neither also shows up a second time inside "News for you".
+  const genericTopics = topics.filter(t => t !== "movie_news" && t !== "betting_prediction");
+
   return (
     <>
       {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} teamIds={teamIds} />}
       {teamNames.length > 0 && <TeamNewsRail teamNames={teamNames} />}
+      {topics.includes("betting_prediction") && <BettingRail leagueCodes={leagueCodes} />}
       {topics.includes("movie_news") && <MoviesRail />}
-      {/* movie_news gets its own rail above — excluded here so it doesn't
-          show up twice. */}
-      {topics.filter(t => t !== "movie_news").length > 0 && (
-        <NewsForYouRail topics={topics.filter(t => t !== "movie_news")} />
-      )}
+      {genericTopics.length > 0 && <NewsForYouRail topics={genericTopics} />}
       {countries.length > 0 && <CountryNewsRail countries={countries} />}
 
       {interests !== null && !hasAnyInterest && (
@@ -442,7 +398,7 @@ function InterestRails({
 // entirely for anything with nothing to show right now instead of leaving a
 // row of empty-state cards.
 function DiscoverAside() {
-  const asideInterests = useAsideInterests();
+  const asideInterests = useCuratedInterests();
 
   return (
     <div className="flex w-full flex-col space-y-6 p-4">
@@ -468,7 +424,7 @@ export default function Aside() {
   // the same hook instead of re-fetching.
   const friendPreviews = allFriendPreviews.slice(0, 2);
 
-  const asideInterests = useAsideInterests();
+  const asideInterests = useCuratedInterests();
 
   if (pathname?.startsWith("/messages")) {
     return <MessagesAside />;

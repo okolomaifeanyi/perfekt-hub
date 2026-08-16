@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { getFootballScores, getInterestedNews, type CuratedContentItem } from "@/app/actions/curatedContent";
+import {
+  getFootballScores,
+  getBettingPredictions,
+  getInterestedNews,
+  getCountryNews,
+  getTeamNews,
+  type CuratedContentItem,
+} from "@/app/actions/curatedContent";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
+import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 
 const TOPICS = [
   { key: "football-news", label: "Football news", categories: ["football_news"] },
-  { key: "betting", label: "Betting", categories: ["betting_prediction"] },
   { key: "crypto", label: "Crypto", categories: ["crypto_price", "crypto_news"] },
   { key: "movies", label: "Movies", categories: ["movie_news"] },
   { key: "music", label: "Music", categories: ["music_news"] },
@@ -26,7 +34,12 @@ const SCORE_TABS = [
 ];
 const SCORE_TAB_KEYS = new Set(SCORE_TABS.map(tab => tab.key));
 
-const TABS = [{ key: "trends", label: "Trends" }, ...SCORE_TABS, ...TOPICS];
+const TABS = [
+  { key: "trends", label: "Trends" },
+  ...SCORE_TABS,
+  { key: "betting", label: "Betting" },
+  ...TOPICS,
+];
 
 function EmptySection({ label }: { label: string }) {
   return <p className="py-4 text-center text-sm text-muted-foreground">{label}</p>;
@@ -44,22 +57,84 @@ function MatchesList({ matches, emptyMessage }: { matches: CuratedContentItem[];
   );
 }
 
-// Lazy per-tab: 11 tabs each firing their own query on page load would be
-// wasteful — undefined means "not fetched yet", fetched on first visit to
-// that tab and cached here for the rest of the session.
+function ContentList({ items, emptyMessage }: { items: CuratedContentItem[]; emptyMessage: string }) {
+  if (items.length === 0) return <EmptySection label={emptyMessage} />;
+
+  return (
+    <div className="space-y-2">
+      {items.map(item => (
+        <ContentRow key={item.id} item={item} />
+      ))}
+    </div>
+  );
+}
+
+// Shared by Fixtures/Live/Results/Betting — a league choice made once
+// applies to all four instead of each tracking (and possibly disagreeing
+// about) its own filter.
+function LeagueFilterToggle({
+  filterToMine,
+  setFilterToMine,
+}: {
+  filterToMine: boolean;
+  setFilterToMine: (value: boolean) => void;
+}) {
+  return (
+    <div className="mb-3 flex gap-2">
+      {[
+        { value: true, label: "My leagues" },
+        { value: false, label: "All leagues" },
+      ].map(option => (
+        <button
+          key={String(option.value)}
+          type="button"
+          onClick={() => setFilterToMine(option.value)}
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium transition",
+            filterToMine === option.value
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border/60 text-muted-foreground hover:bg-accent/40"
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 type TabCache = Record<string, CuratedContentItem[] | undefined>;
+type TrendsCache = {
+  scores: CuratedContentItem[];
+  betting: CuratedContentItem[];
+  teamNews: CuratedContentItem[];
+  countryNews: CuratedContentItem[];
+  topics: TabCache;
+};
 
 export default function DiscoverTrends() {
+  const { interests, leagueCodes, topics, teamNames, countries, hasAnyInterest } = useCuratedInterests();
+  const hasLeagueInterests = leagueCodes.length > 0;
+
   const [activeTab, setActiveTab] = useState("trends");
+  const [filterToMine, setFilterToMine] = useState(true);
   const [scoresCache, setScoresCache] = useState<CuratedContentItem[] | undefined>();
+  const [bettingCache, setBettingCache] = useState<CuratedContentItem[] | undefined>();
   const [topicCache, setTopicCache] = useState<TabCache>({});
-  const [trendsCache, setTrendsCache] = useState<{ scores: CuratedContentItem[]; topics: TabCache } | null>(null);
+  const [trendsCache, setTrendsCache] = useState<TrendsCache | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const scopedLeagues = filterToMine && hasLeagueInterests ? leagueCodes : undefined;
+
   const ensureScores = async () => {
-    if (scoresCache !== undefined) return scoresCache;
-    const items = await getFootballScores();
+    const items = await getFootballScores(scopedLeagues);
     setScoresCache(items);
+    return items;
+  };
+
+  const ensureBetting = async () => {
+    const items = await getBettingPredictions(scopedLeagues, 30);
+    setBettingCache(items);
     return items;
   };
 
@@ -70,39 +145,65 @@ export default function DiscoverTrends() {
     return items;
   };
 
+  // Refetch whenever the shared league filter changes, but only for tabs
+  // already visited at least once — no point eagerly fetching all four on
+  // every toggle flip before the visitor has looked at any of them.
+  useEffect(() => {
+    if (scoresCache !== undefined) void ensureScores();
+    if (bettingCache !== undefined) void ensureBetting();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterToMine, leagueCodes.join(",")]);
+
+  // A personalized digest, not a full unfiltered browse — only sections the
+  // visitor actually picked in Settings show up here (confirmed live: this
+  // used to show every topic and every league's scores regardless of
+  // interests, which is what the explicit per-topic tabs below are for).
   const loadTrends = async () => {
-    if (trendsCache) return;
-    setLoading(true);
-    const [scores, ...topicResults] = await Promise.all([
-      getFootballScores(),
-      ...TOPICS.map(topic => getInterestedNews(topic.categories, 2)),
+    const [scores, betting, teamNewsItems, countryItems, ...topicResults] = await Promise.all([
+      leagueCodes.length > 0 ? getFootballScores(leagueCodes) : Promise.resolve([]),
+      topics.includes("betting_prediction") ? getBettingPredictions(leagueCodes, 6) : Promise.resolve([]),
+      teamNames.length > 0 ? getTeamNews(teamNames, 2) : Promise.resolve([]),
+      countries.length > 0 ? getCountryNews(countries, 2) : Promise.resolve([]),
+      ...TOPICS.map(topic => {
+        const selected = topic.categories.filter(c => topics.includes(c));
+        return selected.length > 0 ? getInterestedNews(selected, 2) : Promise.resolve([]);
+      }),
     ]);
-    const topics: TabCache = {};
+
+    const topicItems: TabCache = {};
     TOPICS.forEach((topic, index) => {
-      topics[topic.key] = topicResults[index];
+      topicItems[topic.key] = topicResults[index];
     });
-    setTrendsCache({ scores, topics });
-    setLoading(false);
+
+    setTrendsCache({ scores, betting, teamNews: teamNewsItems, countryNews: countryItems, topics: topicItems });
   };
 
-  // Trends is the default tab — fetch it as soon as the page mounts instead
-  // of waiting for a click, since it's the view everyone sees first.
+  // Interests resolve async (a separate client fetch — see
+  // useCuratedInterests) — `interests` is null until that first completes,
+  // so this waits rather than loading an unpersonalized Trends tab first
+  // and re-fetching a beat later.
   useEffect(() => {
-    void loadTrends();
+    if (interests === null) return;
+    setLoading(true);
+    void loadTrends().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [interests === null, leagueCodes.join(","), topics.join(","), teamNames.join(","), countries.join(",")]);
 
   const handleTabChange = async (value: string) => {
     setActiveTab(value);
 
-    if (value === "trends") {
-      await loadTrends();
-      return;
-    }
+    if (value === "trends") return;
 
     if (SCORE_TAB_KEYS.has(value) && scoresCache === undefined) {
       setLoading(true);
       await ensureScores();
+      setLoading(false);
+      return;
+    }
+
+    if (value === "betting" && bettingCache === undefined) {
+      setLoading(true);
+      await ensureBetting();
       setLoading(false);
       return;
     }
@@ -130,18 +231,43 @@ export default function DiscoverTrends() {
           <EmptySection label="Loading trends…" />
         ) : (
           <>
-            <section className="space-y-2">
-              <h3 className="text-sm font-semibold">Scores</h3>
-              {(() => {
+            {leagueCodes.length > 0 &&
+              (() => {
                 const { live, upcoming, results } = groupMatches(trendsCache.scores);
-                const preview = [...live, ...upcoming, ...results].slice(0, 2);
-                return preview.length === 0 ? (
-                  <EmptySection label="No scores yet." />
-                ) : (
-                  preview.map(match => <MatchRow key={match.id} match={match} />)
-                );
+                const sections = [
+                  { label: "Fixtures", matches: upcoming },
+                  { label: "Live", matches: live },
+                  { label: "Results", matches: results },
+                ];
+                return sections
+                  .filter(section => section.matches.length > 0)
+                  .map(section => (
+                    <section key={section.label} className="space-y-2">
+                      <h3 className="text-sm font-semibold">{section.label}</h3>
+                      {section.matches.slice(0, 2).map(match => (
+                        <MatchRow key={match.id} match={match} />
+                      ))}
+                    </section>
+                  ));
               })()}
-            </section>
+
+            {topics.includes("betting_prediction") && trendsCache.betting.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">Betting</h3>
+                {trendsCache.betting.map(item => (
+                  <ContentRow key={item.id} item={item} />
+                ))}
+              </section>
+            )}
+
+            {teamNames.length > 0 && trendsCache.teamNews.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">Your teams</h3>
+                {trendsCache.teamNews.map(item => (
+                  <ContentRow key={item.id} item={item} />
+                ))}
+              </section>
+            )}
 
             {TOPICS.map(topic => {
               const items = trendsCache.topics[topic.key] ?? [];
@@ -155,6 +281,27 @@ export default function DiscoverTrends() {
                 </section>
               );
             })}
+
+            {countries.length > 0 && trendsCache.countryNews.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">News near you</h3>
+                {trendsCache.countryNews.map(item => (
+                  <ContentRow key={item.id} item={item} />
+                ))}
+              </section>
+            )}
+
+            {!hasAnyInterest && (
+              <div className="space-y-2 rounded-xl border py-6 text-center">
+                <p className="text-sm font-medium">Nothing picked yet</p>
+                <p className="px-4 text-xs text-muted-foreground">
+                  Choose leagues, topics, or countries and Trends will fill in with what you actually follow.
+                </p>
+                <Link href="/settings/interests" className="text-xs font-medium text-primary hover:underline">
+                  Pick your interests
+                </Link>
+              </div>
+            )}
           </>
         )}
       </TabsContent>
@@ -168,10 +315,23 @@ export default function DiscoverTrends() {
             value={tab.key}
             className={cn("pt-4", loading && activeTab === tab.key && "opacity-60")}
           >
+            {hasLeagueInterests && (
+              <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
+            )}
             <MatchesList matches={matches} emptyMessage={tab.emptyMessage} />
           </TabsContent>
         );
       })}
+
+      <TabsContent value="betting" className={cn("pt-4", loading && activeTab === "betting" && "opacity-60")}>
+        {hasLeagueInterests && (
+          <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
+        )}
+        <ContentList
+          items={bettingCache ?? []}
+          emptyMessage="No predictions right now — check back once the betting feed has run."
+        />
+      </TabsContent>
 
       {TOPICS.map(topic => {
         const items = topicCache[topic.key] ?? [];

@@ -5,6 +5,7 @@ import {
   FOOTBALL_CATEGORIES,
   NEWS_CATEGORIES,
   COUNTRY_MATCHABLE_CATEGORIES,
+  FOOTBALL_LEAGUES,
 } from "@/lib/curated-content-categories.mjs";
 
 export type CuratedContentItem = {
@@ -140,6 +141,32 @@ export async function getNewsFeed(category?: string, limit = 30): Promise<Curate
 // Same shape as getNewsFeed but for a specific set of topics at once (an
 // interests picker selects several categories, not just one) — used by
 // Aside's "News for you" rail and /updates' interest-filtered default.
+// Betting predictions tag their league by name ("Premier League"), not the
+// football-data.org code ("PL") the rest of the app's interest system uses
+// (see lib/cron/ingest/betting.mjs) — this maps the visitor's chosen codes
+// to those names before filtering, the same way getFootballScores filters
+// on competitionCode directly since that one already matches.
+export async function getBettingPredictions(leagueCodes?: string[], limit = 20): Promise<CuratedContentItem[]> {
+  const supabase = getSupabasePublicClient();
+  let query = supabase
+    .from("curated_content")
+    .select("*")
+    .eq("category", "betting_prediction")
+    .order("published_at", { ascending: false })
+    .limit(limit);
+
+  if (leagueCodes && leagueCodes.length > 0) {
+    const leagueNames = FOOTBALL_LEAGUES.filter(league => leagueCodes.includes(league.code)).map(
+      league => league.name
+    );
+    query = query.in("metadata->>league", leagueNames);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function getInterestedNews(topics: string[], limit = 20): Promise<CuratedContentItem[]> {
   if (topics.length === 0) return [];
 

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clapperboard, Newspaper, Trophy } from "lucide-react";
+import { Clapperboard, Newspaper, Target, Trophy } from "lucide-react";
 import { RailShell, ListRow, RowSkeleton, EmptyRow } from "@/components/feed/RecommendationRail";
 import {
   getFootballScores,
+  getBettingPredictions,
   getInterestedNews,
   getCountryNews,
   getTeamNews,
@@ -102,6 +103,66 @@ export function FootballRail({
         <EmptyRow label="No matches right now." />
       ) : (
         matches.slice(0, previewCount).map(match => <FootballRow key={match.id} match={match} />)
+      )}
+    </RailShell>
+  );
+}
+
+type BettingMetadata = {
+  league?: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  predictedWinner?: string;
+};
+
+function BettingRow({ item }: { item: CuratedContentItem }) {
+  const meta = item.metadata as BettingMetadata;
+  return (
+    <ListRow
+      href="/updates"
+      avatarFallback={meta.homeTeam || item.title}
+      title={item.title}
+      subtitle={meta.predictedWinner ? `Predicted: ${meta.predictedWinner}` : meta.league}
+    />
+  );
+}
+
+// Scoped to the visitor's chosen leagues, same as FootballRail — a betting
+// pick for a league they never picked isn't "for you" any more than a score
+// from it would be.
+export function BettingRail({
+  leagueCodes,
+  previewCount = 2,
+}: {
+  leagueCodes: string[];
+  previewCount?: number;
+}) {
+  const [items, setItems] = useState<CuratedContentItem[] | null>(null);
+  const leagueKey = leagueCodes.join(",");
+
+  useEffect(() => {
+    let active = true;
+    getBettingPredictions(leagueCodes, previewCount)
+      .then(result => {
+        if (active) setItems(result);
+      })
+      .catch(() => {
+        if (active) setItems([]);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueKey, previewCount]);
+
+  return (
+    <RailShell title="Betting" description="Predicted outcomes for your leagues." icon={Target} seeMoreHref="/updates">
+      {items === null ? (
+        Array.from({ length: previewCount }).map((_, index) => <RowSkeleton key={index} />)
+      ) : items.length === 0 ? (
+        <EmptyRow label="No predictions right now." />
+      ) : (
+        items.slice(0, previewCount).map(item => <BettingRow key={item.id} item={item} />)
       )}
     </RailShell>
   );
