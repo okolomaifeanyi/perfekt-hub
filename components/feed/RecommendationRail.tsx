@@ -90,7 +90,7 @@ const railCopy: Record<
   },
 };
 
-function RailShell({
+export function RailShell({
   title,
   description,
   icon: Icon,
@@ -132,7 +132,7 @@ function RailShell({
   );
 }
 
-function ListRow({
+export function ListRow({
   href,
   avatarSrc,
   avatarFallback,
@@ -167,7 +167,7 @@ function ListRow({
   );
 }
 
-function RowSkeleton() {
+export function RowSkeleton() {
   return (
     <div className="flex items-center gap-3 px-2 py-2.5 -mx-2">
       <Skeleton className="size-10 shrink-0 rounded-full" />
@@ -179,7 +179,7 @@ function RowSkeleton() {
   );
 }
 
-function EmptyRow({ label }: { label: string }) {
+export function EmptyRow({ label }: { label: string }) {
   return <p className="px-2 py-2 text-sm text-muted-foreground">{label}</p>;
 }
 
@@ -190,7 +190,19 @@ function EmptyRow({ label }: { label: string }) {
 // sees this instead of the real empty state.
 const SIGN_IN_TO_SEE = "Sign in to see this.";
 
-function PeopleRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function PeopleRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const suggestions = useUserStore(state => state.suggestions);
   const fetchSmartSuggestions = useUserStore(state => state.fetchSmartSuggestions);
@@ -204,7 +216,9 @@ function PeopleRail({ title, description, icon }: { title: string; description: 
     }
   }, [currentUser?.uid, fetchSmartSuggestions, suggestions.length]);
 
-  const people = suggestions.slice(0, 5);
+  const people = suggestions.slice(0, previewCount);
+
+  if (hideIfEmpty && !loading && people.length === 0) return null;
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/people">
@@ -229,7 +243,19 @@ function PeopleRail({ title, description, icon }: { title: string; description: 
   );
 }
 
-function VideosRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function VideosRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const [videos, setVideos] = useState<PostProps[] | null>(null);
 
@@ -241,13 +267,15 @@ function VideosRail({ title, description, icon }: { title: string; description: 
     let active = true;
 
     void getFeedAction(currentUser.uid, 30, null, null, false, "trending").then(posts => {
-      if (active) setVideos(posts.filter(hasVideoMedia).slice(0, 5));
+      if (active) setVideos(posts.filter(hasVideoMedia).slice(0, previewCount));
     });
 
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, previewCount]);
+
+  if (hideIfEmpty && videos !== null && videos.length === 0) return null;
 
   return (
     <RailShell title={title} description={description} icon={icon}>
@@ -316,7 +344,19 @@ function ActionRow({
   );
 }
 
-function SavesRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function SavesRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const [posts, setPosts] = useState<PostProps[] | null>(null);
 
@@ -326,7 +366,7 @@ function SavesRail({ title, description, icon }: { title: string; description: s
       return;
     }
     let active = true;
-    void getTopSavedPosts(5)
+    void getTopSavedPosts(previewCount)
       .then(result => {
         if (active) setPosts(result);
       })
@@ -336,7 +376,9 @@ function SavesRail({ title, description, icon }: { title: string; description: s
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, previewCount]);
+
+  if (hideIfEmpty && posts !== null && posts.length === 0) return null;
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/saves">
@@ -362,7 +404,19 @@ function SavesRail({ title, description, icon }: { title: string; description: s
   );
 }
 
-function MatchesRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function MatchesRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const [matches, setMatches] = useState<UserProps[] | null>(null);
 
@@ -372,7 +426,7 @@ function MatchesRail({ title, description, icon }: { title: string; description:
       return;
     }
     let active = true;
-    void getSuggestedMatches(currentUser.uid, 5)
+    void getSuggestedMatches(currentUser.uid, previewCount)
       .then(result => {
         if (active) setMatches(result);
       })
@@ -382,7 +436,9 @@ function MatchesRail({ title, description, icon }: { title: string; description:
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, previewCount]);
+
+  if (hideIfEmpty && matches !== null && matches.length === 0) return null;
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/match">
@@ -406,7 +462,19 @@ function MatchesRail({ title, description, icon }: { title: string; description:
   );
 }
 
-function GroupsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function GroupsRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const [groups, setGroups] = useState<GroupProps[] | null>(null);
   // Shared across this rail, the /discover/groups list, and the group
@@ -422,7 +490,7 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
       return;
     }
     let active = true;
-    void listGroups(5)
+    void listGroups(previewCount)
       .then(result => {
         if (active) setGroups(result);
       })
@@ -437,7 +505,7 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, previewCount]);
 
   const handleJoin = async (groupId: string) => {
     try {
@@ -453,6 +521,8 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
       toast.error("Failed to join group");
     }
   };
+
+  if (hideIfEmpty && groups !== null && groups.length === 0) return null;
 
   return (
     <RailShell
@@ -491,7 +561,19 @@ function GroupsRail({ title, description, icon }: { title: string; description: 
   );
 }
 
-function EventsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function EventsRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const currentUser = useUserStore(state => state.user);
   const [events, setEvents] = useState<EventProps[] | null>(null);
   const [rsvpedIds, setRsvpedIds] = useState<Set<string>>(new Set());
@@ -502,7 +584,7 @@ function EventsRail({ title, description, icon }: { title: string; description: 
       return;
     }
     let active = true;
-    void listUpcomingEvents(5)
+    void listUpcomingEvents(previewCount)
       .then(result => {
         if (active) setEvents(result);
       })
@@ -512,7 +594,7 @@ function EventsRail({ title, description, icon }: { title: string; description: 
     return () => {
       active = false;
     };
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, previewCount]);
 
   const handleRsvp = async (eventId: string) => {
     setRsvpedIds(prev => new Set(prev).add(eventId));
@@ -528,6 +610,8 @@ function EventsRail({ title, description, icon }: { title: string; description: 
       toast.error("Failed to RSVP");
     }
   };
+
+  if (hideIfEmpty && events !== null && events.length === 0) return null;
 
   return (
     <RailShell
@@ -572,7 +656,19 @@ function formatRailPrice(price: number, currency: string) {
   }
 }
 
-function ProductsRail({ title, description, icon }: { title: string; description: string; icon: LucideIcon }) {
+function ProductsRail({
+  title,
+  description,
+  icon,
+  previewCount,
+  hideIfEmpty,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  previewCount: number;
+  hideIfEmpty?: boolean;
+}) {
   const [products, setProducts] = useState<PostProductProps[] | null>(null);
 
   // Unlike the other rails, marketplace listings aren't scoped to the
@@ -580,7 +676,7 @@ function ProductsRail({ title, description, icon }: { title: string; description
   // gate this one behind sign-in when the data is public either way.
   useEffect(() => {
     let active = true;
-    void listProductsPage({ offset: 0, sortMode: "time", limit: 5 })
+    void listProductsPage({ offset: 0, sortMode: "time", limit: previewCount })
       .then(result => {
         if (active) setProducts(result);
       })
@@ -590,7 +686,9 @@ function ProductsRail({ title, description, icon }: { title: string; description
     return () => {
       active = false;
     };
-  }, []);
+  }, [previewCount]);
+
+  if (hideIfEmpty && products !== null && products.length === 0) return null;
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/products">
@@ -616,37 +714,41 @@ function ProductsRail({ title, description, icon }: { title: string; description
 
 export default function RecommendationRail({
   type,
+  previewCount = 5,
+  hideIfEmpty = false,
 }: {
   type: FeedRecommendationType;
+  previewCount?: number;
+  hideIfEmpty?: boolean;
 }) {
   const config = railCopy[type];
 
   if (type === "friends" || type === "follows") {
-    return <PeopleRail {...config} />;
+    return <PeopleRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "videos") {
-    return <VideosRail {...config} />;
+    return <VideosRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "saves") {
-    return <SavesRail {...config} />;
+    return <SavesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "matches") {
-    return <MatchesRail {...config} />;
+    return <MatchesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "groups") {
-    return <GroupsRail {...config} />;
+    return <GroupsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "events") {
-    return <EventsRail {...config} />;
+    return <EventsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   if (type === "products") {
-    return <ProductsRail {...config} />;
+    return <ProductsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
   }
 
   return null;

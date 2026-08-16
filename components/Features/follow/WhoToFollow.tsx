@@ -1,6 +1,7 @@
 // components/WhoToFollow.tsx
 "use client";
 
+import Link from "next/link";
 import { useUserStore } from "@/lib/store/useUserStore";
 import MyAvatar from "@/components/feed/post/MyAvatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,7 +35,9 @@ export default function WhoToFollow({
 
   const [page, setPage] = useState(1);
   const [hasFetched, setHasFetched] = useState(false);
-  const ITEMS_PER_PAGE = fullPage ? 6 : 3;
+  // Aside has room for a couple, same as the other compact rails there — the
+  // full list lives at /discover/people.
+  const ITEMS_PER_PAGE = fullPage ? 6 : compact ? 2 : 3;
   const showRotate = !fullPage && !compact;
 
   // Load on first login
@@ -158,6 +161,15 @@ export default function WhoToFollow({
           >
             Show More ({suggestions.length - end} left)
           </Button>
+        )}
+
+        {compact && (
+          <Link
+            href="/discover/people"
+            className="mt-2 block text-sm font-medium text-primary hover:underline"
+          >
+            See more
+          </Link>
         )}
       </CardContent>
     </Card>

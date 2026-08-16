@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
@@ -22,6 +22,12 @@ import {
 
 import WhoToFollow from "./Features/follow/WhoToFollow";
 import RecommendationRail from "@/components/feed/RecommendationRail";
+import {
+  FootballRail,
+  MoviesRail,
+  NewsForYouRail,
+  CountryNewsRail,
+} from "@/components/feed/CuratedContentRails";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +40,7 @@ import { useGroupStore } from "@/lib/store/useGroupStore";
 import { useVideoQueueStore } from "@/lib/store/useVideoQueueStore";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import ConversationRow from "@/app/(dashboard)/messages/Conversation";
+import { getUserInterests } from "@/app/actions/userInterests";
 
 // @stream-io/video-react-sdk (imported transitively via useStartCall) is a
 // WebRTC client library — Aside is mounted on nearly every authenticated
@@ -339,6 +346,106 @@ function GroupMembersAside() {
   );
 }
 
+const LEAGUE_PREFIX = "league:";
+const TOPIC_PREFIX = "topic:";
+const COUNTRY_NEWS_KEY = "topic:country_news";
+
+function useAsideInterests() {
+  const currentUser = useUserStore(state => state.user);
+  const [interests, setInterests] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setInterests(new Set());
+      return;
+    }
+    let active = true;
+    getUserInterests()
+      .then(keys => {
+        if (active) setInterests(new Set(keys));
+      })
+      .catch(() => {
+        if (active) setInterests(new Set());
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid]);
+
+  const leagueCodes = [...(interests ?? [])]
+    .filter(key => key.startsWith(LEAGUE_PREFIX))
+    .map(key => key.slice(LEAGUE_PREFIX.length));
+  const topics = [...(interests ?? [])]
+    .filter(key => key.startsWith(TOPIC_PREFIX) && key !== COUNTRY_NEWS_KEY)
+    .map(key => key.slice(TOPIC_PREFIX.length));
+  const wantsCountryNews = Boolean(interests?.has(COUNTRY_NEWS_KEY)) && Boolean(currentUser?.country);
+  const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || wantsCountryNews;
+
+  return { interests, leagueCodes, topics, wantsCountryNews, hasAnyInterest, country: currentUser?.country };
+}
+
+// Shared by the default Aside and DiscoverAside — the football/news/movies
+// rails and the "no interests yet" CTA only depend on the resolved interest
+// set, not on which page they're rendered from.
+function InterestRails({
+  interests,
+  leagueCodes,
+  topics,
+  wantsCountryNews,
+  hasAnyInterest,
+  country,
+}: ReturnType<typeof useAsideInterests>) {
+  return (
+    <>
+      {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} />}
+      {topics.includes("movie_news") && <MoviesRail />}
+      {/* movie_news gets its own rail above — excluded here so it doesn't
+          show up twice. */}
+      {topics.filter(t => t !== "movie_news").length > 0 && (
+        <NewsForYouRail topics={topics.filter(t => t !== "movie_news")} />
+      )}
+      {wantsCountryNews && country && <CountryNewsRail country={country} />}
+
+      {interests !== null && !hasAnyInterest && (
+        <Card className="py-4">
+          <CardContent className="space-y-2">
+            <CardTitle className="text-base">Make this yours</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Pick your leagues and topics to see scores and news here.
+            </p>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/settings/interests">Choose interests</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+}
+
+// Everything that used to sit in a big stack under the search bar on
+// /discover's own main content — moved here so it's out of the way of
+// scrolling search results, capped to a couple of items each, and skips
+// entirely for anything with nothing to show right now instead of leaving a
+// row of empty-state cards.
+function DiscoverAside() {
+  const asideInterests = useAsideInterests();
+
+  return (
+    <div className="flex w-full flex-col space-y-6 p-4">
+      <RecommendationRail type="saves" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="events" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="groups" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="friends" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="matches" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="products" previewCount={2} hideIfEmpty />
+      <RecommendationRail type="videos" previewCount={2} hideIfEmpty />
+
+      <InterestRails {...asideInterests} />
+    </div>
+  );
+}
+
 export default function Aside() {
   const pathname = usePathname();
   const currentUser = useUserStore(state => state.user);
@@ -348,12 +455,18 @@ export default function Aside() {
   // the same hook instead of re-fetching.
   const friendPreviews = allFriendPreviews.slice(0, 2);
 
+  const asideInterests = useAsideInterests();
+
   if (pathname?.startsWith("/messages")) {
     return <MessagesAside />;
   }
 
   if (pathname?.match(/^\/discover\/groups\/[^/]+/)) {
     return <GroupMembersAside />;
+  }
+
+  if (pathname === "/discover") {
+    return <DiscoverAside />;
   }
 
   if (pathname?.startsWith("/watch")) {
@@ -432,11 +545,23 @@ export default function Aside() {
             })
           )}
         </CardContent>
+        {currentUser && (
+          <CardContent className="pt-0">
+            <Link
+              href={`/${currentUser.username}/friends`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              See more
+            </Link>
+          </CardContent>
+        )}
       </Card>
 
       <WhoToFollow compact />
 
-      <RecommendationRail type="groups" />
+      <RecommendationRail type="groups" previewCount={2} />
+
+      <InterestRails {...asideInterests} />
     </div>
   );
 }

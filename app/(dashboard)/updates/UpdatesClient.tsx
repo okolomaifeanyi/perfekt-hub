@@ -1,181 +1,207 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import Image from "next/image";
-import { format } from "date-fns";
-import { Radio } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getCompactTimeAgo } from "@/lib/time-format.mjs";
-import { getNewsFeed, type CuratedContentItem } from "@/app/actions/curatedContent";
+import {
+  getNewsFeed,
+  getFootballScores,
+  getInterestedNews,
+  getCountryNews,
+  type CuratedContentItem,
+} from "@/app/actions/curatedContent";
+import { getUserInterests } from "@/app/actions/userInterests";
+import { useUserStore } from "@/lib/store/useUserStore";
 import { NEWS_CATEGORY_FILTERS } from "@/lib/curated-content-categories.mjs";
+import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
 
 type UpdatesClientProps = {
   initialScores: CuratedContentItem[];
   initialNews: CuratedContentItem[];
 };
 
-type FootballMetadata = {
-  competition?: string;
-  status?: string;
-  minute?: number | null;
-  matchday?: number | null;
-  homeTeam?: { name?: string | null; shortName?: string | null; crest?: string | null };
-  awayTeam?: { name?: string | null; shortName?: string | null; crest?: string | null };
-  score?: { home: number; away: number } | null;
-};
+const LEAGUE_PREFIX = "league:";
+const TOPIC_PREFIX = "topic:";
+const COUNTRY_NEWS_KEY = "topic:country_news";
 
-function teamLabel(team?: { name?: string | null; shortName?: string | null }) {
-  return team?.shortName || team?.name || "TBD";
+// Fetched once, client-side, and shared by both panels — page.tsx stays a
+// plain ISR page (no cookies() call, so it keeps its 60s revalidate cache
+// shared across every visitor) rather than becoming per-user dynamic, and a
+// signed-in visitor's interests just refine the view a beat after first
+// paint instead of gating it.
+function useInterests() {
+  const currentUser = useUserStore(state => state.user);
+  const [leagueCodes, setLeagueCodes] = useState<string[]>([]);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [wantsCountryNews, setWantsCountryNews] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    let active = true;
+    getUserInterests()
+      .then(keys => {
+        if (!active) return;
+        setLeagueCodes(keys.filter(k => k.startsWith(LEAGUE_PREFIX)).map(k => k.slice(LEAGUE_PREFIX.length)));
+        setTopics(
+          keys
+            .filter(k => k.startsWith(TOPIC_PREFIX) && k !== COUNTRY_NEWS_KEY)
+            .map(k => k.slice(TOPIC_PREFIX.length))
+        );
+        setWantsCountryNews(keys.includes(COUNTRY_NEWS_KEY));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid]);
+
+  return { leagueCodes, topics, wantsCountryNews: wantsCountryNews && Boolean(currentUser?.country), country: currentUser?.country };
 }
 
-// getCompactTimeAgo only handles the past — it computes now-minus-date with
-// no floor, so a future timestamp (an upcoming fixture's kickoff, or a
-// betting prediction published with that same future commence_time) comes
-// back as a raw negative number of minutes instead of a sensible label
-// (confirmed live: betting predictions were rendering "-21190m"). date-fns'
-// format() is also locale-independent, unlike toLocaleString(undefined,
-// ...), which caused a separate server/client hydration mismatch here.
-function formatContentTime(publishedAt: string) {
-  const date = new Date(publishedAt);
-  if (date.getTime() > Date.now()) return format(date, "EEE h:mm a");
-  return getCompactTimeAgo(date);
-}
+function ScoresPanel({ initialScores, leagueCodes }: { initialScores: CuratedContentItem[]; leagueCodes: string[] }) {
+  const [filterToMine, setFilterToMine] = useState(true);
+  const [scores, setScores] = useState(initialScores);
+  const [isPending, startTransition] = useTransition();
+  const hasLeagueInterests = leagueCodes.length > 0;
 
-function MatchRow({ match }: { match: CuratedContentItem }) {
-  const meta = match.metadata as FootballMetadata;
-  const isLive = match.category === "football_live";
+  useEffect(() => {
+    if (!hasLeagueInterests) return;
+    startTransition(async () => {
+      const items = await getFootballScores(filterToMine ? leagueCodes : undefined);
+      setScores(items);
+    });
+    // leagueCodes is rebuilt fresh from useInterests' state each render —
+    // its content (not identity) is what determines whether to refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterToMine, hasLeagueInterests, leagueCodes.join(",")]);
 
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{meta.competition}</p>
-        <p className="truncate text-sm font-medium">
-          {teamLabel(meta.homeTeam)} <span className="text-muted-foreground">vs</span>{" "}
-          {teamLabel(meta.awayTeam)}
-        </p>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
-          <span className="font-mono text-sm font-semibold tabular-nums">
-            {meta.score.home}-{meta.score.away}
-          </span>
-        ) : null}
-
-        {isLive ? (
-          <Badge variant="destructive" className="gap-1 text-[10px]">
-            <Radio className="size-2.5" />
-            {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
-          </Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ScoresPanel({ scores }: { scores: CuratedContentItem[] }) {
-  const live = scores.filter(s => s.category === "football_live");
-  const upcoming = [...scores.filter(s => s.category === "football_fixture")].sort(
-    (a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime()
-  );
-  const results = scores.filter(s => s.category === "football_result");
-
-  if (scores.length === 0) {
-    return (
-      <p className="px-4 py-10 text-center text-sm text-muted-foreground">
-        No scores yet — check back once the football feed has run.
-      </p>
-    );
-  }
+  const { live, upcoming, results } = groupMatches(scores);
 
   return (
     <div className="space-y-6 px-4">
-      {live.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Live now</h3>
-          {live.map(match => (
-            <MatchRow key={match.id} match={match} />
+      {hasLeagueInterests && (
+        <div className="flex gap-2">
+          {[
+            { value: true, label: "My leagues" },
+            { value: false, label: "All leagues" },
+          ].map(option => (
+            <button
+              key={String(option.value)}
+              type="button"
+              onClick={() => setFilterToMine(option.value)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition",
+                filterToMine === option.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border/60 text-muted-foreground hover:bg-accent/40"
+              )}
+            >
+              {option.label}
+            </button>
           ))}
-        </section>
+        </div>
       )}
 
-      {upcoming.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Upcoming fixtures</h3>
-          {upcoming.map(match => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
-      )}
-
-      {results.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Recent results</h3>
-          {results.map(match => (
-            <MatchRow key={match.id} match={match} />
-          ))}
-        </section>
-      )}
-    </div>
-  );
-}
-
-function ContentRow({ item }: { item: CuratedContentItem }) {
-  const content = (
-    <div className="flex gap-3 rounded-lg border border-border/60 px-3 py-2.5 transition hover:bg-accent/40">
-      {item.image_url ? (
-        <Image
-          src={item.image_url}
-          alt=""
-          width={64}
-          height={64}
-          unoptimized
-          className="size-16 shrink-0 rounded-md object-cover"
-        />
-      ) : null}
-
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
-        {item.body ? (
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{item.body}</p>
-        ) : null}
-        <p className="mt-1 text-xs text-muted-foreground">
-          {item.source_name} · {formatContentTime(item.published_at)}
+      {scores.length === 0 ? (
+        <p className={cn("py-10 text-center text-sm text-muted-foreground", isPending && "opacity-60")}>
+          No scores yet — check back once the football feed has run.
         </p>
-      </div>
+      ) : (
+        <div className={cn("space-y-6", isPending && "opacity-60")}>
+          {live.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">Live now</h3>
+              {live.map(match => (
+                <MatchRow key={match.id} match={match} />
+              ))}
+            </section>
+          )}
+
+          {upcoming.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">Upcoming fixtures</h3>
+              {upcoming.map(match => (
+                <MatchRow key={match.id} match={match} />
+              ))}
+            </section>
+          )}
+
+          {results.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-sm font-semibold">Recent results</h3>
+              {results.map(match => (
+                <MatchRow key={match.id} match={match} />
+              ))}
+            </section>
+          )}
+        </div>
+      )}
     </div>
-  );
-
-  if (!item.source_url) return content;
-
-  return (
-    <a href={item.source_url} target="_blank" rel="noopener noreferrer">
-      {content}
-    </a>
   );
 }
 
-function NewsPanel({ initialNews }: { initialNews: CuratedContentItem[] }) {
+function NewsPanel({
+  initialNews,
+  topics,
+  wantsCountryNews,
+  country,
+}: {
+  initialNews: CuratedContentItem[];
+  topics: string[];
+  wantsCountryNews: boolean;
+  country?: string;
+}) {
+  const hasTopicInterests = topics.length > 0;
   const [category, setCategory] = useState("all");
   const [news, setNews] = useState(initialNews);
   const [isPending, startTransition] = useTransition();
+  // Interests resolve async (a separate client fetch after first paint —
+  // see useInterests), so the "for you"/"near you" default can't just be
+  // the useState initializer, which only runs once before that data
+  // exists. This tracks whether the visitor has since picked a filter
+  // themselves, so the auto-selected default below never clobbers it.
+  const [userPicked, setUserPicked] = useState(false);
 
-  const handleCategoryChange = (value: string) => {
-    setCategory(value);
+  const filters = [
+    ...(hasTopicInterests ? [{ value: "foryou", label: "For you" }] : []),
+    ...(wantsCountryNews ? [{ value: "nearby", label: "Near you" }] : []),
+    ...NEWS_CATEGORY_FILTERS,
+  ];
+
+  const fetchCategory = (value: string) => {
     startTransition(async () => {
-      const items = await getNewsFeed(value);
+      const items =
+        value === "foryou"
+          ? await getInterestedNews(topics)
+          : value === "nearby" && country
+            ? await getCountryNews(country)
+            : await getNewsFeed(value);
       setNews(items);
     });
   };
 
+  const handleCategoryChange = (value: string) => {
+    setUserPicked(true);
+    setCategory(value);
+    fetchCategory(value);
+  };
+
+  // Whichever's most specific to this visitor wins the default view once
+  // interests resolve — "for you" if they picked topics, "near you" if just
+  // a country, else the same unfiltered "all" every guest already sees.
+  useEffect(() => {
+    if (userPicked) return;
+    const nextDefault = hasTopicInterests ? "foryou" : wantsCountryNews ? "nearby" : "all";
+    if (nextDefault === "all") return;
+    setCategory(nextDefault);
+    fetchCategory(nextDefault);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTopicInterests, wantsCountryNews, userPicked]);
+
   return (
     <div className="space-y-3 px-4">
       <div className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
-        {NEWS_CATEGORY_FILTERS.map(filter => (
+        {filters.map(filter => (
           <button
             key={filter.value}
             type="button"
@@ -206,6 +232,8 @@ function NewsPanel({ initialNews }: { initialNews: CuratedContentItem[] }) {
 }
 
 export default function UpdatesClient({ initialScores, initialNews }: UpdatesClientProps) {
+  const { leagueCodes, topics, wantsCountryNews, country } = useInterests();
+
   return (
     <Tabs defaultValue="scores" className="w-full pt-4">
       <TabsList className="sticky top-0 z-20 mb-4 flex w-full justify-center gap-2 bg-background/80 backdrop-blur-sm">
@@ -214,11 +242,16 @@ export default function UpdatesClient({ initialScores, initialNews }: UpdatesCli
       </TabsList>
 
       <TabsContent value="scores">
-        <ScoresPanel scores={initialScores} />
+        <ScoresPanel initialScores={initialScores} leagueCodes={leagueCodes} />
       </TabsContent>
 
       <TabsContent value="news">
-        <NewsPanel initialNews={initialNews} />
+        <NewsPanel
+          initialNews={initialNews}
+          topics={topics}
+          wantsCountryNews={wantsCountryNews}
+          country={country}
+        />
       </TabsContent>
     </Tabs>
   );
