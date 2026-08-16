@@ -39,13 +39,6 @@ const SCORE_TABS = [
 ];
 const SCORE_TAB_KEYS = new Set(SCORE_TABS.map(tab => tab.key));
 
-const TABS = [
-  { key: "trends", label: "Trends" },
-  ...SCORE_TABS,
-  { key: "betting", label: "Betting" },
-  ...TOPICS,
-];
-
 function EmptySection({ label }: { label: string }) {
   return <p className="py-4 text-center text-sm text-muted-foreground">{label}</p>;
 }
@@ -146,6 +139,20 @@ export default function DiscoverTrends() {
   const { interests, leagueCodes, topics, teamNames, countries, hasAnyInterest, refetch: refetchInterests } =
     useCuratedInterests();
   const hasLeagueInterests = leagueCodes.length > 0;
+  const hasBettingInterest = topics.includes("betting_prediction");
+  const selectedTopics = TOPICS.filter(topic => topic.categories.some(category => topics.includes(category)));
+
+  // Only Trends (the personalized digest) is unconditional — every other
+  // tab is a full unfiltered browse of one category, and showing one for a
+  // league/topic the visitor never picked defeats the point of picking
+  // interests at all (confirmed live: this used to list every tab
+  // regardless of selection).
+  const tabs = [
+    { key: "trends", label: "Trends" },
+    ...(hasLeagueInterests ? SCORE_TABS : []),
+    ...(hasBettingInterest ? [{ key: "betting", label: "Betting" }] : []),
+    ...selectedTopics,
+  ];
 
   // Auto-open for a first-time visitor with nothing picked yet — that's
   // exactly who needs it surfaced immediately, not tucked behind a button
@@ -278,7 +285,7 @@ export default function DiscoverTrends() {
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
       <TabsList className="scrollbar-none flex w-full justify-start gap-1 overflow-x-auto">
-        {TABS.map(tab => (
+        {tabs.map(tab => (
           <TabsTrigger key={tab.key} value={tab.key} className="shrink-0">
             {tab.label}
           </TabsTrigger>
@@ -445,7 +452,7 @@ export default function DiscoverTrends() {
         />
       </TabsContent>
 
-      {TOPICS.map(topic => {
+      {selectedTopics.map(topic => {
         const items = topicCache[topic.key] ?? [];
         return (
           <TabsContent

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, Sparkles } from "lucide-react";
@@ -24,6 +24,7 @@ export function CreateEventDialog({
   onCreated,
   open: openProp,
   onOpenChange: onOpenChangeProp,
+  initialDescription,
 }: {
   trigger?: React.ReactNode;
   onCreated?: (event: EventProps) => void;
@@ -34,6 +35,10 @@ export function CreateEventDialog({
   // between the two Radix primitives.
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  // Seeds the description when opened from the "this looks like an event"
+  // composer suggestion — the post text the visitor already wrote instead
+  // of an empty field they'd have to retype.
+  initialDescription?: string;
 }) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -46,6 +51,16 @@ export function CreateEventDialog({
   const [startTime, setStartTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [draftingDescription, setDraftingDescription] = useState(false);
+
+  useEffect(() => {
+    if (open && initialDescription) {
+      setDescription(prev => prev || initialDescription);
+    }
+    // Only seed once per open transition — re-running on every
+    // initialDescription keystroke (the composer text changing while this
+    // dialog is already open) would keep stomping the visitor's own edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleDraftDescription = async () => {
     if (!title.trim()) {

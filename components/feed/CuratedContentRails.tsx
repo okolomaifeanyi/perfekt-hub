@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clapperboard, Newspaper, Target, Trophy } from "lucide-react";
 import { RailShell, ListRow, RowSkeleton, EmptyRow } from "@/components/feed/RecommendationRail";
+import { ContentRow } from "@/components/feed/CuratedContentDisplay";
 import {
   getFootballScores,
   getBettingPredictions,
@@ -35,18 +36,6 @@ function FootballRow({ match }: { match: CuratedContentItem }) {
       avatarFallback={home}
       title={title}
       subtitle={subtitle}
-    />
-  );
-}
-
-function ContentRow({ item }: { item: CuratedContentItem }) {
-  return (
-    <ListRow
-      href={item.source_url || "/updates"}
-      avatarSrc={item.image_url ?? undefined}
-      avatarFallback={item.title}
-      title={item.title}
-      subtitle={item.source_name}
     />
   );
 }

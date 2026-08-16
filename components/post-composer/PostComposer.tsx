@@ -4,8 +4,9 @@
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { extractFirstUrl } from "@/lib/url-pattern.mjs";
+import { looksLikeEvent } from "@/lib/event-detection.mjs";
 import { cn } from "@/lib/utils";
-import { ImagePlus, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { CalendarPlus, ImagePlus, Loader2, Plus, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { MediaProps, OptimisticCallbacks, PostProps } from "@/lib/types";
 import MediaGallery from "./MediaGallery";
@@ -23,6 +24,7 @@ import {
 } from "../ui/select";
 import { handlePost, type ProductDraft } from "./utils";
 import { generateDraftDescription } from "@/app/actions/aiDraft";
+import { CreateEventDialog } from "../CreateEventDialog";
 import { toast } from "sonner";
 
 const MAX_TEXT = 280;
@@ -70,6 +72,11 @@ const PostComposer = ({
   const [productCurrency, setProductCurrency] = useState(CURRENCIES[0]);
   const [productGallery, setProductGallery] = useState<MediaProps[]>([]);
   const [draftingDescription, setDraftingDescription] = useState(false);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  // Dismissing clears the suggestion for this specific text — editing it
+  // further re-evaluates instead of staying dismissed forever, since a
+  // rewritten post might turn into (or out of) looking like an event again.
+  const [dismissedEventSuggestionFor, setDismissedEventSuggestionFor] = useState("");
   const linkPreviewUrl = extractFirstUrl(text);
   const isSending = loading || isSubmitting;
   const validPollOptions = pollOptions.map(o => o.trim()).filter(Boolean);
@@ -80,6 +87,16 @@ const PostComposer = ({
     : sellMode
       ? productName.trim().length > 0 && isValidPrice
       : text.trim().length > 0 || media.length > 0;
+  // Only for a genuine top-level post — a reply or quote is a response to
+  // someone else's content, not something the replying visitor would be
+  // hosting themselves.
+  const suggestEvent =
+    !parentPostId &&
+    !quotePostId &&
+    !pollMode &&
+    !sellMode &&
+    looksLikeEvent(text) &&
+    dismissedEventSuggestionFor !== text;
 
   const resetPoll = () => {
     setPollMode(false);
@@ -437,6 +454,30 @@ const PostComposer = ({
 
           {linkPreviewUrl && !pollMode && !sellMode && <LinkPreviewCard url={linkPreviewUrl} />}
 
+          {suggestEvent && (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+              <CalendarPlus className="size-4 shrink-0 text-primary" />
+              <span className="flex-1 text-muted-foreground">This looks like an event.</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-6 px-2 text-xs"
+                onClick={() => setEventDialogOpen(true)}
+              >
+                Create event
+              </Button>
+              <button
+                type="button"
+                onClick={() => setDismissedEventSuggestionFor(text)}
+                aria-label="Dismiss"
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             {/* The toolbar can hold up to 6 icon buttons (media, emoji, gif,
                 poll, sell, event) — flex-wrap let it push Share onto its own
@@ -479,6 +520,14 @@ const PostComposer = ({
       </div>
 
       <MediaGallery media={media} setMedia={handleSetMedia} />
+
+      {suggestEvent && (
+        <CreateEventDialog
+          open={eventDialogOpen}
+          onOpenChange={setEventDialogOpen}
+          initialDescription={text}
+        />
+      )}
     </div>
   );
 };
