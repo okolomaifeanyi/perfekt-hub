@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { UserProps } from "@/lib/types";
 import Avatar from "./Avatar";
@@ -7,10 +8,12 @@ import Actions from "./Actions";
 import { StatCard } from "./StatsCard";
 import { Separator } from "@/components/ui/separator";
 import ProfileTab from "./ProfileTab";
+import ProfileCompletionCard from "./ProfileCompletionCard";
 import { useUserCounts } from "@/hooks/useUserCounts";
 
 const ProfileClient = ({ profile }: { profile: UserProps }) => {
   const { user } = useUserStore();
+  const [openEdit, setOpenEdit] = useState(false);
 
   const isMe = user?.uid === profile.uid;
 
@@ -25,10 +28,14 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
     <div className="px-4 pb-24">
       <div className="-mt-[30px] flex justify-between items-start">
         <Avatar uid={profile.uid} />
-        <Actions isMe={isMe} profile={profile} />
+        <Actions isMe={isMe} profile={profile} openEdit={openEdit} setOpenEdit={setOpenEdit} />
       </div>
 
       <div className="space-y-1.5 mt-4">
+        {isMe && (
+          <ProfileCompletionCard profile={profile} onEdit={() => setOpenEdit(true)} />
+        )}
+
         {profile.bio && (
           <p className="mt-4 max-w-2xl text-xs leading-relaxed">
             {profile.bio}

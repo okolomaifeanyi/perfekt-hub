@@ -16,6 +16,7 @@ import {
 import { useEditProfile } from "@/hooks/useEditProfile";
 import { UserProps } from "@/lib/types";
 import { COUNTRIES } from "@/lib/countries.mjs";
+import { MARITAL_STATUS_OPTIONS } from "@/lib/marital-status.mjs";
 import { UserPen } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { ResponsiveSheet } from "@/components/ReponsiveSheet";
@@ -27,6 +28,8 @@ export const profileSchema = z.object({
   website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   location: z.string().optional(),
   country: z.string().optional(),
+  gender: z.enum(["male", "female", "other"]).optional(),
+  relationship: z.string().optional(),
   education: z.string().optional(),
   company: z.string().optional(),
   linkedin: z.string().url("Invalid URL").optional().or(z.literal("")),
@@ -64,6 +67,8 @@ const EditProfile = ({
       website: profile?.website || "",
       location: profile?.location || "",
       country: profile?.country || "",
+      gender: profile?.gender,
+      relationship: profile?.relationship || "",
       education: profile?.education || "",
       company: profile?.company || "",
       linkedin: profile?.linkedin || "",
@@ -240,6 +245,55 @@ const EditProfile = ({
                   {COUNTRIES.map(country => (
                     <SelectItem key={country.code} value={country.name}>
                       {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        {/* Gender */}
+        <div className="grid gap-2">
+          <label htmlFor="gender" className="text-sm font-medium">
+            Gender
+          </label>
+          <Controller
+            name="gender"
+            control={form.control}
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger id="gender" className="w-full">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        {/* Relationship status — used to keep married visitors out of
+            Suggested Match's candidate pool (see app/actions/discover.ts). */}
+        <div className="grid gap-2">
+          <label htmlFor="relationship" className="text-sm font-medium">
+            Relationship status
+          </label>
+          <Controller
+            name="relationship"
+            control={form.control}
+            render={({ field }) => (
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger id="relationship" className="w-full">
+                  <SelectValue placeholder="Select relationship status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MARITAL_STATUS_OPTIONS.map(status => (
+                    <SelectItem key={status} value={status}>
+                      {status}
                     </SelectItem>
                   ))}
                 </SelectContent>

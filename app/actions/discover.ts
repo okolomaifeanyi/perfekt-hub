@@ -5,7 +5,15 @@ import { getSupabaseServerClient } from "@/lib/supabase/client";
 import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getPost } from "@/lib/data";
 import { rankMatchCandidates } from "@/lib/match-recommendations.mjs";
+import { MARRIED_STATUS } from "@/lib/marital-status.mjs";
 import { PostProps, UserProps } from "@/lib/types";
+
+// PostgREST .neq() on a nullable column excludes NULL rows too (SQL's
+// `NULL <> 'Married'` is NULL, not true) — almost every candidate has never
+// set a relationship status at all, so a plain .neq() would wrongly hide
+// them all. This explicit .or() keeps "never set" alongside "set to
+// anything but Married".
+const EXCLUDE_MARRIED_FILTER = `relationship.is.null,relationship.neq.${MARRIED_STATUS}`;
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function withSupabaseRequestContext<T>(
@@ -125,9 +133,10 @@ export async function getSuggestedMatches(
 
     const { data: candidates, error } = await client
       .from("users")
-      .select("uid, username, fullname, photourl, gender, dob, followerscount, followingcount, friendscount, completedprofile")
+      .select("uid, username, fullname, photourl, gender, dob, relationship, followerscount, followingcount, friendscount, completedprofile")
       .neq("uid", currentUid)
       .eq("gender", genderPreference)
+      .or(EXCLUDE_MARRIED_FILTER)
       .limit(50);
     if (error) throw error;
     if (!candidates || candidates.length === 0) return [];
@@ -186,9 +195,10 @@ export async function listMatchesPage(params: {
     if (params.sortMode === "time") {
       const { data, error } = await client
         .from("users")
-        .select("uid, username, fullname, photourl, gender, followerscount, followingcount, friendscount, completedprofile, createdat")
+        .select("uid, username, fullname, photourl, gender, relationship, followerscount, followingcount, friendscount, completedprofile, createdat")
         .neq("uid", params.currentUid)
         .eq("gender", genderPreference)
+        .or(EXCLUDE_MARRIED_FILTER)
         .order("createdat", { ascending: false })
         .range(params.offset, params.offset + params.limit - 1);
       if (error) throw error;
@@ -212,9 +222,10 @@ export async function listMatchesPage(params: {
     const myAge = calculateAge(me.dob as string | null);
     const { data: candidates, error } = await client
       .from("users")
-      .select("uid, username, fullname, photourl, gender, dob, followerscount, followingcount, friendscount, completedprofile")
+      .select("uid, username, fullname, photourl, gender, dob, relationship, followerscount, followingcount, friendscount, completedprofile")
       .neq("uid", params.currentUid)
       .eq("gender", genderPreference)
+      .or(EXCLUDE_MARRIED_FILTER)
       .limit(300);
     if (error) throw error;
     if (!candidates || candidates.length === 0) return [];

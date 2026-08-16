@@ -7,11 +7,20 @@ import { Button } from "@/components/ui/button";
 import ConnectDropdown from "@/components/Connect";
 import { useDirectMessage } from "@/hooks/useDirectMessage";
 import { UserProps } from "@/lib/types";
-import { useState } from "react";
+import { Dispatch, SetStateAction } from "react";
 
-const Actions = ({ isMe, profile }: { isMe: boolean; profile: UserProps }) => {
+const Actions = ({
+  isMe,
+  profile,
+  openEdit,
+  setOpenEdit,
+}: {
+  isMe: boolean;
+  profile: UserProps;
+  openEdit: boolean;
+  setOpenEdit: Dispatch<SetStateAction<boolean>>;
+}) => {
   const { startDM, loading: dmLoading } = useDirectMessage();
-  const [openEdit, setOpenEdit] = useState(false);
 
   return (
     <div className="flex items-center mt-12 gap-2">

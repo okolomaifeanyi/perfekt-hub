@@ -48,6 +48,7 @@ export default async function Page({
     createdAt,
     relationship: data.relationship ?? "",
     country: data.country ?? "",
+    gender: data.gender ?? undefined,
     dob: data.dob ?? "",
     education: data.education ?? "",
     company: data.company ?? "",
