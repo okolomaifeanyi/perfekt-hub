@@ -7,6 +7,7 @@ import {
   getFootballScores,
   getInterestedNews,
   getCountryNews,
+  getTeamNews,
   getNewsFeed,
   type CuratedContentItem,
 } from "@/app/actions/curatedContent";
@@ -62,13 +63,22 @@ function prioritizeMatches(matches: CuratedContentItem[]): CuratedContentItem[] 
   return [...live, ...upcoming, ...results];
 }
 
-export function FootballRail({ leagueCodes, previewCount = 2 }: { leagueCodes: string[]; previewCount?: number }) {
+export function FootballRail({
+  leagueCodes,
+  teamIds,
+  previewCount = 2,
+}: {
+  leagueCodes: string[];
+  teamIds?: string[];
+  previewCount?: number;
+}) {
   const [matches, setMatches] = useState<CuratedContentItem[] | null>(null);
   const leagueKey = leagueCodes.join(",");
+  const teamKey = (teamIds ?? []).join(",");
 
   useEffect(() => {
     let active = true;
-    getFootballScores(leagueCodes)
+    getFootballScores(leagueCodes, teamIds)
       .then(result => {
         if (active) setMatches(prioritizeMatches(result));
       })
@@ -78,10 +88,11 @@ export function FootballRail({ leagueCodes, previewCount = 2 }: { leagueCodes: s
     return () => {
       active = false;
     };
-    // leagueCodes is rebuilt fresh each render from the interests set —
-    // leagueKey is the stable dependency that actually reflects its content.
+    // leagueCodes/teamIds are rebuilt fresh each render from the interests
+    // set — leagueKey/teamKey are the stable dependencies that actually
+    // reflect their content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueKey]);
+  }, [leagueKey, teamKey]);
 
   return (
     <RailShell title="Scores" description="Fixtures, live scores, and results." icon={Trophy} seeMoreHref="/updates">
@@ -158,12 +169,13 @@ export function NewsForYouRail({ topics, previewCount = 2 }: { topics: string[];
   );
 }
 
-export function CountryNewsRail({ country, previewCount = 2 }: { country: string; previewCount?: number }) {
+export function CountryNewsRail({ countries, previewCount = 2 }: { countries: string[]; previewCount?: number }) {
   const [items, setItems] = useState<CuratedContentItem[] | null>(null);
+  const countriesKey = countries.join(",");
 
   useEffect(() => {
     let active = true;
-    getCountryNews(country, previewCount)
+    getCountryNews(countries, previewCount)
       .then(result => {
         if (active) setItems(result);
       })
@@ -173,12 +185,13 @@ export function CountryNewsRail({ country, previewCount = 2 }: { country: string
     return () => {
       active = false;
     };
-  }, [country, previewCount]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countriesKey, previewCount]);
 
   return (
     <RailShell
       title="News near you"
-      description={`What's happening in ${country}.`}
+      description={`What's happening in ${countries.join(", ")}.`}
       icon={Newspaper}
       seeMoreHref="/updates"
     >
@@ -186,6 +199,38 @@ export function CountryNewsRail({ country, previewCount = 2 }: { country: string
         Array.from({ length: previewCount }).map((_, index) => <RowSkeleton key={index} />)
       ) : items.length === 0 ? (
         <EmptyRow label="Nothing local yet — check back soon." />
+      ) : (
+        items.slice(0, previewCount).map(item => <ContentRow key={item.id} item={item} />)
+      )}
+    </RailShell>
+  );
+}
+
+export function TeamNewsRail({ teamNames, previewCount = 2 }: { teamNames: string[]; previewCount?: number }) {
+  const [items, setItems] = useState<CuratedContentItem[] | null>(null);
+  const teamNamesKey = teamNames.join(",");
+
+  useEffect(() => {
+    let active = true;
+    getTeamNews(teamNames, previewCount)
+      .then(result => {
+        if (active) setItems(result);
+      })
+      .catch(() => {
+        if (active) setItems([]);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamNamesKey, previewCount]);
+
+  return (
+    <RailShell title="Your teams" description="News mentioning the teams you follow." icon={Trophy} seeMoreHref="/updates">
+      {items === null ? (
+        Array.from({ length: previewCount }).map((_, index) => <RowSkeleton key={index} />)
+      ) : items.length === 0 ? (
+        <EmptyRow label="Nothing yet — check back soon." />
       ) : (
         items.slice(0, previewCount).map(item => <ContentRow key={item.id} item={item} />)
       )}

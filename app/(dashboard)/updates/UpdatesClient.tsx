@@ -22,7 +22,8 @@ type UpdatesClientProps = {
 
 const LEAGUE_PREFIX = "league:";
 const TOPIC_PREFIX = "topic:";
-const COUNTRY_NEWS_KEY = "topic:country_news";
+const TEAM_PREFIX = "team:";
+const COUNTRY_PREFIX = "country:";
 
 // Fetched once, client-side, and shared by both panels — page.tsx stays a
 // plain ISR page (no cookies() call, so it keeps its 60s revalidate cache
@@ -33,7 +34,8 @@ function useInterests() {
   const currentUser = useUserStore(state => state.user);
   const [leagueCodes, setLeagueCodes] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
-  const [wantsCountryNews, setWantsCountryNews] = useState(false);
+  const [teamIds, setTeamIds] = useState<string[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
@@ -42,12 +44,15 @@ function useInterests() {
       .then(keys => {
         if (!active) return;
         setLeagueCodes(keys.filter(k => k.startsWith(LEAGUE_PREFIX)).map(k => k.slice(LEAGUE_PREFIX.length)));
-        setTopics(
+        setTopics(keys.filter(k => k.startsWith(TOPIC_PREFIX)).map(k => k.slice(TOPIC_PREFIX.length)));
+        // team keys are "team:{id}|{name}" — only the id matters for
+        // filtering scores here, unlike Aside which also needs the name.
+        setTeamIds(
           keys
-            .filter(k => k.startsWith(TOPIC_PREFIX) && k !== COUNTRY_NEWS_KEY)
-            .map(k => k.slice(TOPIC_PREFIX.length))
+            .filter(k => k.startsWith(TEAM_PREFIX))
+            .map(k => k.slice(TEAM_PREFIX.length).split("|")[0])
         );
-        setWantsCountryNews(keys.includes(COUNTRY_NEWS_KEY));
+        setCountries(keys.filter(k => k.startsWith(COUNTRY_PREFIX)).map(k => k.slice(COUNTRY_PREFIX.length)));
       })
       .catch(() => {});
     return () => {
@@ -55,10 +60,18 @@ function useInterests() {
     };
   }, [currentUser?.uid]);
 
-  return { leagueCodes, topics, wantsCountryNews: wantsCountryNews && Boolean(currentUser?.country), country: currentUser?.country };
+  return { leagueCodes, topics, teamIds, countries };
 }
 
-function ScoresPanel({ initialScores, leagueCodes }: { initialScores: CuratedContentItem[]; leagueCodes: string[] }) {
+function ScoresPanel({
+  initialScores,
+  leagueCodes,
+  teamIds,
+}: {
+  initialScores: CuratedContentItem[];
+  leagueCodes: string[];
+  teamIds: string[];
+}) {
   const [filterToMine, setFilterToMine] = useState(true);
   const [scores, setScores] = useState(initialScores);
   const [isPending, startTransition] = useTransition();
@@ -67,13 +80,16 @@ function ScoresPanel({ initialScores, leagueCodes }: { initialScores: CuratedCon
   useEffect(() => {
     if (!hasLeagueInterests) return;
     startTransition(async () => {
-      const items = await getFootballScores(filterToMine ? leagueCodes : undefined);
+      const items = await getFootballScores(
+        filterToMine ? leagueCodes : undefined,
+        filterToMine ? teamIds : undefined
+      );
       setScores(items);
     });
-    // leagueCodes is rebuilt fresh from useInterests' state each render —
-    // its content (not identity) is what determines whether to refetch.
+    // leagueCodes/teamIds are rebuilt fresh from useInterests' state each
+    // render — their content (not identity) is what determines refetching.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterToMine, hasLeagueInterests, leagueCodes.join(",")]);
+  }, [filterToMine, hasLeagueInterests, leagueCodes.join(","), teamIds.join(",")]);
 
   const { live, upcoming, results } = groupMatches(scores);
 
@@ -143,15 +159,14 @@ function ScoresPanel({ initialScores, leagueCodes }: { initialScores: CuratedCon
 function NewsPanel({
   initialNews,
   topics,
-  wantsCountryNews,
-  country,
+  countries,
 }: {
   initialNews: CuratedContentItem[];
   topics: string[];
-  wantsCountryNews: boolean;
-  country?: string;
+  countries: string[];
 }) {
   const hasTopicInterests = topics.length > 0;
+  const hasCountryInterests = countries.length > 0;
   const [category, setCategory] = useState("all");
   const [news, setNews] = useState(initialNews);
   const [isPending, startTransition] = useTransition();
@@ -164,7 +179,7 @@ function NewsPanel({
 
   const filters = [
     ...(hasTopicInterests ? [{ value: "foryou", label: "For you" }] : []),
-    ...(wantsCountryNews ? [{ value: "nearby", label: "Near you" }] : []),
+    ...(hasCountryInterests ? [{ value: "nearby", label: "Near you" }] : []),
     ...NEWS_CATEGORY_FILTERS,
   ];
 
@@ -173,8 +188,8 @@ function NewsPanel({
       const items =
         value === "foryou"
           ? await getInterestedNews(topics)
-          : value === "nearby" && country
-            ? await getCountryNews(country)
+          : value === "nearby" && hasCountryInterests
+            ? await getCountryNews(countries)
             : await getNewsFeed(value);
       setNews(items);
     });
@@ -188,15 +203,15 @@ function NewsPanel({
 
   // Whichever's most specific to this visitor wins the default view once
   // interests resolve — "for you" if they picked topics, "near you" if just
-  // a country, else the same unfiltered "all" every guest already sees.
+  // countries, else the same unfiltered "all" every guest already sees.
   useEffect(() => {
     if (userPicked) return;
-    const nextDefault = hasTopicInterests ? "foryou" : wantsCountryNews ? "nearby" : "all";
+    const nextDefault = hasTopicInterests ? "foryou" : hasCountryInterests ? "nearby" : "all";
     if (nextDefault === "all") return;
     setCategory(nextDefault);
     fetchCategory(nextDefault);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasTopicInterests, wantsCountryNews, userPicked]);
+  }, [hasTopicInterests, hasCountryInterests, userPicked]);
 
   return (
     <div className="space-y-3 px-4">
@@ -232,7 +247,7 @@ function NewsPanel({
 }
 
 export default function UpdatesClient({ initialScores, initialNews }: UpdatesClientProps) {
-  const { leagueCodes, topics, wantsCountryNews, country } = useInterests();
+  const { leagueCodes, topics, teamIds, countries } = useInterests();
 
   return (
     <Tabs defaultValue="scores" className="w-full pt-4">
@@ -242,16 +257,11 @@ export default function UpdatesClient({ initialScores, initialNews }: UpdatesCli
       </TabsList>
 
       <TabsContent value="scores">
-        <ScoresPanel initialScores={initialScores} leagueCodes={leagueCodes} />
+        <ScoresPanel initialScores={initialScores} leagueCodes={leagueCodes} teamIds={teamIds} />
       </TabsContent>
 
       <TabsContent value="news">
-        <NewsPanel
-          initialNews={initialNews}
-          topics={topics}
-          wantsCountryNews={wantsCountryNews}
-          country={country}
-        />
+        <NewsPanel initialNews={initialNews} topics={topics} countries={countries} />
       </TabsContent>
     </Tabs>
   );

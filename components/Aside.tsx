@@ -27,6 +27,7 @@ import {
   MoviesRail,
   NewsForYouRail,
   CountryNewsRail,
+  TeamNewsRail,
 } from "@/components/feed/CuratedContentRails";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -348,7 +349,8 @@ function GroupMembersAside() {
 
 const LEAGUE_PREFIX = "league:";
 const TOPIC_PREFIX = "topic:";
-const COUNTRY_NEWS_KEY = "topic:country_news";
+const TEAM_PREFIX = "team:";
+const COUNTRY_PREFIX = "country:";
 
 function useAsideInterests() {
   const currentUser = useUserStore(state => state.user);
@@ -376,12 +378,21 @@ function useAsideInterests() {
     .filter(key => key.startsWith(LEAGUE_PREFIX))
     .map(key => key.slice(LEAGUE_PREFIX.length));
   const topics = [...(interests ?? [])]
-    .filter(key => key.startsWith(TOPIC_PREFIX) && key !== COUNTRY_NEWS_KEY)
+    .filter(key => key.startsWith(TOPIC_PREFIX))
     .map(key => key.slice(TOPIC_PREFIX.length));
-  const wantsCountryNews = Boolean(interests?.has(COUNTRY_NEWS_KEY)) && Boolean(currentUser?.country);
-  const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || wantsCountryNews;
+  // team keys are "team:{id}|{name}" — the name rides along so team-tagged
+  // news can fuzzy-match by name without a separate id -> name lookup.
+  const teamEntries = [...(interests ?? [])]
+    .filter(key => key.startsWith(TEAM_PREFIX))
+    .map(key => key.slice(TEAM_PREFIX.length).split("|"));
+  const teamIds = teamEntries.map(([id]) => id);
+  const teamNames = teamEntries.map(([, name]) => name).filter(Boolean);
+  const countries = [...(interests ?? [])]
+    .filter(key => key.startsWith(COUNTRY_PREFIX))
+    .map(key => key.slice(COUNTRY_PREFIX.length));
+  const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || countries.length > 0;
 
-  return { interests, leagueCodes, topics, wantsCountryNews, hasAnyInterest, country: currentUser?.country };
+  return { interests, leagueCodes, topics, teamIds, teamNames, countries, hasAnyInterest };
 }
 
 // Shared by the default Aside and DiscoverAside — the football/news/movies
@@ -391,20 +402,22 @@ function InterestRails({
   interests,
   leagueCodes,
   topics,
-  wantsCountryNews,
+  teamIds,
+  teamNames,
+  countries,
   hasAnyInterest,
-  country,
 }: ReturnType<typeof useAsideInterests>) {
   return (
     <>
-      {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} />}
+      {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} teamIds={teamIds} />}
+      {teamNames.length > 0 && <TeamNewsRail teamNames={teamNames} />}
       {topics.includes("movie_news") && <MoviesRail />}
       {/* movie_news gets its own rail above — excluded here so it doesn't
           show up twice. */}
       {topics.filter(t => t !== "movie_news").length > 0 && (
         <NewsForYouRail topics={topics.filter(t => t !== "movie_news")} />
       )}
-      {wantsCountryNews && country && <CountryNewsRail country={country} />}
+      {countries.length > 0 && <CountryNewsRail countries={countries} />}
 
       {interests !== null && !hasAnyInterest && (
         <Card className="py-4">
