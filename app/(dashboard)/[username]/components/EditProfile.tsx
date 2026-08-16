@@ -2,12 +2,20 @@
 
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEditProfile } from "@/hooks/useEditProfile";
 import { UserProps } from "@/lib/types";
+import { COUNTRIES } from "@/lib/countries.mjs";
 import { UserPen } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { ResponsiveSheet } from "@/components/ReponsiveSheet";
@@ -18,6 +26,7 @@ export const profileSchema = z.object({
   bio: z.string().optional(),
   website: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   location: z.string().optional(),
+  country: z.string().optional(),
   education: z.string().optional(),
   company: z.string().optional(),
   linkedin: z.string().url("Invalid URL").optional().or(z.literal("")),
@@ -54,6 +63,7 @@ const EditProfile = ({
       bio: profile?.bio || "",
       website: profile?.website || "",
       location: profile?.location || "",
+      country: profile?.country || "",
       education: profile?.education || "",
       company: profile?.company || "",
       linkedin: profile?.linkedin || "",
@@ -205,6 +215,36 @@ const EditProfile = ({
             id="location"
             placeholder="City, Country"
             {...form.register("location")}
+          />
+        </div>
+
+        {/* Country — drives the "News near you" widget on Aside/Updates;
+            left unset just hides that widget rather than guessing. */}
+        <div className="grid gap-2">
+          <label htmlFor="country" className="text-sm font-medium">
+            Country
+          </label>
+          <Controller
+            name="country"
+            control={form.control}
+            render={({ field }) => (
+              // Always a defined string ("" or a country name), never
+              // undefined — passing undefined on the first render then a
+              // real value after picking one flips Select from uncontrolled
+              // to controlled, which React warns about (confirmed live).
+              <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                <SelectTrigger id="country" className="w-full">
+                  <SelectValue placeholder="Select your country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map(country => (
+                    <SelectItem key={country.code} value={country.name}>
+                      {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           />
         </div>
 
