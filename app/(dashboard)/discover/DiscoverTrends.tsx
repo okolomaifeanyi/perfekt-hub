@@ -13,6 +13,7 @@ import {
   type CuratedContentItem,
 } from "@/app/actions/curatedContent";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
+import { LeagueCoverageNote } from "@/components/feed/LeagueCoverageNote";
 import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
 import type { ReactionType } from "@/app/actions/curatedContentReactions";
@@ -227,7 +228,7 @@ export default function DiscoverTrends() {
   const loadTrends = async () => {
     const [scores, betting, teamNewsItems, countryItems, ...topicResults] = await Promise.all([
       leagueCodes.length > 0 ? getFootballScores(leagueCodes) : Promise.resolve([]),
-      topics.includes("betting_prediction") ? getBettingPredictions(leagueCodes, 6) : Promise.resolve([]),
+      topics.includes("betting_prediction") ? getBettingPredictions(leagueCodes, 2) : Promise.resolve([]),
       teamNames.length > 0 ? getTeamNews(teamNames, 2) : Promise.resolve([]),
       countries.length > 0 ? getCountryNews(countries, 2) : Promise.resolve([]),
       ...TOPICS.map(topic => {
@@ -427,6 +428,7 @@ export default function DiscoverTrends() {
             value={tab.key}
             className={cn("pt-4", loading && activeTab === tab.key && "opacity-60")}
           >
+            <LeagueCoverageNote />
             {hasLeagueInterests && (
               <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
             )}

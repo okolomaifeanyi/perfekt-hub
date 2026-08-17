@@ -14,6 +14,7 @@ import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
 import { NEWS_CATEGORY_FILTERS } from "@/lib/curated-content-categories.mjs";
 import { MatchRow, ContentRow, groupMatches } from "@/components/feed/CuratedContentDisplay";
+import { LeagueCoverageNote } from "@/components/feed/LeagueCoverageNote";
 
 type UpdatesClientProps = {
   initialScores: CuratedContentItem[];
@@ -97,6 +98,8 @@ function MatchesList({
 
   return (
     <div className="space-y-4 px-4">
+      <LeagueCoverageNote />
+
       {hasLeagueInterests && (
         <LeagueFilterToggle filterToMine={filterToMine} setFilterToMine={setFilterToMine} />
       )}

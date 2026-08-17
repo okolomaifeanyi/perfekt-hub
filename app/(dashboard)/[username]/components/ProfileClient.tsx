@@ -33,7 +33,14 @@ const ProfileClient = ({ profile }: { profile: UserProps }) => {
 
       <div className="space-y-1.5 mt-4">
         {isMe && (
-          <ProfileCompletionCard profile={profile} onEdit={() => setOpenEdit(true)} />
+          // useUserStore's own user object, not the `profile` prop — that
+          // prop is a one-time server-render snapshot with nothing to
+          // invalidate it, so after saving Edit Profile it kept showing the
+          // pre-save percentage until a full reload. The store's own user
+          // is kept fresh by startUserListener's realtime subscription
+          // (started app-wide on login), so falling back to `profile` only
+          // matters for the brief window before that first snapshot lands.
+          <ProfileCompletionCard profile={user ?? profile} onEdit={() => setOpenEdit(true)} />
         )}
 
         {profile.bio && (
