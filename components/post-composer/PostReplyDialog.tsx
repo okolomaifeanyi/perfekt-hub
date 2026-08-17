@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +6,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import PostComposer from "./PostComposer";
+import { ReactionButton } from "@/components/feed/post/ReactionButton";
 import { MessageCircleMore } from "lucide-react";
 import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdDate";
 import { PostProps, UserProps } from "@/lib/types";
@@ -52,25 +52,15 @@ export function PostReplyDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant={hasCount ? "outline" : "secondary"}
-          title="Comment"
-          className="hover:text-green-600 flex items-center gap-1"
+        <ReactionButton
+          icon={MessageCircleMore}
+          count={replyCount}
+          active={hasCount}
+          hoverClass="hover:text-green-600"
+          activeClass="text-green-600"
+          label="Comment"
           onClick={() => setOpen(true)}
-        >
-          <MessageCircleMore
-            size={16}
-            fill={hasCount ? "currentColor" : "none"}
-            stroke="currentColor"
-            className={hasCount ? "text-green-600" : ""}
-          />
-          {hasCount && (
-            <span className={`text-base ${hasCount ? "text-green-600" : ""}`}>
-              {replyCount}
-            </span>
-          )}
-        </Button>
+        />
       </DialogTrigger>
 
       <DialogContent className="space-y-4">

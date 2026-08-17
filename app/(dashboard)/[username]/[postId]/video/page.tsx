@@ -45,6 +45,10 @@ export default async function VideoPage({ params }: PageProps) {
     feedPosts,
     targetSize: 12,
     seed: feedUserId,
+    // Only exclude when someone's actually signed in — feedUserId falls
+    // back to the post author's uid for guests, and excluding "yourself"
+    // there would wrongly strip the author's own other videos.
+    excludeUid: uid || undefined,
   });
 
   return <VideoViewer currentUsername={username} currentPost={currentPost} queue={queue} />;

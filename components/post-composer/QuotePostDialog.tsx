@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +6,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import PostComposer from "./PostComposer";
+import { ReactionButton } from "@/components/feed/post/ReactionButton";
 import { Quote } from "lucide-react";
 import PostIdDate from "@/app/(dashboard)/[username]/[postId]/components/PostIdDate";
 import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
@@ -55,25 +55,15 @@ export function QuotePostDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant={hasCount ? "outline" : "secondary"}
-          title="Quote"
-          className="hover:text-green-600 flex items-center gap-1"
+        <ReactionButton
+          icon={Quote}
+          count={quoteCount}
+          active={hasCount}
+          hoverClass="hover:text-green-600"
+          activeClass="text-green-600"
+          label="Quote"
           onClick={() => setOpen(true)}
-        >
-          <Quote
-            size={16}
-            fill={hasCount ? "currentColor" : "none"}
-            stroke="currentColor"
-            className={hasCount ? "text-green-600" : ""}
-          />
-          {hasCount && (
-            <span className={`text-base ${hasCount ? "text-green-600" : ""}`}>
-              {quoteCount}
-            </span>
-          )}
-        </Button>
+        />
       </DialogTrigger>
 
       <DialogContent className="space-y-4">

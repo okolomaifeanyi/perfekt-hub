@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Radio, Heart, ThumbsDown, MessageCircle, Quote, Share2, Eye, Loader2 } from "lucide-react";
@@ -10,7 +11,6 @@ import { getCompactTimeAgo } from "@/lib/time-format.mjs";
 import type { CuratedContentItem } from "@/app/actions/curatedContent";
 import type { CuratedContentReactionSummary, ReactionType } from "@/app/actions/curatedContentReactions";
 import {
-  incrementCuratedContentView,
   getCuratedContentComments,
   addCuratedContentComment,
   type CuratedContentComment,
@@ -121,34 +121,33 @@ function CommentThread({ contentId }: { contentId: string }) {
   );
 }
 
-// Own row below the card content rather than nested inside it — ContentRow
-// wraps its whole card in an <a> when there's a source link, and a <button>
-// nested inside an <a> is both invalid HTML and would trigger the link
-// navigation on every reaction click.
-function ActionBar({
+// Own row below the card content rather than nested inside it — MatchRow and
+// ContentRow both wrap their card body in a <Link> to the internal detail
+// page, and a <button> nested inside an <a> is both invalid HTML and would
+// trigger the link navigation on every reaction click.
+export function ActionBar({
   item,
   reaction,
   onToggle,
+  defaultShowComments = false,
 }: {
   item: CuratedContentItem;
   reaction?: CuratedContentReactionSummary;
   onToggle?: (type: ReactionType) => void;
+  defaultShowComments?: boolean;
 }) {
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
-
-  // Fire-and-forget, once per card mount — best-effort impression count,
-  // not a strict per-visitor unique (see incrementCuratedContentView).
-  useEffect(() => {
-    void incrementCuratedContentView(item.id);
-  }, [item.id]);
 
   if (!onToggle) return null;
   const liked = reaction?.userReaction === "like";
   const disliked = reaction?.userReaction === "dislike";
 
-  const shareUrl = item.source_url || (typeof window !== "undefined" ? `${window.location.origin}/updates` : "/updates");
+  // Always the internal detail page now, never the external source — see
+  // /updates/[id]. That page is also where the view count actually
+  // increments (on click-through), not here on card mount.
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/updates/${item.id}` : `/updates/${item.id}`;
   const handleShare = async () => {
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
@@ -163,7 +162,7 @@ function ActionBar({
     setTimeout(() => setShareCopied(false), 2000);
   };
 
-  const quoteText = `"${item.title}"${item.source_url ? `\n\n${item.source_url}` : ""}`;
+  const quoteText = `"${item.title}"\n\n${shareUrl}`;
 
   return (
     <div onClick={event => event.stopPropagation()}>
@@ -271,32 +270,34 @@ export function MatchRow({
 
   return (
     <div className="overflow-hidden rounded-lg border border-border/60">
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground">{meta.competition}</p>
-          <p className="truncate text-sm font-medium">
-            {teamLabel(meta.homeTeam)} <span className="text-muted-foreground">vs</span>{" "}
-            {teamLabel(meta.awayTeam)}
-          </p>
-        </div>
+      <Link href={`/updates/${match.id}`} className="block">
+        <div className="flex items-center gap-3 px-3 py-2.5 transition hover:bg-accent/40">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">{meta.competition}</p>
+            <p className="truncate text-sm font-medium">
+              {teamLabel(meta.homeTeam)} <span className="text-muted-foreground">vs</span>{" "}
+              {teamLabel(meta.awayTeam)}
+            </p>
+          </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
-            <span className="font-mono text-sm font-semibold tabular-nums">
-              {meta.score.home}-{meta.score.away}
-            </span>
-          ) : null}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {typeof meta.score?.home === "number" && typeof meta.score?.away === "number" ? (
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {meta.score.home}-{meta.score.away}
+              </span>
+            ) : null}
 
-          {isLive ? (
-            <Badge variant="destructive" className="gap-1 text-[10px]">
-              <Radio className="size-2.5" />
-              {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
-            </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
-          )}
+            {isLive ? (
+              <Badge variant="destructive" className="gap-1 text-[10px]">
+                <Radio className="size-2.5" />
+                {typeof meta.minute === "number" ? `${meta.minute}'` : "Live"}
+              </Badge>
+            ) : (
+              <span className="text-xs text-muted-foreground">{formatContentTime(match.published_at)}</span>
+            )}
+          </div>
         </div>
-      </div>
+      </Link>
 
       <ActionBar item={match} reaction={reaction} onToggle={onToggleReaction} />
     </div>
@@ -352,13 +353,9 @@ export function ContentRow({
 
   return (
     <div className="overflow-hidden rounded-lg border border-border/60">
-      {item.source_url ? (
-        <a href={item.source_url} target="_blank" rel="noopener noreferrer">
-          {body}
-        </a>
-      ) : (
-        body
-      )}
+      <Link href={`/updates/${item.id}`} className="block">
+        {body}
+      </Link>
       <ActionBar item={item} reaction={reaction} onToggle={onToggleReaction} />
     </div>
   );

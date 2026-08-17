@@ -22,14 +22,20 @@ async function withSupabaseRequestContext<T>(
   return runWithSupabaseClient(supabase, () => callback(supabase));
 }
 
-// Fire-and-forget from the client — a lost view on a rare failed RPC call
-// isn't worth surfacing an error for. Uses a security-definer RPC (see the
-// migration) since curated_content itself only grants UPDATE to
-// service_role, and `view_count = view_count + 1` isn't expressible through
-// a plain .update() call anyway.
+// Called once per visit to a content item's detail page (see
+// app/(dashboard)/updates/[id]/page.tsx) — best-effort, swallows errors
+// since a lost view on a rare failed RPC call isn't worth failing the page
+// render over. Uses a security-definer RPC (see the migration) since
+// curated_content itself only grants UPDATE to service_role, and
+// `view_count = view_count + 1` isn't expressible through a plain .update()
+// call anyway.
 export async function incrementCuratedContentView(contentId: string): Promise<void> {
-  const supabase = getSupabasePublicClient();
-  await supabase.rpc("increment_curated_content_view", { p_content_id: contentId });
+  try {
+    const supabase = getSupabasePublicClient();
+    await supabase.rpc("increment_curated_content_view", { p_content_id: contentId });
+  } catch {
+    // best-effort
+  }
 }
 
 export type CuratedContentComment = {

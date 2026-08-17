@@ -39,6 +39,19 @@ export type TeamOption = {
 // further to matches involving any of those team IDs, home or away — a
 // match's own team fields live at two different jsonb paths, so this needs
 // an .or() filter rather than a single .in().
+// Powers the internal /updates/[id] detail page — clicking any curated
+// content card navigates here instead of out to the external source_url.
+export async function getCuratedContentById(id: string): Promise<CuratedContentItem | null> {
+  const supabase = getSupabasePublicClient();
+  const { data, error } = await supabase
+    .from("curated_content")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
 export async function getFootballScores(
   leagueCodes?: string[],
   teamIds?: string[]

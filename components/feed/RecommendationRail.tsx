@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -43,6 +44,19 @@ type FeedRecommendationType =
   | "videos"
   | "matches"
   | "products";
+
+// "vertical" is the original stacked-row-in-a-card look, used in the Aside
+// sidebar and empty-state fallbacks. "horizontal" is a scroll-snap strip of
+// compact cards, used for the feed's interleaved-between-posts interstitial
+// (see Posts.tsx) — a narrow sidebar rail and a full-width feed slot need
+// genuinely different layouts, not just a resize of the same one.
+type RailLayout = "vertical" | "horizontal";
+
+// A feed interstitial with only 1-2 cards reads as sparse filler rather than
+// a real recommendation — below this, skip the slot entirely rather than
+// show a half-empty strip. Vertical rails (Aside, empty states) don't use
+// this; they're fine showing however few items exist.
+const MIN_HORIZONTAL_RAIL_ITEMS = 5;
 
 const railCopy: Record<
   FeedRecommendationType,
@@ -132,6 +146,99 @@ export function RailShell({
   );
 }
 
+// Header-only strip + a horizontally scrolling row of cards — no outer Card
+// chrome, since this sits directly between posts in the feed rather than in
+// a boxed sidebar column.
+export function HorizontalRailShell({
+  title,
+  icon: Icon,
+  headerAction,
+  seeMoreHref,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  headerAction?: React.ReactNode;
+  seeMoreHref?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <Icon className="size-4 text-muted-foreground" />
+          {title}
+        </p>
+        <div className="flex items-center gap-3">
+          {headerAction}
+          {seeMoreHref && (
+            <Link href={seeMoreHref} className="text-xs font-medium text-primary hover:underline">
+              See more
+            </Link>
+          )}
+        </div>
+      </div>
+      <div className="scrollbar-none flex gap-3 overflow-x-auto px-1 pb-1">{children}</div>
+    </div>
+  );
+}
+
+// Every horizontal-rail card is a click-through to the full thing — no
+// inline actions (join/RSVP) crammed into a 144px-wide tile. That mirrors
+// the "click to see details" pattern the rest of the feed now follows for
+// curated content too, rather than trying to cram everything inline.
+export function CardTile({
+  href,
+  media,
+  avatarSrc,
+  avatarFallback,
+  title,
+  subtitle,
+}: {
+  href: string;
+  media?: { type: string; src: string } | null;
+  avatarSrc?: string | null;
+  avatarFallback: string;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="w-36 shrink-0 snap-start overflow-hidden rounded-lg border border-border/60 transition hover:bg-accent/40"
+    >
+      <div className="flex aspect-video w-full items-center justify-center overflow-hidden bg-muted">
+        {media?.type === "video" ? (
+          <video src={media.src} muted playsInline preload="metadata" className="size-full object-cover" />
+        ) : media?.type === "image" ? (
+          <Image src={media.src} alt="" width={144} height={81} unoptimized className="size-full object-cover" />
+        ) : (
+          <Avatar className="size-12">
+            {avatarSrc && <AvatarImage src={avatarSrc} alt="" />}
+            <AvatarFallback>{avatarFallback.slice(0, 1).toUpperCase()}</AvatarFallback>
+          </Avatar>
+        )}
+      </div>
+      <div className="space-y-0.5 p-2">
+        <p className="line-clamp-2 text-xs font-medium leading-snug">{title}</p>
+        {subtitle && <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>}
+      </div>
+    </Link>
+  );
+}
+
+export function CardTileSkeleton() {
+  return (
+    <div className="w-36 shrink-0 space-y-2 overflow-hidden rounded-lg border border-border/60">
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="space-y-1.5 p-2">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+    </div>
+  );
+}
+
 export function ListRow({
   href,
   avatarSrc,
@@ -196,12 +303,14 @@ function PeopleRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const suggestions = useUserStore(state => state.suggestions);
@@ -219,6 +328,26 @@ function PeopleRail({
   const people = suggestions.slice(0, previewCount);
 
   if (hideIfEmpty && !loading && people.length === 0) return null;
+
+  if (layout === "horizontal") {
+    if (!loading && people.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover/people">
+        {loading
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : people.map(person => (
+              <CardTile
+                key={person.uid}
+                href={`/${person.username}`}
+                avatarSrc={person.photoURL || userAltImageUrl({ name: person.fullName || person.username })}
+                avatarFallback={person.fullName || person.username || "U"}
+                title={person.fullName || person.username}
+                subtitle={person.bio || `@${person.username}`}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/people">
@@ -249,12 +378,14 @@ function VideosRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [videos, setVideos] = useState<PostProps[] | null>(null);
@@ -266,8 +397,14 @@ function VideosRail({
     }
     let active = true;
 
+    // Never recommend the viewer's own videos back to them — this rail is
+    // for discovering other people's clips, not a mirror of their Videos tab.
     void getFeedAction(currentUser.uid, 30, null, null, false, "trending").then(posts => {
-      if (active) setVideos(posts.filter(hasVideoMedia).slice(0, previewCount));
+      if (active) {
+        setVideos(
+          posts.filter(post => hasVideoMedia(post) && post.userId !== currentUser.uid).slice(0, previewCount)
+        );
+      }
     });
 
     return () => {
@@ -276,6 +413,27 @@ function VideosRail({
   }, [currentUser?.uid, previewCount]);
 
   if (hideIfEmpty && videos !== null && videos.length === 0) return null;
+
+  if (layout === "horizontal") {
+    if (videos !== null && videos.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon}>
+        {videos === null
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : videos.map(post => (
+              <CardTile
+                key={post.id}
+                href={buildVideoPostUrl(post.username || "", post.id)}
+                media={post.media?.[0]}
+                avatarSrc={post.userPhotoURL}
+                avatarFallback={post.userFullName || post.username || "U"}
+                title={post.content || "Watch this video"}
+                subtitle={post.userFullName || post.username}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
 
   return (
     <RailShell title={title} description={description} icon={icon}>
@@ -350,12 +508,14 @@ function SavesRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [posts, setPosts] = useState<PostProps[] | null>(null);
@@ -379,6 +539,27 @@ function SavesRail({
   }, [currentUser?.uid, previewCount]);
 
   if (hideIfEmpty && posts !== null && posts.length === 0) return null;
+
+  if (layout === "horizontal") {
+    if (posts !== null && posts.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover/saves">
+        {posts === null
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : posts.map(post => (
+              <CardTile
+                key={post.id}
+                href={`/${post.username}/${post.id}`}
+                media={post.media?.[0]}
+                avatarSrc={post.userPhotoURL}
+                avatarFallback={post.userFullName || post.username || "U"}
+                title={post.content || "View this post"}
+                subtitle={post.userFullName || post.username}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/saves">
@@ -410,12 +591,14 @@ function MatchesRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [matches, setMatches] = useState<UserProps[] | null>(null);
@@ -439,6 +622,26 @@ function MatchesRail({
   }, [currentUser?.uid, previewCount]);
 
   if (hideIfEmpty && matches !== null && matches.length === 0) return null;
+
+  if (layout === "horizontal") {
+    if (matches !== null && matches.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover/match">
+        {matches === null
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : matches.map(person => (
+              <CardTile
+                key={person.uid}
+                href={`/${person.username}`}
+                avatarSrc={person.photoURL || userAltImageUrl({ name: person.fullName || person.username })}
+                avatarFallback={person.fullName || person.username || "U"}
+                title={person.fullName || person.username}
+                subtitle={`@${person.username}`}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
 
   return (
     <RailShell title={title} description={description} icon={icon} seeMoreHref="/discover/match">
@@ -468,12 +671,14 @@ function GroupsRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [groups, setGroups] = useState<GroupProps[] | null>(null);
@@ -524,6 +729,26 @@ function GroupsRail({
 
   if (hideIfEmpty && groups !== null && groups.length === 0) return null;
 
+  if (layout === "horizontal") {
+    if (groups !== null && groups.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover/groups">
+        {groups === null
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : groups.map(group => (
+              <CardTile
+                key={group.id}
+                href={`/discover/groups/${group.id}`}
+                avatarSrc={group.photoURL}
+                avatarFallback={group.name}
+                title={group.name}
+                subtitle={`${group.membersCount} member${group.membersCount === 1 ? "" : "s"}`}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
+
   return (
     <RailShell
       title={title}
@@ -567,12 +792,14 @@ function EventsRail({
   icon,
   previewCount,
   hideIfEmpty,
+  layout = "vertical",
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   previewCount: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [events, setEvents] = useState<EventProps[] | null>(null);
@@ -612,6 +839,28 @@ function EventsRail({
   };
 
   if (hideIfEmpty && events !== null && events.length === 0) return null;
+
+  if (layout === "horizontal") {
+    if (events !== null && events.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+    return (
+      <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover/events">
+        {events === null
+          ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+          : events.map(event => (
+              <CardTile
+                key={event.id}
+                href={`/discover/events/${event.id}`}
+                avatarFallback={event.title}
+                title={event.title}
+                subtitle={`${new Date(event.startTime).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })} · ${event.attendeesCount} going`}
+              />
+            ))}
+      </HorizontalRailShell>
+    );
+  }
 
   return (
     <RailShell
@@ -716,35 +965,37 @@ export default function RecommendationRail({
   type,
   previewCount = 5,
   hideIfEmpty = false,
+  layout = "vertical",
 }: {
   type: FeedRecommendationType;
   previewCount?: number;
   hideIfEmpty?: boolean;
+  layout?: RailLayout;
 }) {
   const config = railCopy[type];
 
   if (type === "friends" || type === "follows") {
-    return <PeopleRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <PeopleRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "videos") {
-    return <VideosRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <VideosRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "saves") {
-    return <SavesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <SavesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "matches") {
-    return <MatchesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <MatchesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "groups") {
-    return <GroupsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <GroupsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "events") {
-    return <EventsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+    return <EventsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
   }
 
   if (type === "products") {

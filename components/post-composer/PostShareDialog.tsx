@@ -29,6 +29,7 @@ import {
 } from "next-share";
 import { Copy, Check, Share2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { ReactionButton } from "@/components/feed/post/ReactionButton";
 
 interface SharePostDialogProps {
   username: string;
@@ -66,20 +67,15 @@ export function SharePostDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant={hasCount ? "outline" : "secondary"}
-          title="Share"
-          className="hover:text-blue-600 flex items-center gap-1"
+        <ReactionButton
+          icon={Share2}
+          count={shareCount}
+          active={hasCount}
+          hoverClass="hover:text-blue-600"
+          activeClass="text-blue-600"
+          label="Share"
           onClick={() => setOpen(true)}
-        >
-          <Share2 size={16} className={hasCount ? "text-blue-600" : ""} />
-          {hasCount && (
-            <span className={`text-base ${hasCount ? "text-blue-600" : ""}`}>
-              {shareCount}
-            </span>
-          )}
-        </Button>
+        />
       </DialogTrigger>
 
       <DialogContent className="max-w-md space-y-4 rounded-2xl">

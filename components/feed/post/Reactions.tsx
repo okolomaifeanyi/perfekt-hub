@@ -1,13 +1,13 @@
 import { PostReplyDialog } from "@/components/post-composer/PostReplyDialog";
 import { SharePostDialog } from "@/components/post-composer/PostShareDialog";
 import { QuotePostDialog } from "@/components/post-composer/QuotePostDialog";
-import { Button } from "@/components/ui/button";
+import { ReactionButton } from "@/components/feed/post/ReactionButton";
 import { usePostCounts } from "@/lib/store/postCounts";
 import { useRealtimePostCounts } from "@/hooks/usePostCount";
 import { useUserStore } from "@/lib/store/useUserStore";
 import { OptimisticCallbacks, PostProps, UserProps } from "@/lib/types";
 import { toggleReaction } from "@/lib/utils";
-import { Heart, View, ThumbsDown } from "lucide-react";
+import { Heart, Eye, ThumbsDown } from "lucide-react";
 
 const Reactions = ({
   post,
@@ -79,84 +79,35 @@ const Reactions = ({
   };
 
   return (
-    <div className="flex justify-between items-center">
-      {/* Like / Dislike */}
-      <div className="flex space-x-2">
-        <Button
-          size="sm"
-          variant={liked ? "outline" : "secondary"}
-          title="Like"
-          onClick={handleLike}
-          className="flex items-center gap-1 hover:text-red-500"
-        >
-          <Heart
-            size={16}
-            fill={liked ? "currentColor" : "none"}
-            stroke="currentColor"
-            className={liked ? "text-red-500" : ""}
-          />
-          {likeCount > 0 && (
-            <span className={`text-base ${liked ? "text-red-500" : ""}`}>
-              {likeCount}
-            </span>
-          )}
-        </Button>
+    <div className="flex items-center gap-3 border-t border-border/60 pt-3">
+      <ReactionButton
+        icon={Heart}
+        count={likeCount}
+        active={liked}
+        hoverClass="hover:text-red-500"
+        activeClass="text-red-500"
+        label="Like"
+        onClick={handleLike}
+      />
 
-        <Button
-          size="sm"
-          variant={disliked ? "outline" : "secondary"}
-          title="Dislike"
-          onClick={handleDislike}
-          className="flex items-center gap-1 hover:text-blue-600"
-        >
-          <ThumbsDown
-            size={16}
-            fill={disliked ? "currentColor" : "none"}
-            stroke="currentColor"
-            className={disliked ? "text-blue-600" : ""}
-          />
-          {dislikeCount > 0 && (
-            <span className={`text-base ${disliked ? "text-blue-600" : ""}`}>
-              {dislikeCount}
-            </span>
-          )}
-        </Button>
-      </div>
+      <ReactionButton
+        icon={ThumbsDown}
+        count={dislikeCount}
+        active={disliked}
+        hoverClass="hover:text-blue-600"
+        activeClass="text-blue-600"
+        label="Dislike"
+        onClick={handleDislike}
+      />
 
-      {/* Reply / Quote */}
-      <div className="flex space-x-2">
-        <PostReplyDialog user={user} post={post} />
-        <QuotePostDialog user={user} post={post} optimistic={optimistic} />
-      </div>
+      <PostReplyDialog user={user} post={post} />
+      <QuotePostDialog user={user} post={post} optimistic={optimistic} />
+      <SharePostDialog username={user.username} postId={post.id} title="Share" />
 
-      {/* Views / Share */}
-      <div className="flex space-x-2">
-        <Button
-          size="sm"
-          variant={viewed ? "outline" : "secondary"}
-          title="Views"
-          className="flex items-center gap-1 hover:text-purple-600"
-          disabled
-        >
-          <View
-            size={16}
-            fill={viewed ? "currentColor" : "none"}
-            stroke="currentColor"
-            className={viewed ? "text-purple-600" : ""}
-          />
-          {viewCount > 0 && (
-            <span className={`text-base ${viewed ? "text-purple-600" : ""}`}>
-              {viewCount}
-            </span>
-          )}
-        </Button>
-
-        <SharePostDialog
-          username={user.username}
-          postId={post.id}
-          title={"Share"}
-        />
-      </div>
+      <span title="Views" className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+        <Eye size={14} fill={viewed ? "currentColor" : "none"} className={viewed ? "text-purple-600" : ""} />
+        {viewCount > 0 && <span className={viewed ? "text-purple-600" : ""}>{viewCount}</span>}
+      </span>
     </div>
   );
 };

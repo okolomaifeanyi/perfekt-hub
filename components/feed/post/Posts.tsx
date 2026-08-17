@@ -101,7 +101,7 @@ const Posts = ({
     if (slot && index !== posts.length - 1) {
       items.push(
         <li key={`suggestion-${slot.type}-${slot.index}`} className="my-6">
-          <RecommendationRail type={slot.type as FeedRecommendationType} />
+          <RecommendationRail type={slot.type as FeedRecommendationType} previewCount={6} layout="horizontal" />
         </li>
       );
     }

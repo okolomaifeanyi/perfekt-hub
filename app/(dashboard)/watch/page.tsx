@@ -30,7 +30,10 @@ export default async function WatchPage() {
     }
   }
 
-  const currentPost = merged.find(hasVideoMedia);
+  // Never show the viewer their own videos on the general watch reel — this
+  // is for discovering other people's content, not a mirror of your own
+  // posts (which already have their own Videos tab on your profile).
+  const currentPost = merged.find(post => hasVideoMedia(post) && post.userId !== uid);
 
   if (!currentPost) {
     return (
@@ -49,6 +52,7 @@ export default async function WatchPage() {
     feedPosts: merged,
     targetSize: 12,
     seed: uid,
+    excludeUid: uid,
   });
 
   return (
