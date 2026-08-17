@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Radio } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import type { CuratedContentItem } from "@/app/actions/curatedContent";
 import { ActionBar, formatContentTime } from "@/components/feed/CuratedContentDisplay";
 import { useCuratedContentReactions } from "@/hooks/useCuratedContentReactions";
@@ -104,6 +105,13 @@ export default function ContentDetailClient({ item }: { item: CuratedContentItem
             </div>
           </>
         )}
+
+        {item.source_url ? (
+          <div className="border-t border-border/60 px-4 py-3">
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Source</p>
+            <LinkPreviewCard url={item.source_url} />
+          </div>
+        ) : null}
 
         <ActionBar
           item={item}

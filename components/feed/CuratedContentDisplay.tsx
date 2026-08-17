@@ -17,7 +17,7 @@ import {
 } from "@/app/actions/curatedContentEngagement";
 import { useUserStore } from "@/lib/store/useUserStore";
 import ComposePostDialog from "@/components/feed/ComposePostDialog";
-import { cn } from "@/lib/utils";
+import { ReactionButton } from "@/components/feed/post/ReactionButton";
 
 // Shared between /updates and Discover's Trends/category tabs — both render
 // the same curated_content rows, just in different tab/filter arrangements.
@@ -166,63 +166,52 @@ export function ActionBar({
 
   return (
     <div onClick={event => event.stopPropagation()}>
-      <div className="flex items-center gap-3 border-t border-border/60 px-3 py-1.5">
-        <button
-          type="button"
+      <div className="flex items-center gap-2 border-t border-border/60 px-3 py-1.5">
+        <ReactionButton
+          icon={Heart}
+          count={reaction?.likeCount ?? 0}
+          active={liked}
+          hoverClass="hover:text-red-500"
+          activeClass="text-red-500"
+          label="Like"
           onClick={() => onToggle("like")}
-          aria-label="Like"
-          className={cn(
-            "flex items-center gap-1 text-xs text-muted-foreground transition hover:text-red-500",
-            liked && "text-red-500"
-          )}
-        >
-          <Heart size={14} fill={liked ? "currentColor" : "none"} />
-          {reaction && reaction.likeCount > 0 && <span>{reaction.likeCount}</span>}
-        </button>
+        />
 
-        <button
-          type="button"
+        <ReactionButton
+          icon={ThumbsDown}
+          count={reaction?.dislikeCount ?? 0}
+          active={disliked}
+          hoverClass="hover:text-blue-600"
+          activeClass="text-blue-600"
+          label="Dislike"
           onClick={() => onToggle("dislike")}
-          aria-label="Dislike"
-          className={cn(
-            "flex items-center gap-1 text-xs text-muted-foreground transition hover:text-blue-600",
-            disliked && "text-blue-600"
-          )}
-        >
-          <ThumbsDown size={14} fill={disliked ? "currentColor" : "none"} />
-          {reaction && reaction.dislikeCount > 0 && <span>{reaction.dislikeCount}</span>}
-        </button>
+        />
 
-        <button
-          type="button"
+        <ReactionButton
+          icon={MessageCircle}
+          active={showComments}
+          hoverClass="hover:text-foreground"
+          activeClass="text-foreground"
+          label="Comment"
           onClick={() => setShowComments(v => !v)}
-          aria-label="Comment"
-          className={cn(
-            "flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground",
-            showComments && "text-foreground"
-          )}
-        >
-          <MessageCircle size={14} />
-        </button>
+        />
 
-        <button
-          type="button"
+        <ReactionButton
+          icon={Quote}
+          hoverClass="hover:text-foreground"
+          activeClass="text-foreground"
+          label="Quote"
           onClick={() => setQuoteOpen(true)}
-          aria-label="Quote"
-          className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
-        >
-          <Quote size={14} />
-        </button>
+        />
 
-        <button
-          type="button"
+        <ReactionButton
+          icon={Share2}
+          hoverClass="hover:text-blue-600"
+          activeClass="text-blue-600"
+          label="Share"
           onClick={() => void handleShare()}
-          aria-label="Share"
-          className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
-        >
-          <Share2 size={14} />
-          {shareCopied && <span>Copied!</span>}
-        </button>
+        />
+        {shareCopied && <span className="text-xs text-muted-foreground">Copied!</span>}
 
         <span
           title="Views"

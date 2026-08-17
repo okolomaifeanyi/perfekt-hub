@@ -1,13 +1,14 @@
 import { forwardRef } from "react";
 import type { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-// Shared compact icon-row button used by post reactions (like/dislike/
-// reply/quote/share) — same visual language as curated content's ActionBar
-// (see components/feed/CuratedContentDisplay.tsx) so both look like one
-// design system instead of two. hoverClass/activeClass take full literal
-// Tailwind classes (not composed at runtime) since Tailwind's JIT scanner
-// needs to see the complete class string to generate it.
+// Shared button used for every reaction-style action (like/dislike/
+// comment/reply/quote/share) on both posts and curated content — the
+// default elevated shadcn Button chrome (secondary/outline background),
+// not a bare flat icon. hoverClass/activeClass take full literal Tailwind
+// classes (not composed at runtime) since Tailwind's JIT scanner needs to
+// see the complete class string to generate it.
 export const ReactionButton = forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -23,21 +24,18 @@ export const ReactionButton = forwardRef<
   ref
 ) {
   return (
-    <button
+    <Button
       ref={ref}
       type="button"
+      size="sm"
+      variant={active ? "outline" : "secondary"}
       aria-label={label}
       title={label}
-      className={cn(
-        "flex items-center gap-1 text-xs text-muted-foreground transition",
-        hoverClass,
-        active && activeClass,
-        className
-      )}
+      className={cn("gap-1", hoverClass, active && activeClass, className)}
       {...props}
     >
-      <Icon size={14} fill={active ? "currentColor" : "none"} />
+      <Icon size={16} fill={active ? "currentColor" : "none"} />
       {count > 0 && <span>{count}</span>}
-    </button>
+    </Button>
   );
 });
