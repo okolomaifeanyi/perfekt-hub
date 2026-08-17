@@ -7,6 +7,7 @@ import {
   COUNTRY_MATCHABLE_CATEGORIES,
   FOOTBALL_LEAGUES,
 } from "@/lib/curated-content-categories.mjs";
+import { filterBlockedDomains, isBlockedDomain } from "@/lib/curated-content-safety.mjs";
 
 export type CuratedContentItem = {
   id: string;
@@ -49,7 +50,8 @@ export async function getCuratedContentById(id: string): Promise<CuratedContentI
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return data ?? null;
+  if (!data || isBlockedDomain(data.source_url)) return null;
+  return data;
 }
 
 export async function getFootballScores(
@@ -75,7 +77,7 @@ export async function getFootballScores(
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return filterBlockedDomains(data ?? []);
 }
 
 // Team rosters aren't ingested from a dedicated endpoint — they're derived
@@ -129,7 +131,7 @@ export async function getTeamNews(teamNames: string[], limit = 10): Promise<Cura
   if (error) throw new Error(error.message);
 
   const needles = teamNames.map(name => name.toLowerCase());
-  return (data ?? [])
+  return filterBlockedDomains(data ?? [])
     .filter(item => {
       const haystack = `${item.title} ${item.body ?? ""}`.toLowerCase();
       return needles.some(needle => haystack.includes(needle));
@@ -149,7 +151,7 @@ export async function getNewsFeed(category?: string, limit = 30): Promise<Curate
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return filterBlockedDomains(data ?? []);
 }
 
 // Same shape as getNewsFeed but for a specific set of topics at once (an
@@ -178,7 +180,7 @@ export async function getBettingPredictions(leagueCodes?: string[], limit = 20):
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return filterBlockedDomains(data ?? []);
 }
 
 export async function getInterestedNews(topics: string[], limit = 20): Promise<CuratedContentItem[]> {
@@ -193,7 +195,7 @@ export async function getInterestedNews(topics: string[], limit = 20): Promise<C
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return filterBlockedDomains(data ?? []);
 }
 
 // NewsData.io tags each article with a `country` array of lowercase country
@@ -218,7 +220,7 @@ export async function getCountryNews(countryNames: string[], limit = 10): Promis
   if (error) throw new Error(error.message);
 
   const needles = countryNames.map(name => name.toLowerCase());
-  return (data ?? [])
+  return filterBlockedDomains(data ?? [])
     .filter(item => {
       const countries = (item.metadata as { country?: unknown })?.country;
       return (
