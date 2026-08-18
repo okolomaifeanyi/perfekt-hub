@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Bookmark,
   CalendarDays,
@@ -68,6 +68,17 @@ type FeedRecommendationType =
 // (see Posts.tsx) — a narrow sidebar rail and a full-width feed slot need
 // genuinely different layouts, not just a resize of the same one.
 type RailLayout = "vertical" | "horizontal";
+
+// Reports once a rail's data has resolved: true if it has enough to show,
+// false if it self-gated (not enough items, or the viewer has no relevant
+// interest). Only meaningful at layout="horizontal" — see
+// RecommendationRailSlot, which uses this to fall through a shuffled list
+// of candidate types for one feed slot instead of committing to a single
+// random pick that might land on an empty one with nothing to show for it.
+// Deliberately excluded from each rail's effect dependency array (a stable
+// identity isn't guaranteed) — RecommendationRailSlot's own handler is
+// idempotent-safe against being called more than once with the same value.
+type RailStatusCallback = (hasEnoughData: boolean) => void;
 
 // A feed interstitial with only 1-2 cards reads as sparse filler rather than
 // a real recommendation — below this, skip the slot entirely rather than
@@ -346,6 +357,7 @@ function PeopleRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -353,6 +365,7 @@ function PeopleRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const suggestions = useUserStore(state => state.suggestions);
@@ -368,6 +381,12 @@ function PeopleRail({
   }, [currentUser?.uid, fetchSmartSuggestions, suggestions.length]);
 
   const people = suggestions.slice(0, previewCount);
+
+  useEffect(() => {
+    if (!loading) onStatus?.(people.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // onStatus intentionally excluded — see RailStatusCallback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, people.length]);
 
   if (hideIfEmpty && !loading && people.length === 0) return null;
 
@@ -421,6 +440,7 @@ function VideosRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -428,6 +448,7 @@ function VideosRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [videos, setVideos] = useState<PostProps[] | null>(null);
@@ -453,6 +474,11 @@ function VideosRail({
       active = false;
     };
   }, [currentUser?.uid, previewCount]);
+
+  useEffect(() => {
+    if (videos !== null) onStatus?.(videos.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videos]);
 
   if (hideIfEmpty && videos !== null && videos.length === 0) return null;
 
@@ -551,6 +577,7 @@ function SavesRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -558,6 +585,7 @@ function SavesRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [posts, setPosts] = useState<PostProps[] | null>(null);
@@ -579,6 +607,11 @@ function SavesRail({
       active = false;
     };
   }, [currentUser?.uid, previewCount]);
+
+  useEffect(() => {
+    if (posts !== null) onStatus?.(posts.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [posts]);
 
   if (hideIfEmpty && posts !== null && posts.length === 0) return null;
 
@@ -634,6 +667,7 @@ function MatchesRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -641,6 +675,7 @@ function MatchesRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [matches, setMatches] = useState<UserProps[] | null>(null);
@@ -662,6 +697,11 @@ function MatchesRail({
       active = false;
     };
   }, [currentUser?.uid, previewCount]);
+
+  useEffect(() => {
+    if (matches !== null) onStatus?.(matches.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches]);
 
   if (hideIfEmpty && matches !== null && matches.length === 0) return null;
 
@@ -714,6 +754,7 @@ function GroupsRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -721,6 +762,7 @@ function GroupsRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [groups, setGroups] = useState<GroupProps[] | null>(null);
@@ -768,6 +810,11 @@ function GroupsRail({
       toast.error("Failed to join group");
     }
   };
+
+  useEffect(() => {
+    if (groups !== null) onStatus?.(groups.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups]);
 
   if (hideIfEmpty && groups !== null && groups.length === 0) return null;
 
@@ -835,6 +882,7 @@ function EventsRail({
   previewCount,
   hideIfEmpty,
   layout = "vertical",
+  onStatus,
 }: {
   title: string;
   description: string;
@@ -842,6 +890,7 @@ function EventsRail({
   previewCount: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const currentUser = useUserStore(state => state.user);
   const [events, setEvents] = useState<EventProps[] | null>(null);
@@ -879,6 +928,11 @@ function EventsRail({
       toast.error("Failed to RSVP");
     }
   };
+
+  useEffect(() => {
+    if (events !== null) onStatus?.(events.length >= MIN_HORIZONTAL_RAIL_ITEMS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
 
   if (hideIfEmpty && events !== null && events.length === 0) return null;
 
@@ -1043,7 +1097,17 @@ function newsCardProps(item: CuratedContentItem) {
   };
 }
 
-function NewsRail({ title, icon, previewCount }: { title: string; icon: LucideIcon; previewCount: number }) {
+function NewsRail({
+  title,
+  icon,
+  previewCount,
+  onStatus,
+}: {
+  title: string;
+  icon: LucideIcon;
+  previewCount: number;
+  onStatus?: RailStatusCallback;
+}) {
   const { interests, topics } = useCuratedInterests();
   const [items, setItems] = useState<CuratedContentItem[] | null>(null);
 
@@ -1058,6 +1122,15 @@ function NewsRail({ title, icon, previewCount }: { title: string; icon: LucideIc
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topics.join(",")]);
+
+  // null while still resolving (interests not loaded yet, or the fetch for
+  // an eligible topic hasn't returned) — reported only once we actually
+  // know, one way or the other.
+  const ready = interests === null ? null : topics.length === 0 ? false : items === null ? null : items.length >= MIN_HORIZONTAL_RAIL_ITEMS;
+  useEffect(() => {
+    if (ready !== null) onStatus?.(ready);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   if (interests === null) return null; // still resolving — nothing to gate on yet
   if (topics.length === 0) return null;
@@ -1077,11 +1150,13 @@ function FootballBucketRail({
   icon,
   previewCount,
   bucket,
+  onStatus,
 }: {
   title: string;
   icon: LucideIcon;
   previewCount: number;
   bucket: "upcoming" | "live" | "results";
+  onStatus?: RailStatusCallback;
 }) {
   const { interests, leagueCodes } = useCuratedInterests();
   const [scores, setScores] = useState<CuratedContentItem[] | null>(null);
@@ -1098,10 +1173,15 @@ function FootballBucketRail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueCodes.join(",")]);
 
+  const matches = scores === null ? null : groupMatches(scores)[bucket];
+  const ready = interests === null ? null : leagueCodes.length === 0 ? false : matches === null ? null : matches.length >= MIN_HORIZONTAL_RAIL_ITEMS;
+  useEffect(() => {
+    if (ready !== null) onStatus?.(ready);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
   if (interests === null) return null;
   if (leagueCodes.length === 0) return null;
-
-  const matches = scores === null ? null : groupMatches(scores)[bucket];
   if (matches !== null && matches.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
 
   return (
@@ -1113,7 +1193,17 @@ function FootballBucketRail({
   );
 }
 
-function BettingRail({ title, icon, previewCount }: { title: string; icon: LucideIcon; previewCount: number }) {
+function BettingRail({
+  title,
+  icon,
+  previewCount,
+  onStatus,
+}: {
+  title: string;
+  icon: LucideIcon;
+  previewCount: number;
+  onStatus?: RailStatusCallback;
+}) {
   const { interests, leagueCodes, topics } = useCuratedInterests();
   const [items, setItems] = useState<CuratedContentItem[] | null>(null);
   const hasBettingInterest = topics.includes("betting_prediction");
@@ -1129,6 +1219,12 @@ function BettingRail({ title, icon, previewCount }: { title: string; icon: Lucid
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasBettingInterest, leagueCodes.join(",")]);
+
+  const ready = interests === null ? null : !hasBettingInterest ? false : items === null ? null : items.length >= MIN_HORIZONTAL_RAIL_ITEMS;
+  useEffect(() => {
+    if (ready !== null) onStatus?.(ready);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   if (interests === null) return null;
   if (!hasBettingInterest) return null;
@@ -1148,36 +1244,50 @@ export default function RecommendationRail({
   previewCount = 5,
   hideIfEmpty = false,
   layout = "vertical",
+  onStatus,
 }: {
   type: FeedRecommendationType;
   previewCount?: number;
   hideIfEmpty?: boolean;
   layout?: RailLayout;
+  onStatus?: RailStatusCallback;
 }) {
   const config = railCopy[type];
 
   if (type === "friends" || type === "follows") {
-    return <PeopleRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <PeopleRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "videos") {
-    return <VideosRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <VideosRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "saves") {
-    return <SavesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <SavesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "matches") {
-    return <MatchesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <MatchesRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "groups") {
-    return <GroupsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <GroupsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "events") {
-    return <EventsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} />;
+    return (
+      <EventsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} layout={layout} onStatus={onStatus} />
+    );
   }
 
   if (type === "products") {
@@ -1185,24 +1295,60 @@ export default function RecommendationRail({
   }
 
   if (type === "news") {
-    return <NewsRail {...config} previewCount={previewCount} />;
+    return <NewsRail {...config} previewCount={previewCount} onStatus={onStatus} />;
   }
 
   if (type === "fixtures") {
-    return <FootballBucketRail {...config} previewCount={previewCount} bucket="upcoming" />;
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="upcoming" onStatus={onStatus} />;
   }
 
   if (type === "live") {
-    return <FootballBucketRail {...config} previewCount={previewCount} bucket="live" />;
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="live" onStatus={onStatus} />;
   }
 
   if (type === "results") {
-    return <FootballBucketRail {...config} previewCount={previewCount} bucket="results" />;
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="results" onStatus={onStatus} />;
   }
 
   if (type === "betting") {
-    return <BettingRail {...config} previewCount={previewCount} />;
+    return <BettingRail {...config} previewCount={previewCount} onStatus={onStatus} />;
   }
 
   return null;
+}
+
+// Used by Posts.tsx: a feed slot gets a shuffled list of candidate types
+// (not just one) and tries them in order, advancing past whichever ones
+// report back "not enough data" instead of committing to a single random
+// pick that might land on a type the viewer has no data for — the far more
+// common case once curated content types (each gated on a specific
+// interest) sit in the same pool as the social ones.
+export function RecommendationRailSlot({
+  candidates,
+  previewCount,
+}: {
+  candidates: FeedRecommendationType[];
+  previewCount: number;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleStatus = useCallback((hasEnoughData: boolean) => {
+    if (hasEnoughData) return;
+    setActiveIndex(prev => (prev + 1 <= candidates.length ? prev + 1 : prev));
+    // candidates is stable for the lifetime of a slot (computed once in
+    // Posts.tsx per render pass) — safe to omit from deps here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (activeIndex >= candidates.length) return null;
+
+  return (
+    <RecommendationRail
+      key={candidates[activeIndex]}
+      type={candidates[activeIndex]}
+      previewCount={previewCount}
+      layout="horizontal"
+      onStatus={handleStatus}
+    />
+  );
 }

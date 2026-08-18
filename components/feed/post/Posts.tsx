@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
-import RecommendationRail from "@/components/feed/RecommendationRail";
+import RecommendationRail, { RecommendationRailSlot } from "@/components/feed/RecommendationRail";
 import { List } from "@/components/Typography";
 import { computeRecommendationSlots } from "@/lib/feed-recommendation-inserts.mjs";
 import { PostProps } from "@/lib/types";
@@ -123,8 +123,8 @@ const Posts = ({
     const slot = recommendationSlotByIndex.get(index + 1);
     if (slot && index !== posts.length - 1) {
       items.push(
-        <li key={`suggestion-${slot.type}-${slot.index}`} className="my-6">
-          <RecommendationRail type={slot.type as FeedRecommendationType} previewCount={6} layout="horizontal" />
+        <li key={`suggestion-${slot.index}`} className="my-6">
+          <RecommendationRailSlot candidates={slot.types as FeedRecommendationType[]} previewCount={6} />
         </li>
       );
     }
