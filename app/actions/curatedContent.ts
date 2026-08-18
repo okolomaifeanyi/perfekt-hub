@@ -54,6 +54,24 @@ export async function getCuratedContentById(id: string): Promise<CuratedContentI
   return data;
 }
 
+// AI-generated pre-match analysis for a fixture, keyed off that fixture's
+// own external_id (see lib/cron/ingest/match-analysis.mjs, which stores it
+// as "analysis-{fixture.external_id}"). Returns null when no analysis has
+// been generated yet — not every upcoming fixture has one, since the cron
+// only processes a small batch per run to bound LLM cost.
+export async function getMatchAnalysis(fixtureExternalId: string): Promise<CuratedContentItem | null> {
+  if (!fixtureExternalId) return null;
+  const supabase = getSupabasePublicClient();
+  const { data, error } = await supabase
+    .from("curated_content")
+    .select("*")
+    .eq("category", "match_analysis")
+    .eq("external_id", `analysis-${fixtureExternalId}`)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
 export async function getFootballScores(
   leagueCodes?: string[],
   teamIds?: string[]

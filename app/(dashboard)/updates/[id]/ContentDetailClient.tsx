@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Radio } from "lucide-react";
+import { ArrowLeft, Radio, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import type { CuratedContentItem } from "@/app/actions/curatedContent";
@@ -23,7 +23,13 @@ function teamLabel(team?: { name?: string | null; shortName?: string | null }) {
   return team?.name || team?.shortName || "TBD";
 }
 
-export default function ContentDetailClient({ item }: { item: CuratedContentItem }) {
+export default function ContentDetailClient({
+  item,
+  analysis,
+}: {
+  item: CuratedContentItem;
+  analysis?: CuratedContentItem | null;
+}) {
   const { getReaction, toggle } = useCuratedContentReactions([item.id]);
   const isMatch = FOOTBALL_CATEGORIES.includes(item.category);
   const isLive = item.category === "football_live";
@@ -105,6 +111,18 @@ export default function ContentDetailClient({ item }: { item: CuratedContentItem
             </div>
           </>
         )}
+
+        {analysis?.body ? (
+          <div className="border-t border-border/60 px-4 py-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Sparkles className="size-3.5" /> AI analysis
+            </p>
+            <p className="whitespace-pre-line text-sm leading-relaxed">{analysis.body}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Generated from recent form and head-to-head history — not a guarantee.
+            </p>
+          </div>
+        ) : null}
 
         {item.source_url ? (
           <div className="border-t border-border/60 px-4 py-3">

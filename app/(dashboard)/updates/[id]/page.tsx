@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { getCuratedContentById } from "@/app/actions/curatedContent";
+import { getCuratedContentById, getMatchAnalysis } from "@/app/actions/curatedContent";
 import { incrementCuratedContentView } from "@/app/actions/curatedContentEngagement";
+import { FOOTBALL_CATEGORIES } from "@/lib/curated-content-categories.mjs";
 import ContentDetailClient from "./ContentDetailClient";
 
 // A view only counts once someone actually clicks through to this page
@@ -31,5 +32,10 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   await incrementCuratedContentView(id);
 
-  return <ContentDetailClient item={item} />;
+  const analysis =
+    FOOTBALL_CATEGORIES.includes(item.category) && item.external_id
+      ? await getMatchAnalysis(item.external_id)
+      : null;
+
+  return <ContentDetailClient item={item} analysis={analysis} />;
 }
