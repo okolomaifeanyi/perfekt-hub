@@ -355,17 +355,12 @@ function InterestRails({
   interests,
   leagueCodes,
   topics,
+  genericTopics,
   teamIds,
   teamNames,
   countries,
   hasAnyInterest,
 }: ReturnType<typeof useCuratedInterests>) {
-  // movie_news and betting_prediction each get their own rail (below) so
-  // they can show a richer, category-specific row than the generic
-  // headline-and-source ContentRow every other topic shares — excluded here
-  // so neither also shows up a second time inside "News for you".
-  const genericTopics = topics.filter(t => t !== "movie_news" && t !== "betting_prediction");
-
   return (
     <>
       {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} teamIds={teamIds} />}

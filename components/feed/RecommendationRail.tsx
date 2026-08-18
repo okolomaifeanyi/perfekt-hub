@@ -1108,7 +1108,11 @@ function NewsRail({
   previewCount: number;
   onStatus?: RailStatusCallback;
 }) {
-  const { interests, topics } = useCuratedInterests();
+  // betting_prediction has its own dedicated BettingRail in this same
+  // interstitial pool — genericTopics excludes it (and movie_news) so
+  // picking "Betting" as an interest doesn't also duplicate it in here
+  // under the "News for you" label.
+  const { interests, genericTopics: topics } = useCuratedInterests();
   const [items, setItems] = useState<CuratedContentItem[] | null>(null);
 
   useEffect(() => {

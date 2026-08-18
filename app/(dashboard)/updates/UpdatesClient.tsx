@@ -224,7 +224,7 @@ function NewsPanel({
 }
 
 export default function UpdatesClient({ initialScores, initialNews }: UpdatesClientProps) {
-  const { leagueCodes, topics, teamIds, countries } = useCuratedInterests();
+  const { leagueCodes, genericTopics, teamIds, countries } = useCuratedInterests();
   const { scores, filterToMine, setFilterToMine, hasLeagueInterests, isPending } = useScores(
     initialScores,
     leagueCodes,
@@ -275,7 +275,7 @@ export default function UpdatesClient({ initialScores, initialNews }: UpdatesCli
       </TabsContent>
 
       <TabsContent value="news">
-        <NewsPanel initialNews={initialNews} topics={topics} countries={countries} />
+        <NewsPanel initialNews={initialNews} topics={genericTopics} countries={countries} />
       </TabsContent>
     </Tabs>
   );
