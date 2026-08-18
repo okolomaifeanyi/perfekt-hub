@@ -6,6 +6,10 @@ import { runWithSupabaseClient } from "@/lib/supabase/request-context.mjs";
 import { getUserFromSession } from "@/lib/auth/getUserFromSession";
 import { generateText } from "@/lib/ai/client.mjs";
 import { isContextRelevant, formatCuratedContext, ALL_CURATED_CATEGORIES } from "@/lib/ai/curated-context.mjs";
+import { formatPostsContext, isSafeToShare } from "@/lib/ai/posts-context.mjs";
+import { formatGroupsContext, isSafeGroupPost } from "@/lib/ai/groups-context.mjs";
+import { getPublicFeedForGuests } from "@/app/actions/feed";
+import { getUserGroups, listGroups, listGroupPosts } from "@/app/actions/groups";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AssistantMessage = {
@@ -26,16 +30,24 @@ const ASSISTANT_SYSTEM_PROMPT =
   "\"Nwanne\" is Igbo for \"sibling\" — a term of kinship/endearment, which is " +
   "the tone to strike: warm and familiar, not corporate. Introduce yourself as " +
   "Nwanne if asked your name. Be helpful, concise, and friendly. You have no " +
-  "access to the user's posts, messages, or account data — you're a " +
-  "general-purpose assistant, not a support bot for this specific account. " +
-  "When a message includes a \"Live app data\" block, that data was just " +
-  "pulled fresh from Perfekthub's own public feed (football scores/fixtures, " +
-  "news, crypto, movies, and more) — treat it as accurate and current, and " +
-  "answer questions about it directly instead of saying you lack real-time " +
-  "access. Predictions in that block come from bookmaker odds, not your own " +
-  "judgment — present them as \"the odds favor X\", never as a guarantee. If " +
-  "something isn't in the block, say you don't have data on it rather than " +
-  "guessing.";
+  "access to the user's DMs or account data (email, phone, settings) — " +
+  "you're a general-purpose assistant, not a support bot for this specific " +
+  "account. When a message includes a \"Live app data\" block, that data was " +
+  "just pulled fresh from Perfekthub's own public feed (football " +
+  "scores/fixtures, news, crypto, movies, and more) — treat it as accurate " +
+  "and current, and answer questions about it directly instead of saying " +
+  "you lack real-time access. Predictions in that block come from bookmaker " +
+  "odds, not your own judgment — present them as \"the odds favor X\", " +
+  "never as a guarantee. A \"Public posts\" block, when present, is a sample " +
+  "of what people are actually posting on Perfekthub right now — the same " +
+  "public posts anyone (even a signed-out visitor) can already see. A " +
+  "\"Group activity\" block, when present, only ever includes groups the " +
+  "current user is a member of (their own group's posts, private or not) " +
+  "and public posts from groups that are open to everyone — never a private " +
+  "group's posts to someone outside it. You can reference and quote from " +
+  "any of these blocks freely; they're all data the current user is already " +
+  "allowed to see. If something isn't in any block, say you don't have data " +
+  "on it rather than guessing.";
 
 // Only fetched (and only added to the prompt) when the message actually
 // looks like it's asking about something curated_content covers — most
@@ -59,6 +71,67 @@ async function getCuratedContext(message: string): Promise<string | null> {
   }
 
   return formatCuratedContext(data ?? []);
+}
+
+// Same relevance gate as getCuratedContext (it also catches post/feed-ish
+// phrasing) and the same "public" boundary getPublicFeedForGuests already
+// draws for signed-out visitors — regular posts have no enforced visibility
+// restriction in this app (only group posts and polls check one), so this
+// isn't a wider privacy boundary than what a guest can already see. Flagged
+// content still gets filtered out before it reaches the model.
+async function getPostsContext(message: string): Promise<string | null> {
+  if (!isContextRelevant(message)) return null;
+
+  try {
+    const posts = await getPublicFeedForGuests({ limit: 15, sortMode: "trending" });
+    return formatPostsContext(posts.filter(isSafeToShare));
+  } catch (err) {
+    console.error("getPostsContext failed:", err);
+    return null;
+  }
+}
+
+// Groups the current user belongs to (private or not — membership already
+// authorizes seeing everything) plus a small sample of other popular
+// groups' *public* posts. listGroupPosts (see app/actions/groups.ts)
+// already enforces the member/non-member split correctly — a group whose
+// default visibility is private and the caller isn't a member of returns
+// nothing — this just fans out to it per group rather than re-deriving that
+// logic. Bounded to a handful of groups total so one reply doesn't fan out
+// into dozens of queries.
+const MAX_MEMBER_GROUPS = 5;
+const MAX_SAMPLE_GROUPS = 3;
+const POSTS_PER_GROUP = 3;
+
+async function getGroupsContext(message: string, uid: string): Promise<string | null> {
+  if (!isContextRelevant(message)) return null;
+
+  try {
+    const [memberGroups, popularGroups] = await Promise.all([
+      getUserGroups(uid),
+      listGroups(MAX_MEMBER_GROUPS + MAX_SAMPLE_GROUPS),
+    ]);
+
+    const memberGroupIds = new Set(memberGroups.map(g => g.id));
+    const sampleGroups = popularGroups
+      .filter(g => !memberGroupIds.has(g.id))
+      .slice(0, MAX_SAMPLE_GROUPS);
+
+    const targets = [...memberGroups.slice(0, MAX_MEMBER_GROUPS), ...sampleGroups];
+    if (targets.length === 0) return null;
+
+    const results = await Promise.all(
+      targets.map(async group => {
+        const posts = await listGroupPosts(group.id, POSTS_PER_GROUP).catch(() => []);
+        return { groupName: group.name, posts: posts.filter(isSafeGroupPost) };
+      })
+    );
+
+    return formatGroupsContext(results);
+  } catch (err) {
+    console.error("getGroupsContext failed:", err);
+    return null;
+  }
 }
 
 async function withSupabaseRequestContext<T>(
@@ -109,7 +182,7 @@ export async function sendAssistantMessage(content: string): Promise<AssistantMe
   if (!trimmed) throw new Error("Message can't be empty");
 
   return withSupabaseRequestContext(async client => {
-    const [{ data: recent, error: historyError }, curatedContext] = await Promise.all([
+    const [{ data: recent, error: historyError }, curatedContext, postsContext, groupsContext] = await Promise.all([
       client
         .from("ai_messages")
         .select("role, content")
@@ -117,6 +190,8 @@ export async function sendAssistantMessage(content: string): Promise<AssistantMe
         .order("createdat", { ascending: false })
         .limit(CONTEXT_WINDOW),
       getCuratedContext(trimmed),
+      getPostsContext(trimmed),
+      getGroupsContext(trimmed, uid),
     ]);
     if (historyError) throw historyError;
 
@@ -136,9 +211,13 @@ export async function sendAssistantMessage(content: string): Promise<AssistantMe
       .map(row => `${row.role === "user" ? "User" : "Nwanne"}: ${row.content as string}`)
       .join("\n\n");
     const conversation = history ? `${history}\n\nUser: ${trimmed}` : `User: ${trimmed}`;
-    const prompt = curatedContext
-      ? `Live app data (football scores/fixtures, news, crypto, movies, and odds-based predictions):\n${curatedContext}\n\n${conversation}`
-      : conversation;
+    const contextBlocks = [
+      curatedContext &&
+        `Live app data (football scores/fixtures, news, crypto, movies, and odds-based predictions):\n${curatedContext}`,
+      postsContext && `Public posts on Perfekthub right now:\n${postsContext}`,
+      groupsContext && `Group activity (the current user's own groups, plus public posts from other groups):\n${groupsContext}`,
+    ].filter(Boolean);
+    const prompt = contextBlocks.length > 0 ? `${contextBlocks.join("\n\n")}\n\n${conversation}` : conversation;
 
     const result = await generateText({
       system: ASSISTANT_SYSTEM_PROMPT,
