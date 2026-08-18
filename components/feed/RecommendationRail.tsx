@@ -8,8 +8,12 @@ import {
   CalendarDays,
   Clapperboard,
   HeartHandshake,
+  Newspaper,
+  Radio,
   Sparkles,
   Tag,
+  TrendingUp,
+  Trophy,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -21,12 +25,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import UserCard from "@/components/UserCard";
 import { userAltImageUrl } from "@/components/UserAltImageUrl";
 import { useUserStore } from "@/lib/store/useUserStore";
+import { useCuratedInterests } from "@/hooks/useCuratedInterests";
 import { getFeedAction } from "@/app/actions/feed";
 import { getSuggestedMatches, getTopSavedPosts } from "@/app/actions/discover";
 import { getMyGroupMemberships, listGroups, joinGroup, type GroupProps } from "@/app/actions/groups";
 import { useGroupMembershipStore } from "@/lib/store/useGroupMembershipStore";
 import { listUpcomingEvents, rsvpToEvent, type EventProps } from "@/app/actions/events";
 import { listProductsPage, type PostProductProps } from "@/app/actions/posts";
+import {
+  getFootballScores,
+  getBettingPredictions,
+  getInterestedNews,
+  type CuratedContentItem,
+} from "@/app/actions/curatedContent";
+import { formatContentTime, groupMatches } from "@/components/feed/CuratedContentDisplay";
 import { hasVideoMedia } from "@/lib/video-viewer-queue.mjs";
 import { buildVideoPostUrl } from "@/lib/video-url.mjs";
 import { PostProps, UserProps } from "@/lib/types";
@@ -43,7 +55,12 @@ type FeedRecommendationType =
   | "events"
   | "videos"
   | "matches"
-  | "products";
+  | "products"
+  | "news"
+  | "fixtures"
+  | "live"
+  | "results"
+  | "betting";
 
 // "vertical" is the original stacked-row-in-a-card look, used in the Aside
 // sidebar and empty-state fallbacks. "horizontal" is a scroll-snap strip of
@@ -101,6 +118,31 @@ const railCopy: Record<
     title: "Marketplace",
     description: "Items people are selling right now.",
     icon: Tag,
+  },
+  news: {
+    title: "News for you",
+    description: "From the topics you follow.",
+    icon: Newspaper,
+  },
+  fixtures: {
+    title: "Upcoming fixtures",
+    description: "From the leagues you follow.",
+    icon: CalendarDays,
+  },
+  live: {
+    title: "Live right now",
+    description: "Matches currently in play.",
+    icon: Radio,
+  },
+  results: {
+    title: "Recent results",
+    description: "From the leagues you follow.",
+    icon: Trophy,
+  },
+  betting: {
+    title: "Betting predictions",
+    description: "Odds-based picks from your leagues.",
+    icon: TrendingUp,
   },
 };
 
@@ -961,6 +1003,146 @@ function ProductsRail({
   );
 }
 
+// Curated-content rails (news/fixtures/live/results/betting) are only ever
+// used at layout="horizontal" from the feed interstitial (see Posts.tsx) —
+// Aside already has its own dedicated vertical curated-content rails (see
+// CuratedContentRails.tsx), so there's no vertical branch to maintain here.
+const CURATED_ITEMS_TO_FETCH = 20;
+
+type FootballMatchMeta = {
+  competition?: string;
+  homeTeam?: { name?: string | null; shortName?: string | null; crest?: string | null };
+  awayTeam?: { name?: string | null; shortName?: string | null; crest?: string | null };
+  score?: { home: number; away: number } | null;
+};
+
+function matchCardProps(match: CuratedContentItem) {
+  const meta = match.metadata as FootballMatchMeta;
+  const home = meta.homeTeam?.shortName || meta.homeTeam?.name || "TBD";
+  const away = meta.awayTeam?.shortName || meta.awayTeam?.name || "TBD";
+  const score =
+    typeof meta.score?.home === "number" && typeof meta.score?.away === "number"
+      ? ` ${meta.score.home}-${meta.score.away}`
+      : "";
+  return {
+    href: `/updates/${match.id}`,
+    avatarSrc: meta.homeTeam?.crest ?? undefined,
+    avatarFallback: home,
+    title: `${home} vs ${away}${score}`,
+    subtitle: meta.competition || formatContentTime(match.published_at),
+  };
+}
+
+function newsCardProps(item: CuratedContentItem) {
+  return {
+    href: `/updates/${item.id}`,
+    media: item.image_url ? { type: "image", src: item.image_url } : null,
+    avatarFallback: item.source_name || item.title,
+    title: item.title,
+    subtitle: item.source_name,
+  };
+}
+
+function NewsRail({ title, icon, previewCount }: { title: string; icon: LucideIcon; previewCount: number }) {
+  const { interests, topics } = useCuratedInterests();
+  const [items, setItems] = useState<CuratedContentItem[] | null>(null);
+
+  useEffect(() => {
+    if (topics.length === 0) return;
+    let active = true;
+    void getInterestedNews(topics, CURATED_ITEMS_TO_FETCH).then(result => {
+      if (active) setItems(result);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topics.join(",")]);
+
+  if (interests === null) return null; // still resolving — nothing to gate on yet
+  if (topics.length === 0) return null;
+  if (items !== null && items.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+
+  return (
+    <HorizontalRailShell title={title} icon={icon} seeMoreHref="/updates">
+      {items === null
+        ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+        : items.slice(0, previewCount).map(item => <CardTile key={item.id} {...newsCardProps(item)} />)}
+    </HorizontalRailShell>
+  );
+}
+
+function FootballBucketRail({
+  title,
+  icon,
+  previewCount,
+  bucket,
+}: {
+  title: string;
+  icon: LucideIcon;
+  previewCount: number;
+  bucket: "upcoming" | "live" | "results";
+}) {
+  const { interests, leagueCodes } = useCuratedInterests();
+  const [scores, setScores] = useState<CuratedContentItem[] | null>(null);
+
+  useEffect(() => {
+    if (leagueCodes.length === 0) return;
+    let active = true;
+    void getFootballScores(leagueCodes).then(result => {
+      if (active) setScores(result);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueCodes.join(",")]);
+
+  if (interests === null) return null;
+  if (leagueCodes.length === 0) return null;
+
+  const matches = scores === null ? null : groupMatches(scores)[bucket];
+  if (matches !== null && matches.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+
+  return (
+    <HorizontalRailShell title={title} icon={icon} seeMoreHref="/updates">
+      {matches === null
+        ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+        : matches.slice(0, previewCount).map(match => <CardTile key={match.id} {...matchCardProps(match)} />)}
+    </HorizontalRailShell>
+  );
+}
+
+function BettingRail({ title, icon, previewCount }: { title: string; icon: LucideIcon; previewCount: number }) {
+  const { interests, leagueCodes, topics } = useCuratedInterests();
+  const [items, setItems] = useState<CuratedContentItem[] | null>(null);
+  const hasBettingInterest = topics.includes("betting_prediction");
+
+  useEffect(() => {
+    if (!hasBettingInterest) return;
+    let active = true;
+    void getBettingPredictions(leagueCodes, CURATED_ITEMS_TO_FETCH).then(result => {
+      if (active) setItems(result);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasBettingInterest, leagueCodes.join(",")]);
+
+  if (interests === null) return null;
+  if (!hasBettingInterest) return null;
+  if (items !== null && items.length < MIN_HORIZONTAL_RAIL_ITEMS) return null;
+
+  return (
+    <HorizontalRailShell title={title} icon={icon} seeMoreHref="/discover">
+      {items === null
+        ? Array.from({ length: previewCount }).map((_, index) => <CardTileSkeleton key={index} />)
+        : items.slice(0, previewCount).map(item => <CardTile key={item.id} {...newsCardProps(item)} />)}
+    </HorizontalRailShell>
+  );
+}
+
 export default function RecommendationRail({
   type,
   previewCount = 5,
@@ -1000,6 +1182,26 @@ export default function RecommendationRail({
 
   if (type === "products") {
     return <ProductsRail {...config} previewCount={previewCount} hideIfEmpty={hideIfEmpty} />;
+  }
+
+  if (type === "news") {
+    return <NewsRail {...config} previewCount={previewCount} />;
+  }
+
+  if (type === "fixtures") {
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="upcoming" />;
+  }
+
+  if (type === "live") {
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="live" />;
+  }
+
+  if (type === "results") {
+    return <FootballBucketRail {...config} previewCount={previewCount} bucket="results" />;
+  }
+
+  if (type === "betting") {
+    return <BettingRail {...config} previewCount={previewCount} />;
   }
 
   return null;

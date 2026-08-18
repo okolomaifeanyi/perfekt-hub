@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import PostCard from "@/app/(dashboard)/[username]/[postId]/components/PostCard";
 import RecommendationRail from "@/components/feed/RecommendationRail";
 import { List } from "@/components/Typography";
@@ -7,6 +8,15 @@ import { computeRecommendationSlots } from "@/lib/feed-recommendation-inserts.mj
 import { PostProps } from "@/lib/types";
 import { ScrollPosition } from "react-lazy-load-image-component";
 
+// Social recommendations (friends/groups/events/etc.) plus curated content
+// (news/fixtures/live/results/betting) — the latter usually has far more
+// data available than a small account's own social graph, so a new/quiet
+// account still gets a real interstitial instead of every type falling
+// below the 5-item threshold and the slot just staying empty. Each type
+// independently gates on the viewer having relevant interests (curated
+// types) or actually having recommendations (social types) — see
+// RecommendationRail — so this list is just "everything that's eligible
+// to be picked", not "everything that will show".
 const FEED_RECOMMENDATION_TYPES = [
   "friends",
   "follows",
@@ -15,6 +25,11 @@ const FEED_RECOMMENDATION_TYPES = [
   "videos",
   "saves",
   "matches",
+  "news",
+  "fixtures",
+  "live",
+  "results",
+  "betting",
 ] as const;
 type FeedRecommendationType = (typeof FEED_RECOMMENDATION_TYPES)[number];
 
@@ -44,6 +59,13 @@ const Posts = ({
   emptyMessage?: string;
   showEmptyRecommendations?: boolean;
 }) => {
+  // Stable for the life of this mount (so the interstitial type at a given
+  // slot doesn't jump around mid-scroll on an unrelated re-render), but
+  // fresh on every real page load — that's what makes which type shows up
+  // where feel varied across visits instead of always the same rotation.
+  // Must run before the early return below (rules of hooks).
+  const shuffleSeed = useMemo(() => Math.random().toString(36).slice(2), []);
+
   if (posts.length === 0) {
     return (
       <div className="py-12 text-center">
@@ -77,6 +99,7 @@ const Posts = ({
     itemCount: posts.length,
     engagementScore,
     availableTypes: FEED_RECOMMENDATION_TYPES,
+    seed: shuffleSeed,
   });
   const recommendationSlotByIndex = new Map(
     recommendationSlots.map(slot => [slot.index, slot])
