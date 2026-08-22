@@ -201,7 +201,7 @@ export function GroupPostComposer({
                 value={visibility}
                 onValueChange={v => setVisibility(v as GroupPostVisibility)}
               >
-                <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectTrigger className="h-8 w-30 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,7 +305,7 @@ export function GroupPostComposer({
               value={pollVisibility}
               onValueChange={v => setPollVisibility(v as PollVisibility)}
             >
-              <SelectTrigger className="h-8 w-[130px] text-xs">
+              <SelectTrigger className="h-8 w-32.5 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

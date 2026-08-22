@@ -53,7 +53,7 @@ function RingingRow() {
   };
 
   return (
-    <div className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-sm items-center gap-3 rounded-xl border bg-card p-3 shadow-lg sm:inset-x-auto sm:right-4">
+    <div className="fixed inset-x-4 top-4 z-100 mx-auto flex max-w-sm items-center gap-3 rounded-xl border bg-card p-3 shadow-lg sm:inset-x-auto sm:right-4">
       <Avatar className="size-10 shrink-0">
         <AvatarImage src={createdBy?.image || userAltImageUrl({ name })} alt="" />
         <AvatarFallback>{name.slice(0, 1).toUpperCase()}</AvatarFallback>
