@@ -61,11 +61,11 @@ const NavBar = () => {
     return (
       <div className="flex h-screen flex-col justify-between px-4 py-14">
         <div className="flex flex-col space-y-6">
-          <Link href="/" className="flex items-center md:space-x-4">
+          <Link href="/" aria-label="Home" className="flex items-center md:space-x-4">
             <HomeOutline className="size-8 text-foreground" />
             <span className="hidden md:block">Home</span>
           </Link>
-          <Link href="/discover" className="flex items-center md:space-x-4">
+          <Link href="/discover" aria-label="Discover" className="flex items-center md:space-x-4">
             <DiscoverOutline className="size-8 text-foreground" />
             <span className="hidden md:block">Discover</span>
           </Link>
@@ -152,7 +152,7 @@ const NavBar = () => {
     const Icon = isActive ? SolidIcon : OutlineIcon;
 
     return (
-      <Link key={label} href={href} className="flex items-center md:space-x-4">
+      <Link key={label} href={href} aria-label={label} className="flex items-center md:space-x-4">
         <div className="relative">
           <Icon className="size-8 text-foreground" />
           <Badge
@@ -177,7 +177,7 @@ const NavBar = () => {
         {moreNavItems.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" data-no-button-shadow className="flex items-center md:space-x-4">
+              <button type="button" data-no-button-shadow aria-label="More" className="flex items-center md:space-x-4">
                 <MoreIcon className="size-8 text-foreground" />
                 <span className="hidden md:block">More</span>
               </button>
@@ -202,6 +202,7 @@ const NavBar = () => {
             <button
               type="button"
               data-no-button-shadow
+              aria-label="Accounts"
               className="flex w-full items-center rounded-md px-2 py-1 text-left transition hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none md:space-x-4"
             >
               <JustAvatar

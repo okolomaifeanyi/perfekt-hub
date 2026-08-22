@@ -40,6 +40,7 @@ interface NavItemProps {
 
 const NavItem = ({
   href,
+  label,
   SolidIcon,
   OutlineIcon,
   badgeCount,
@@ -50,6 +51,7 @@ const NavItem = ({
   return (
     <Link
       href={href}
+      aria-label={label}
       className="flex flex-col items-center justify-center text-sm hover:text-gray relative"
     >
       {isActive ? (
