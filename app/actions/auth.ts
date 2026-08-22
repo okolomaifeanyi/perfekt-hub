@@ -6,8 +6,20 @@ import { FormState, SignupFormSchema } from "@/lib/definitions";
 import { getSupabaseServerClient } from "@/lib/supabase/client";
 import { generateUniqueUsername } from "@/lib/supabase/user-profile-rpc.mjs";
 import { toSupabaseUserRow } from "@/lib/supabase/user-profile.mjs";
+import { checkRateLimit } from "@/lib/rate-limit.mjs";
 
 export async function signup(_state: FormState, formData: FormData) {
+  if (!(await checkRateLimit("signup", 5, 3600))) {
+    return {
+      success: false,
+      message: "Too many signup attempts. Please try again in a while.",
+      values: {
+        username: formData.get("username") as string,
+        email: formData.get("email") as string,
+      },
+    };
+  }
+
   const validatedFields = SignupFormSchema.safeParse({
     username: formData.get("username"),
     email: formData.get("email"),
