@@ -7,6 +7,7 @@ import { extractLinks, normalizeUrl } from "./link-parser.mjs";
 import { isPublicHttpUrl } from "./ssrf-guard.mjs";
 import { fetchFollowingValidatedRedirects } from "./safe-fetch.mjs";
 import { getSsrfSafeDispatcher } from "./ssrf-dispatcher.mjs";
+import { isLinkSafe } from "./link-safety.mjs";
 
 export { extractLinks, normalizeUrl };
 
@@ -38,89 +39,26 @@ function fetchWithTimeout(url: string, init?: RequestInit) {
   );
 }
 
+// Thin wrapper around lib/link-safety.mjs's pure, tested isLinkSafe: plugs in
+// the real API keys, native fetch, and this app's client name. The provider
+// logic itself (Google Safe Browsing first, VirusTotal fallback, fail open
+// when neither is configured) lives in link-safety.mjs — a plain .mjs module
+// with no "@/" path aliases or cheerio import — specifically so it can run
+// under this project's plain `node --test` runner (see link-safety.test.mjs).
+// This function can't be unit-tested directly the same way: importing this
+// file pulls in cheerio and Next.js-only "@/" aliases that don't resolve
+// outside the Next.js runtime.
 export async function isSafeLink(url: string): Promise<{
   safe: boolean;
   source: "google" | "virustotal" | "unknown";
   reason?: string;
 }> {
-  try {
-    // 1. Google Safe Browsing API check
-    const googleRes = await fetchWithTimeout(
-      `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${process.env.SAFE_BROWSING_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client: {
-            clientId: appInfo.name,
-            clientVersion: "1.0.0",
-          },
-          threatInfo: {
-            threatTypes: [
-              "MALWARE",
-              "SOCIAL_ENGINEERING",
-              "UNWANTED_SOFTWARE",
-              "POTENTIALLY_HARMFUL_APPLICATION",
-            ],
-            platformTypes: ["ANY_PLATFORM"],
-            threatEntryTypes: ["URL"],
-            threatEntries: [{ url }],
-          },
-        }),
-      }
-    );
-
-    const googleData = await googleRes.json();
-    if (googleData?.matches?.length > 0) {
-      return {
-        safe: false,
-        source: "google",
-        reason: "Google flagged as unsafe",
-      };
-    }
-
-    return { safe: true, source: "google" };
-  } catch (err) {
-    console.error("Google Safe Browsing failed, falling back:", err);
-  }
-
-  // 2. VirusTotal fallback
-  try {
-    const vtRes = await fetchWithTimeout(`https://www.virustotal.com/api/v3/urls`, {
-      method: "POST",
-      headers: {
-        "x-apikey": process.env.VIRUSTOTAL_API_KEY!,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: `url=${encodeURIComponent(url)}`,
-    });
-
-    const vtData = await vtRes.json();
-    if (vtData?.data?.id) {
-      // fetch full analysis
-      const analysisRes = await fetchWithTimeout(
-        `https://www.virustotal.com/api/v3/analyses/${vtData.data.id}`,
-        {
-          headers: { "x-apikey": process.env.VIRUSTOTAL_API_KEY! },
-        }
-      );
-      const analysisData = await analysisRes.json();
-
-      const malicious = analysisData?.data?.attributes?.stats?.malicious || 0;
-      if (malicious > 0) {
-        return {
-          safe: false,
-          source: "virustotal",
-          reason: "VirusTotal flagged as malicious",
-        };
-      }
-      return { safe: true, source: "virustotal" };
-    }
-  } catch (err) {
-    console.error("VirusTotal check failed:", err);
-  }
-
-  return { safe: true, source: "unknown", reason: "No definitive result" };
+  return isLinkSafe(url, {
+    googleApiKey: process.env.SAFE_BROWSING_API_KEY,
+    virusTotalApiKey: process.env.VIRUSTOTAL_API_KEY,
+    timeoutMs: SAFETY_CHECK_TIMEOUT_MS,
+    clientName: appInfo.name,
+  });
 }
 
 async function fetchWithLinkPreview(url: string) {
