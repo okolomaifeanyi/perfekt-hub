@@ -33,6 +33,7 @@ export default function ContentDetailClient({
   const { getReaction, toggle } = useCuratedContentReactions([item.id]);
   const isMatch = FOOTBALL_CATEGORIES.includes(item.category);
   const isLive = item.category === "football_live";
+  const isResult = item.category === "football_result";
   const meta = item.metadata as FootballMetadata;
 
   return (
@@ -115,11 +116,13 @@ export default function ContentDetailClient({
         {analysis?.body ? (
           <div className="border-t border-border/60 px-4 py-3">
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Sparkles className="size-3.5" /> AI analysis
+              <Sparkles className="size-3.5" /> {isResult ? "Match recap" : "AI analysis"}
             </p>
             <p className="whitespace-pre-line text-sm leading-relaxed">{analysis.body}</p>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Generated from recent form and head-to-head history — not a guarantee.
+              {isResult
+                ? "Generated from the final result and, where available, the pre-match prediction — may occasionally miss details."
+                : "Generated from recent form and head-to-head history — not a guarantee."}
             </p>
           </div>
         ) : null}

@@ -72,6 +72,24 @@ export async function getMatchAnalysis(fixtureExternalId: string): Promise<Curat
   return data ?? null;
 }
 
+// AI-generated post-match recap for a finished result, keyed off that
+// result's own external_id (see lib/cron/ingest/match-summary.mjs, which
+// stores it as "summary-{result.external_id}"). Returns null when no recap
+// has been generated yet — not every result has one immediately, since the
+// cron only processes a small batch per run.
+export async function getMatchSummary(resultExternalId: string): Promise<CuratedContentItem | null> {
+  if (!resultExternalId) return null;
+  const supabase = getSupabasePublicClient();
+  const { data, error } = await supabase
+    .from("curated_content")
+    .select("*")
+    .eq("category", "match_summary")
+    .eq("external_id", `summary-${resultExternalId}`)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
 export async function getFootballScores(
   leagueCodes?: string[],
   teamIds?: string[]

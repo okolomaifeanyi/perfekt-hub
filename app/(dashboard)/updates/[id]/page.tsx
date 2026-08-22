@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCuratedContentById, getMatchAnalysis } from "@/app/actions/curatedContent";
+import { getCuratedContentById, getMatchAnalysis, getMatchSummary } from "@/app/actions/curatedContent";
 import { incrementCuratedContentView } from "@/app/actions/curatedContentEngagement";
 import { FOOTBALL_CATEGORIES } from "@/lib/curated-content-categories.mjs";
 import ContentDetailClient from "./ContentDetailClient";
@@ -32,10 +32,17 @@ export default async function ContentDetailPage({ params }: PageProps) {
 
   await incrementCuratedContentView(id);
 
-  const analysis =
-    FOOTBALL_CATEGORIES.includes(item.category) && item.external_id
-      ? await getMatchAnalysis(item.external_id)
-      : null;
+  // A finished result gets the post-match recap (score, goals, and whether
+  // the pre-match prediction held up) instead of the pre-match analysis —
+  // that analysis is written before kickoff and never updated, so it would
+  // otherwise still show a "Prediction: ..." line for a match that's over.
+  const analysis = item.external_id
+    ? item.category === "football_result"
+      ? await getMatchSummary(item.external_id)
+      : FOOTBALL_CATEGORIES.includes(item.category)
+        ? await getMatchAnalysis(item.external_id)
+        : null
+    : null;
 
   return <ContentDetailClient item={item} analysis={analysis} />;
 }
