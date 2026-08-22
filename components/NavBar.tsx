@@ -24,6 +24,7 @@ import {
   BookmarkIcon as SavesOutline,
   HeartIcon as MatchOutline,
   TagIcon as MarketplaceOutline,
+  NewspaperIcon as ArticlesOutline,
   EllipsisHorizontalCircleIcon as MoreOutline,
 } from "@heroicons/react/24/outline";
 
@@ -68,6 +69,10 @@ const NavBar = () => {
           <Link href="/discover" aria-label="Discover" className="flex items-center md:space-x-4">
             <DiscoverOutline className="size-8 text-foreground" />
             <span className="hidden md:block">Discover</span>
+          </Link>
+          <Link href="/articles" aria-label="Articles" className="flex items-center md:space-x-4">
+            <ArticlesOutline className="size-8 text-foreground" />
+            <span className="hidden md:block">Articles</span>
           </Link>
         </div>
 
@@ -129,11 +134,16 @@ const NavBar = () => {
     },
   ];
 
-  // Secondary, conditional destinations — each only exists once it actually
-  // has something in it (see useDiscoverAvailability). Grouped under one
-  // "More" trigger instead of splicing straight into the primary list, so a
-  // visitor with all four active doesn't end up with an 11-item sidebar.
+  // Secondary destinations grouped under one "More" trigger instead of
+  // splicing straight into the primary list, so a visitor with every
+  // conditional section active doesn't end up with an 11-item sidebar.
+  // Articles is unconditional — unlike Events/Match/Saves/Marketplace, it's
+  // not personalized content that can be empty for a given visitor (an
+  // empty /articles just shows its own "no articles yet" state), so it
+  // doesn't need an availability check to decide whether it's worth
+  // showing.
   const moreNavItems: { href: string; label: string; Icon: React.ComponentType<{ className?: string }> }[] = [
+    { href: "/articles", label: "Articles", Icon: ArticlesOutline },
     ...(availability.events ? [{ href: "/discover/events", label: "Events", Icon: EventsOutline }] : []),
     ...(availability.match ? [{ href: "/discover/match", label: "Match", Icon: MatchOutline }] : []),
     ...(availability.saves ? [{ href: "/discover/saves", label: "Saves", Icon: SavesOutline }] : []),
