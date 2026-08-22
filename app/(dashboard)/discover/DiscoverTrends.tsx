@@ -24,7 +24,6 @@ import { ListPlus } from "lucide-react";
 const TOPICS = [
   { key: "football-news", label: "Football news", categories: ["football_news"] },
   { key: "crypto", label: "Crypto", categories: ["crypto_price", "crypto_news"] },
-  { key: "movies", label: "Movies", categories: ["movie_news"] },
   { key: "music", label: "Music", categories: ["music_news"] },
   { key: "gossip", label: "Gossip", categories: ["gossip_news"] },
   { key: "videos", label: "Videos", categories: ["video_trending"] },

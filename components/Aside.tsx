@@ -25,7 +25,6 @@ import RecommendationRail from "@/components/feed/RecommendationRail";
 import {
   FootballRail,
   BettingRail,
-  MoviesRail,
   NewsForYouRail,
   CountryNewsRail,
   TeamNewsRail,
@@ -348,9 +347,9 @@ function GroupMembersAside() {
   );
 }
 
-// Shared by the default Aside and DiscoverAside — the football/news/movies
-// rails and the "no interests yet" CTA only depend on the resolved interest
-// set, not on which page they're rendered from.
+// Shared by the default Aside and DiscoverAside — the football/news rails
+// and the "no interests yet" CTA only depend on the resolved interest set,
+// not on which page they're rendered from.
 function InterestRails({
   interests,
   leagueCodes,
@@ -366,7 +365,6 @@ function InterestRails({
       {leagueCodes.length > 0 && <FootballRail leagueCodes={leagueCodes} teamIds={teamIds} />}
       {teamNames.length > 0 && <TeamNewsRail teamNames={teamNames} />}
       {topics.includes("betting_prediction") && <BettingRail leagueCodes={leagueCodes} />}
-      {topics.includes("movie_news") && <MoviesRail />}
       {genericTopics.length > 0 && <NewsForYouRail topics={genericTopics} />}
       {countries.length > 0 && <CountryNewsRail countries={countries} />}
 

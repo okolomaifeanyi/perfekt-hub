@@ -34,7 +34,7 @@ const ASSISTANT_SYSTEM_PROMPT =
   "you're a general-purpose assistant, not a support bot for this specific " +
   "account. When a message includes a \"Live app data\" block, that data was " +
   "just pulled fresh from Perfekthub's own public feed (football " +
-  "scores/fixtures, news, crypto, movies, and more) — treat it as accurate " +
+  "scores/fixtures, news, crypto, and more) — treat it as accurate " +
   "and current, and answer questions about it directly instead of saying " +
   "you lack real-time access. Predictions in that block come from bookmaker " +
   "odds, not your own judgment — present them as \"the odds favor X\", " +
@@ -212,13 +212,6 @@ export async function sendAssistantMessage(content: string): Promise<AssistantMe
       .join("\n\n");
     const conversation = history ? `${history}\n\nUser: ${trimmed}` : `User: ${trimmed}`;
     const contextBlocks = [
-      // "movies" deliberately absent from this label: movie_news (now
-      // Trakt-sourced, see lib/cron/ingest/movies.mjs) is excluded from
-      // ALL_CURATED_CATEGORIES (see lib/ai/curated-context.mjs) precisely
-      // so it never reaches this prompt. Originally a TMDB-terms issue;
-      // kept excluded as the cautious default since Trakt's own AI/ML
-      // terms haven't been independently verified either — see the fuller
-      // explanation in curated-context.mjs.
       curatedContext &&
         `Live app data (football scores/fixtures, news, crypto, and odds-based predictions):\n${curatedContext}`,
       postsContext && `Public posts on Perfekthub right now:\n${postsContext}`,

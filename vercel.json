@@ -16,11 +16,6 @@
     { "path": "/api/cron/betting", "schedule": "10 12 * * *" },
     { "path": "/api/cron/betting", "schedule": "10 18 * * *" },
 
-    { "path": "/api/cron/movies", "schedule": "15 0 * * *" },
-    { "path": "/api/cron/movies", "schedule": "15 6 * * *" },
-    { "path": "/api/cron/movies", "schedule": "15 12 * * *" },
-    { "path": "/api/cron/movies", "schedule": "15 18 * * *" },
-
     { "path": "/api/cron/videos", "schedule": "20 0 * * *" },
     { "path": "/api/cron/videos", "schedule": "20 6 * * *" },
     { "path": "/api/cron/videos", "schedule": "20 12 * * *" },

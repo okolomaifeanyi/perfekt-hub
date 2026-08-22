@@ -10,7 +10,7 @@ export const revalidate = 60;
 export const metadata = {
   title: "Scores & News",
   description:
-    "Live football scores, fixtures, results, and news across crypto, betting, movies, music, tech, and more.",
+    "Live football scores, fixtures, results, and news across crypto, betting, music, tech, and more.",
 };
 
 export default async function UpdatesPage() {

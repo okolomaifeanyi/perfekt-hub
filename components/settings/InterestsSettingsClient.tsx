@@ -227,7 +227,7 @@ export function InterestsSettingsClient() {
           <Newspaper className="size-4" />
           Topics
         </h2>
-        <p className="mb-2 text-xs text-muted-foreground">Crypto, movies, tech, and everything else.</p>
+        <p className="mb-2 text-xs text-muted-foreground">Crypto, music, tech, and everything else.</p>
 
         <div className="divide-y">
           {TOPICS.map(topic => {

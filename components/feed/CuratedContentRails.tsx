@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clapperboard, Newspaper, Target, Trophy } from "lucide-react";
+import { Newspaper, Target, Trophy } from "lucide-react";
 import { RailShell, ListRow, RowSkeleton, EmptyRow } from "@/components/feed/RecommendationRail";
 import { ContentRow } from "@/components/feed/CuratedContentDisplay";
 import {
@@ -10,7 +10,6 @@ import {
   getInterestedNews,
   getCountryNews,
   getTeamNews,
-  getNewsFeed,
   type CuratedContentItem,
 } from "@/app/actions/curatedContent";
 
@@ -152,36 +151,6 @@ export function BettingRail({
         <EmptyRow label="No predictions right now." />
       ) : (
         items.slice(0, previewCount).map(item => <BettingRow key={item.id} item={item} />)
-      )}
-    </RailShell>
-  );
-}
-
-export function MoviesRail({ previewCount = 2 }: { previewCount?: number }) {
-  const [items, setItems] = useState<CuratedContentItem[] | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    getNewsFeed("movie_news", previewCount)
-      .then(result => {
-        if (active) setItems(result);
-      })
-      .catch(() => {
-        if (active) setItems([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [previewCount]);
-
-  return (
-    <RailShell title="Movies" description="Trending in film right now." icon={Clapperboard} seeMoreHref="/updates">
-      {items === null ? (
-        Array.from({ length: previewCount }).map((_, index) => <RowSkeleton key={index} />)
-      ) : items.length === 0 ? (
-        <EmptyRow label="Nothing new yet." />
-      ) : (
-        items.slice(0, previewCount).map(item => <ContentRow key={item.id} item={item} />)
       )}
     </RailShell>
   );

@@ -51,15 +51,15 @@ export function useCuratedInterests() {
     .filter(key => key.startsWith(COUNTRY_PREFIX))
     .map(key => key.slice(COUNTRY_PREFIX.length));
   const hasAnyInterest = leagueCodes.length > 0 || topics.length > 0 || countries.length > 0;
-  // betting_prediction and movie_news each get their own dedicated,
-  // richer rail wherever a generic "news for you" aggregate also exists
-  // (see Aside's BettingRail/MoviesRail split) — excluded here so every
-  // "for you" consumer gets the same behavior without re-deriving this
-  // filter itself. Confirmed live: UpdatesClient's News tab and the feed
-  // interstitial's NewsRail were both passing raw `topics` straight into
-  // getInterestedNews, so picking "Betting" as an interest made betting
-  // predictions show up inside "News for you" alongside real news.
-  const genericTopics = topics.filter(topic => topic !== "betting_prediction" && topic !== "movie_news");
+  // betting_prediction gets its own dedicated, richer rail wherever a
+  // generic "news for you" aggregate also exists (see Aside's BettingRail)
+  // — excluded here so every "for you" consumer gets the same behavior
+  // without re-deriving this filter itself. Confirmed live: UpdatesClient's
+  // News tab and the feed interstitial's NewsRail were both passing raw
+  // `topics` straight into getInterestedNews, so picking "Betting" as an
+  // interest made betting predictions show up inside "News for you"
+  // alongside real news.
+  const genericTopics = topics.filter(topic => topic !== "betting_prediction");
 
   return { interests, leagueCodes, topics, genericTopics, teamIds, teamNames, countries, hasAnyInterest, refetch };
 }
