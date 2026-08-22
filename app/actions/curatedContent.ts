@@ -8,6 +8,7 @@ import {
   FOOTBALL_LEAGUES,
 } from "@/lib/curated-content-categories.mjs";
 import { filterBlockedDomains, isBlockedDomain } from "@/lib/curated-content-safety.mjs";
+import { buildFootballScoreFilter } from "@/lib/curated-content-filters.mjs";
 
 export type CuratedContentItem = {
   id: string;
@@ -34,12 +35,6 @@ export type TeamOption = {
 // grants anon SELECT — see supabase/migrations/20260815030000_curated_content.sql)
 // — the public client is enough, there's no per-user personalization here to
 // need a session-aware client for.
-// leagueCodes filters to specific football-data.org league codes (e.g.
-// ["PL", "PD"]) via the metadata jsonb field set at ingestion time — omit it
-// for the unfiltered "everything" view /updates uses. teamIds narrows
-// further to matches involving any of those team IDs, home or away — a
-// match's own team fields live at two different jsonb paths, so this needs
-// an .or() filter rather than a single .in().
 // Powers the internal /updates/[id] detail page — clicking any curated
 // content card navigates here instead of out to the external source_url.
 export async function getCuratedContentById(id: string): Promise<CuratedContentItem | null> {
@@ -90,6 +85,16 @@ export async function getMatchSummary(resultExternalId: string): Promise<Curated
   return data ?? null;
 }
 
+// leagueCodes filters to specific football-data.org league codes (e.g.
+// ["PL", "PD"]) via the metadata jsonb field set at ingestion time — omit it
+// for the unfiltered "everything" view /updates uses. teamIds additionally
+// includes matches involving any of those team IDs, home or away — a
+// visitor's followed leagues and followed teams are independent interests
+// (see hooks/useCuratedInterests.ts), so when both are given the two
+// combine as a union (buildFootballScoreFilter), not an intersection: a
+// followed team's match still shows even in a league the visitor never
+// ticked, and a followed league still shows every match in it, not just the
+// ones involving a followed team.
 export async function getFootballScores(
   leagueCodes?: string[],
   teamIds?: string[]
@@ -102,13 +107,9 @@ export async function getFootballScores(
     .order("published_at", { ascending: false })
     .limit(100);
 
-  if (leagueCodes && leagueCodes.length > 0) {
-    query = query.in("metadata->>competitionCode", leagueCodes);
-  }
-
-  if (teamIds && teamIds.length > 0) {
-    const idList = teamIds.join(",");
-    query = query.or(`metadata->homeTeam->>id.in.(${idList}),metadata->awayTeam->>id.in.(${idList})`);
+  const filter = buildFootballScoreFilter(leagueCodes, teamIds);
+  if (filter) {
+    query = query.or(filter);
   }
 
   const { data, error } = await query;
