@@ -152,6 +152,133 @@ button:not([data-no-button-shadow]),
 }
 
 
+/* Fallback theme for browsers that can't parse oklch() colors (older
+ * Chrome/WebView builds common on budget Android devices — confirmed live
+ * on an Infinix Smart 5's stock browser, which rendered the entire site
+ * unstyled even though the stylesheet itself loaded fine). Every themed
+ * color in this app is a CSS custom property whose value is an oklch()
+ * color (see :root/.dark above); Tailwind's generated utility classes only
+ * ever reference these variables via var(), never oklch() directly. A
+ * browser that can't evaluate oklch() as a color treats the variable as
+ * invalid at computed-value time and falls back to transparent/inherited —
+ * which is exactly the "completely unstyled" look this fixes.
+ *
+ * This block redefines the same variable names (both the raw --background
+ * etc. and their --color-* aliases from @theme inline, in case @theme
+ * itself isn't recognized either) with plain sRGB approximations, so every
+ * existing Tailwind utility class picks them up with no other changes
+ * needed. It's intentionally NOT nested in @layer, since @layer support
+ * tracks roughly the same browser age as oklch() support — nesting it
+ * would risk the fallback itself being dropped exactly where it's needed.
+ *
+ * @supports not (...) evaluates to false in any browser that does support
+ * oklch(), so this has zero effect there — it only activates for browsers
+ * that need it. These are approximate color matches, not exact conversions
+ * — the goal is a usable, reasonably on-brand baseline, not pixel parity
+ * with the oklch palette.
+ */
+@supports not (color: oklch(0 0 0)) {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+    --card: #ffffff;
+    --card-foreground: #171717;
+    --popover: #ffffff;
+    --popover-foreground: #171717;
+    --primary: #2563eb;
+    --primary-foreground: #fafafa;
+    --secondary: #f5f5f5;
+    --secondary-foreground: #262626;
+    --muted: #f5f5f5;
+    --muted-foreground: #737373;
+    --accent: #f5f5f5;
+    --accent-foreground: #262626;
+    --destructive: #dc2626;
+    --border: #e5e5e5;
+    --input: #e5e5e5;
+    --ring: #a3a3a3;
+    --sidebar: #fafafa;
+    --sidebar-foreground: #171717;
+    --sidebar-primary: #262626;
+    --sidebar-primary-foreground: #fafafa;
+    --sidebar-accent: #f5f5f5;
+    --sidebar-accent-foreground: #262626;
+    --sidebar-border: #e5e5e5;
+    --sidebar-ring: #a3a3a3;
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+  }
+
+  .dark {
+    --background: #171717;
+    --foreground: #fafafa;
+    --card: #171717;
+    --card-foreground: #fafafa;
+    --popover: #262626;
+    --popover-foreground: #fafafa;
+    --primary: #3b82f6;
+    --primary-foreground: #262626;
+    --secondary: #404040;
+    --secondary-foreground: #fafafa;
+    --muted: #404040;
+    --muted-foreground: #a3a3a3;
+    --accent: #404040;
+    --accent-foreground: #fafafa;
+    --destructive: #ef4444;
+    --border: #404040;
+    --input: #404040;
+    --ring: #737373;
+    --sidebar: #262626;
+    --sidebar-foreground: #fafafa;
+    --sidebar-primary: #4f46e5;
+    --sidebar-primary-foreground: #fafafa;
+    --sidebar-accent: #404040;
+    --sidebar-accent-foreground: #fafafa;
+    --sidebar-border: #404040;
+    --sidebar-ring: #737373;
+  }
+
+  /* Tailwind's own base reset (border-border on *, bg-background/text-foreground
+   * on body — see @layer base above) is itself nested in @layer, so it's at
+   * the same risk of being dropped as everything else here. Re-declared
+   * unlayered so the page has a sane background/text color and visible
+   * borders even if @layer support is the thing that's missing. */
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+}
+
 /* HTML: <div class="loader"></div> */
 .loader {
   --s: 40px;
